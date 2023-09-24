@@ -111,7 +111,6 @@ def sfg_get_next_init_task(
 
     root_logger.warning(
         "only unsupport init task with one image frame as input")
-    print(new_cam_frame_id, new_conf_frame_id)
 
     return new_cam_frame_id, new_conf_frame_id, input_ctx
 
@@ -328,7 +327,6 @@ class Job():
         assert isinstance(self.manager, JobManager)
 
         # 0、初始化数据流来源（TODO：从缓存区读取）
-        print("我已经尝试获取视频源",self.manager.get_video_info_by_id(self.video_id)['url'])
         cap = cv2.VideoCapture(self.manager.get_video_info_by_id(self.video_id)['url'])
 
         n = 0
@@ -494,8 +492,6 @@ if __name__ == "__main__":
                         type=int, default=5001)
     parser.add_argument('--serv_cloud_addr', dest='serv_cloud_addr',
                         type=str, default='114.212.81.11:5500')
-    parser.add_argument('--video_side_port', dest='video_side_port',
-                        type=int, default=5101)
     args = parser.parse_args()
 
     # 接受下发的query生成job、接收更新的调度策略
@@ -505,17 +501,18 @@ if __name__ == "__main__":
                      daemon=True).start()
 
     time.sleep(1)
-    
+
     # 接入query manger
     job_manager.join_query_controller(query_addr=args.query_addr,
                                       tracker_port=args.tracker_port)
     root_logger.info("joined to query controller")
-    
+
     job_manager.set_service_cloud_addr(addr=args.serv_cloud_addr)
 
     # 启动视频流sidechan（由云端转发请求到边端）
     import edge_sidechan
-    video_serv_inter_port = args.video_side_port
+
+    video_serv_inter_port = 5101
     mp.Process(target=edge_sidechan.init_and_start_video_proc,
                args=(video_q, video_serv_inter_port,)).start()
     time.sleep(1)
@@ -523,7 +520,6 @@ if __name__ == "__main__":
     # 线程轮询启动循环
     # 一个Job对应一个视频流查询、对应一个进程/线程
     while True:
-        
         job_manager.start_new_job()
 
         sleep_sec = 5

@@ -24,7 +24,7 @@ if __name__ == "__main__":
     # node_addr = "172.27.147.22:5001"
     # node_addr = "172.27.134.58:5001"
     # node_addr = "172.27.146.33:5001"
-    node_addr = "172.27.141.158:6001"
+    node_addr = "172.27.155.56:6001"
     # node_addr = "114.212.81.11:5001"
 
     query_body = {
@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
     with open(filename, 'w', newline='') as fp:
         fieldnames = ['n_loop', 'frame_id', 'total', 'up', 'fps',
-                      'resolution', 'delay', 'face_detection', 'face_alignment']
+                      'resolution', 'delay', 'face_detection','face_detection_ip', 'face_alignment','face_alignment_ip']
         wtr = csv.DictWriter(fp, fieldnames=fieldnames)
         wtr.writeheader()
 
@@ -97,7 +97,9 @@ if __name__ == "__main__":
                 #     delay = 0.0
 
                 fd_role = plan['flow_mapping']['face_detection']['node_role']
+                fd_ip   = plan['flow_mapping']['face_detection']['node_ip']
                 fa_role = plan['flow_mapping']['face_alignment']['node_role']
+                fa_ip   = plan['flow_mapping']['face_alignment']['node_ip']
 
                 for res in res_list:
                     n_loop, frame_id, total, up, delay = res['n_loop'], res['frame_id'], res[
@@ -111,7 +113,9 @@ if __name__ == "__main__":
                         'resolution': resolution,
                         'delay': delay,
                         'face_detection': fd_role,
-                        'face_alignment': fa_role
+                        'face_detection_ip': fd_ip,
+                        'face_alignment': fa_role,
+                        'face_alignment_ip': fa_ip
                     }
                     if n_loop not in written_n_loop:
                         wtr.writerow(row)

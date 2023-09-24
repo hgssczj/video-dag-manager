@@ -3,10 +3,13 @@ import pandas as pd
 import os
 
 import time
+import copy
 
 prev_video_conf = dict()
-
 prev_flow_mapping = dict()
+
+init_video_conf = dict()
+init_flow_mapping = dict()
 
 prev_runtime_info = dict()
 
@@ -132,6 +135,7 @@ def get_cold_start_plan(
     assert job_uid, "should provide job_uid"
 
     global prev_video_conf, prev_flow_mapping
+    global init_video_conf,init_flow_mapping
     global available_fps, available_resolution
 
     # 时延优先策略：算量最小，算力最大
@@ -193,33 +197,43 @@ def get_cold_start_plan(
 
     prev_video_conf[job_uid] = cold_video_conf
     prev_flow_mapping[job_uid] = cold_flow_mapping
+    init_video_conf[job_uid] = copy.deepcopy(cold_video_conf)
+    init_flow_mapping[job_uid] =copy.deepcopy(cold_flow_mapping)
+    print("当前边缘",list(resource_info["host"].keys()),"冷启动策略",init_flow_mapping[job_uid])
 
     return prev_video_conf[job_uid], prev_flow_mapping[job_uid]
 
 
 
 
-
-
-
-
-
 # -------------------------------------------
 # ---- TODO：根据资源情境，尝试分配更多资源----
-def try_expand_resource(next_flow_mapping=None, err_level=None, resource_info=None):
+def try_expand_resource(next_flow_mapping=None, err_level=None, resource_info=None,job_uid=None):
     #进行粗略版本的多边协同修改：node_role为host时，暂且将node_ip挪到其他边缘。详细判断等之后再慢慢考虑。
+    global  init_flow_mapping
+    print("初始冷启动计划1为",init_flow_mapping)
+    first_flow_mapping=[job_uid]
     tune_msg = None
     for taskname, task_mapping in reversed(list(next_flow_mapping.items())):#流水线反向寻找任务
         if task_mapping["node_role"] == "host": #考虑是卸载到云端还是卸载到边缘端
-            edge_num=len(list(resource_info["edge"].keys()))
-            for i in range(0,edge_num-1): #查看还有没有其他可以推到的ip，只要不是当前的就可以，这是一个贪心算法。
-                if task_mapping["node_ip"]==list(resource_info["edge"].keys())[i]:
-                    print(" -------- send to another edge --------")
+            edge_num=len(list(resource_info["host"].keys()))
+            pan=0
+            for i in range(0,edge_num-1): #从所有边缘端中，取当前边缘端的下一个边缘端，如果到末尾了就从头开始。如果最后选出来的ip和初始冷启动的ip不一样，就设置Pan=1
+            #表示找到了合适卸载的边缘端。无论是否成果，最后都会break，因为没有必要继续找其他可能有效的边缘端了。
+                if task_mapping["node_ip"]==list(resource_info["host"].keys())[i]:
+                    print(" -------- try to send to another edge --------")
                     next_flow_mapping[taskname]["node_role"] = "host"
-                    next_flow_mapping[taskname]["node_ip"] = list(
-                    resource_info["cloud"].keys())[i+1]
+                    next_flow_mapping[taskname]["node_ip"] = list(resource_info["host"].keys())[(i+1)%edge_num]
+                    print("初始冷启动计划2为",init_flow_mapping)
+                    print("初始冷启动计划3为",first_flow_mapping)
+                    print("初始冷启动计划4为",init_flow_mapping[job_uid][taskname])
+                    print("初始冷启动计划5为",init_flow_mapping[job_uid][taskname]["node_ip"])
+                    print(next_flow_mapping[taskname]["node_ip"],init_flow_mapping[job_uid][taskname]["node_ip"])
                     tune_msg = "task-{} send to another edge".format(taskname)
-            if i == edge_num-1: #如果找不到合适的边缘端，就送到云端
+                    if next_flow_mapping[taskname]["node_ip"]!=init_flow_mapping[job_uid][taskname]["node_ip"]:
+                        pan=1 
+                    break  
+            if pan== 0: #如果一番寻找后回到了最开始那个边缘，就意味着必须卸载到云端了，因为所有的边缘都已经试过了。
                 print(" -------- send to cloud --------")
                 next_flow_mapping[taskname]["node_role"] = "cloud"
                 next_flow_mapping[taskname]["node_ip"] = list(resource_info["cloud"].keys())[0]
@@ -288,7 +302,6 @@ def adjust_parameters(output=0, job_uid=None,
     assert job_uid, "should provide job_uid"
 
     global prev_video_conf, prev_flow_mapping, prev_runtime_info
-    global available_fps, available_resolution
 
     next_video_conf = prev_video_conf[job_uid]
     next_flow_mapping = prev_flow_mapping[job_uid]
@@ -384,7 +397,7 @@ def adjust_parameters(output=0, job_uid=None,
                                                                init_prior=init_prior, best_effort=best_effort)
 
         if not tune_msg:
-            tune_msg, next_flow_mapping = try_expand_resource(next_flow_mapping=next_flow_mapping, err_level=err_level, resource_info=resource_info)
+            tune_msg, next_flow_mapping = try_expand_resource(next_flow_mapping=next_flow_mapping, err_level=err_level, resource_info=resource_info,job_uid=job_uid)
 
         if not tune_msg:
             # 资源分配完毕，且无法根据情境降低计算量，则按收益大小降低计算量

@@ -17,7 +17,8 @@ if __name__ == "__main__":
     expr_name = 'tx2-pure-edge-cpu-golden'
 
     # 提交请求
-    node_addr = "172.27.141.158:5001"
+    # node_addr = "172.27.141.158:5001"
+    node_addr = "172.27.155.56:5001"
     # node_addr = "127.0.0.1:5001"
     # node_addr = "172.27.152.177:5001"
     # node_addr = "114.212.81.11:5001"

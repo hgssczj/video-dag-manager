@@ -35,7 +35,9 @@ class Sniffer():
             for x_min, y_min, x_max, y_max in output_ctx['bbox']:
                 # TODO：需要依据分辨率转化
                 obj_size += (x_max - x_min) * (y_max - y_min)
-            obj_size /= len(output_ctx['bbox'])
+            if len(output_ctx['bbox'])>0:
+                obj_size /= len(output_ctx['bbox'])
+
 
             if len(self.runtime_pkg_list['obj_size']) > Sniffer.CONTENT_ELE_MAXN:
                 del self.runtime_pkg_list['obj_size'][0]
@@ -61,7 +63,10 @@ class Sniffer():
         # TODO：聚合情境感知参数的时间序列，给出预估值/统计值
         runtime_desc = dict()
         for k, v in self.runtime_pkg_list.items():
-            runtime_desc[k] = sum(v) * 1.0 / len(v)
+            if len(v)>0:
+                runtime_desc[k] = sum(v) * 1.0 / len(v)
+            else:
+                runtime_desc[k] = sum(v) * 1.0
         
         # 获取场景稳定性
         if 'obj_n' in self.runtime_pkg_list.keys():

@@ -1,0 +1,2 @@
+n_loop,frame_id,total,up,fps,resolution,delay,face_detection,face_alignment
+1,1.0,23,8,30,480p,62.24826121330261,host,host
