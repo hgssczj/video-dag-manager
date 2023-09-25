@@ -18,6 +18,7 @@ import field_codec_utils
 from logging_utils import root_logger
 import logging_utils
 
+import common
 from camera_simulation import video_info_list
 
 resolution_wh = {
@@ -42,13 +43,12 @@ resolution_wh = {
 # 视频流sidechan
 video_q = mp.Queue(50)
 
-
 def sfg_get_next_init_task(
-        job_uid=None,
-        video_cap=None,
-        video_conf=None,
-        curr_cam_frame_id=None,
-        curr_conf_frame_id=None
+    job_uid=None,
+    video_cap=None,
+    video_conf=None,
+    curr_cam_frame_id=None,
+    curr_conf_frame_id=None
 ):
     assert video_cap
 
@@ -94,6 +94,7 @@ def sfg_get_next_init_task(
     print("cam_fps={} conf_fps={}".format(cam_fps, conf_fps))
     print("new_cam_frame_id={} new_conf_frame_id={}".format(new_cam_frame_id, new_conf_frame_id))
 
+
     # 根据video_conf['resolution']调整大小
     frame = cv2.resize(frame, (
         resolution_wh[video_conf['resolution']]['w'],
@@ -111,10 +112,8 @@ def sfg_get_next_init_task(
 
     root_logger.warning(
         "only unsupport init task with one image frame as input")
-    print(new_cam_frame_id, new_conf_frame_id)
 
     return new_cam_frame_id, new_conf_frame_id, input_ctx
-
 
 class JobManager():
     # 保存执行结果的缓冲大小
@@ -209,6 +208,7 @@ class JobManager():
             if job.get_state() == Job.JOB_STATE_RUNNING:
                 n += 1
 
+
         root_logger.info("{}/{} jobs running".format(n, len(self.job_dict)))
 
     # TODO：将Job的结果同步到query manager（本地不存放结果）
@@ -239,9 +239,7 @@ class JobManager():
         # 根据job的id移除job
         del self.job_dict[job.get_job_uid()]
 
-
 import content_func.sniffer
-
 
 class Job():
     JOB_STATE_UNSCHED = 0
@@ -281,7 +279,7 @@ class Job():
 
     def get_job_uid(self):
         return self.job_uid
-
+    
     def get_state(self):
         return self.state
 
@@ -297,7 +295,10 @@ class Job():
         assert isinstance(self.video_conf, dict)
 
     def get_plan(self):
-        return {"video_conf": self.video_conf, "flow_mapping": self.flow_mapping}
+        return {
+            common.PLAN_KEY_VIDEO_CONF: self.video_conf,
+            common.PLAN_KEY_FLOW_MAPPING: self.flow_mapping
+        }
 
     def set_user_constraint(self, user_constraint):
         self.user_constraint = user_constraint
@@ -328,7 +329,6 @@ class Job():
         assert isinstance(self.manager, JobManager)
 
         # 0、初始化数据流来源（TODO：从缓存区读取）
-        print("我已经尝试获取视频源",self.manager.get_video_info_by_id(self.video_id)['url'])
         cap = cv2.VideoCapture(self.manager.get_video_info_by_id(self.video_id)['url'])
 
         n = 0
@@ -337,7 +337,7 @@ class Job():
 
         # 逐帧汇报结果，逐帧汇报运行时情境
         while True:
-            # 1、根据video_conf，获取本次循环的输入数据（TODO：从缓存区读取）
+            # ---- 1、根据video_conf，获取本次循环的输入数据（TODO：从缓存区读取） ----
             cam_frame_id, conf_frame_id, output_ctx = \
                 sfg_get_next_init_task(job_uid=self.get_job_uid(),
                                        video_cap=cap,
@@ -345,54 +345,53 @@ class Job():
                                        curr_cam_frame_id=curr_cam_frame_id,
                                        curr_conf_frame_id=curr_conf_frame_id)
             root_logger.info("done generator task, get_next_init_task({})".format(output_ctx.keys()))
-
-            # 2、执行
+            
+            # ---- 2、执行，同步更新运行时情境 ----
             frame_result = dict()
             plan_result = dict()
             plan_result['delay'] = dict()
-            for task_name in self.pipeline:
+            for taskname in self.pipeline:
 
-                root_logger.info("to forward taskname={}".format(task_name))
+                root_logger.info("to forward taskname={}".format(taskname))
 
                 input_ctx = output_ctx
                 root_logger.info("get input_ctx({}) of taskname({})".format(
                     input_ctx.keys(),
-                    task_name
+                    taskname
                 ))
 
-                # TODO 可能存在flow_mapping不存在的情况
                 # 根据flow_mapping，执行task（本地不保存结果）
                 root_logger.info("flow_mapping ={}".format(self.flow_mapping))
-                choice = self.flow_mapping[task_name]
-                root_logger.info("get choice of '{}' in flow_mapping, choose: {}".format(task_name, choice))
-                url = self.manager.get_chosen_service_url(task_name, choice)
+                choice = self.flow_mapping[taskname]
+                root_logger.info("get choice of '{}' in flow_mapping, choose: {}".format(taskname, choice))
+                url = self.manager.get_chosen_service_url(taskname, choice)
                 root_logger.info("get url {}".format(url))
 
                 st_time = time.time()
-                output_ctx = self.invoke_service(serv_url=url, taskname=task_name, input_ctx=input_ctx)
+                output_ctx = self.invoke_service(serv_url=url, taskname=taskname, input_ctx=input_ctx)
                 # 重试
                 while not output_ctx:
                     time.sleep(1)
-                    output_ctx = self.invoke_service(serv_url=url, taskname=task_name, input_ctx=input_ctx)
+                    output_ctx = self.invoke_service(serv_url=url, taskname=taskname, input_ctx=input_ctx)
                 ed_time = time.time()
 
                 # 运行时感知：应用无关
                 root_logger.info("got service result: {}, (delta_t={})".format(
-                    output_ctx.keys(), ed_time - st_time))
-                plan_result['delay'][task_name] = ed_time - st_time
+                                  output_ctx.keys(), ed_time - st_time))
+                plan_result['delay'][taskname] = ed_time - st_time
                 # 运行时感知：应用相关
                 # wrapped_ctx = output_ctx.copy()
                 # wrapped_ctx['delay'] = (ed_time - st_time) / ((cam_frame_id - curr_cam_frame_id + 1) * 1.0)
                 # self.update_runtime(taskname=taskname, output_ctx=wrapped_ctx)
-                self.update_runtime(taskname=task_name, output_ctx=output_ctx)
+                self.update_runtime(taskname=taskname, output_ctx=output_ctx)
 
             n += 1
 
             total_frame_delay = 0
-            for task_name in plan_result['delay']:
-                plan_result['delay'][task_name] = \
-                    plan_result['delay'][task_name] / ((cam_frame_id - curr_cam_frame_id + 1) * 1.0)
-                total_frame_delay += plan_result['delay'][task_name]
+            for taskname in plan_result['delay']:
+                plan_result['delay'][taskname] = \
+                    plan_result['delay'][taskname] / ((cam_frame_id - curr_cam_frame_id + 1) * 1.0)
+                total_frame_delay += plan_result['delay'][taskname]
 
             self.update_runtime(taskname='end_pipe', output_ctx={"delay": total_frame_delay})
             output_ctx["frame_id"] = cam_frame_id
@@ -400,20 +399,22 @@ class Job():
             output_ctx["delay"] = total_frame_delay
             frame_result.update(output_ctx)
 
+            # 将当前帧的运行时情境和调度策略同步推送到云端query manager
+            frame_result[common.SYNC_RESULT_KEY_PLAN] = self.get_plan()
+            frame_result[common.SYNC_RESULT_KEY_RUNTIME] = self.get_runtime()
+
             curr_cam_frame_id = cam_frame_id
             curr_conf_frame_id = conf_frame_id
 
-            # 3、通过job manager同步结果到query manager
-            #    注意：本地不保存结果
-            self.manager.sync_job_result(job_uid=self.get_job_uid(),
-                                         job_result={
-                                             #    "appended_result": frame_result
-                                             "appended_result": frame_result,
-                                             "latest_result": {
-                                                 "plan": self.get_plan()
-                                                 #        "plan_result": plan_result
-                                             }
-                                         })
+            # ---- 3、通过job manager同步结果到query manager ----
+            # 注意：本地不保存结果
+            self.manager.sync_job_result(
+                job_uid=self.get_job_uid(),
+                job_result={
+                    common.SYNC_RESULT_KEY_APPEND: frame_result,
+                }
+            )
+
 
     def invoke_service(self, serv_url, taskname, input_ctx):
         root_logger.info("get serv_url={}".format(serv_url))
@@ -431,6 +432,12 @@ class Job():
             return None
 
 
+
+
+
+
+
+
 # 单例变量：主线程任务管理器，Manager
 job_manager = JobManager()
 # 单例变量：后台web线程
@@ -438,6 +445,12 @@ flask.Flask.logger_name = "listlogger"
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
 tracker_app = flask.Flask(__name__)
 flask_cors.CORS(tracker_app)
+
+
+
+
+
+
 
 
 # 接受query manager下发的query，生成本地job（每个query一个job、每个job一个线程）
@@ -470,7 +483,6 @@ def job_update_plan_cbk():
 
     return flask.jsonify({"status": 0, "msg": "node updated plan (manager.update_job_plan)"})
 
-
 # 获取job的运行时情境
 @tracker_app.route("/job/get_runtime/<job_uid>", methods=["GET"])
 @flask_cors.cross_origin()
@@ -480,11 +492,14 @@ def job_sync_runtime_cbk(job_uid):
     return flask.jsonify(rt)
 
 
+
+
+
+
 def start_tracker_listener(serv_port=5001):
     tracker_app.run(host="0.0.0.0", port=serv_port)
     # app.run(port=serv_port)
     # app.run(host="*", port=serv_port)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -500,9 +515,9 @@ if __name__ == "__main__":
 
     # 接受下发的query生成job、接收更新的调度策略
     threading.Thread(target=start_tracker_listener,
-                     args=(args.tracker_port,),
-                     name="TrackerFlask",
-                     daemon=True).start()
+                    args=(args.tracker_port,),
+                    name="TrackerFlask",
+                    daemon=True).start()
 
     time.sleep(1)
     

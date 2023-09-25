@@ -6,6 +6,7 @@ import time
 import copy
 
 prev_video_conf = dict()
+
 prev_flow_mapping = dict()
 
 init_video_conf = dict()
@@ -206,6 +207,11 @@ def get_cold_start_plan(
 
 
 
+
+
+
+
+
 # -------------------------------------------
 # ---- TODO：根据资源情境，尝试分配更多资源----
 def try_expand_resource(next_flow_mapping=None, err_level=None, resource_info=None,job_uid=None):
@@ -236,7 +242,8 @@ def try_expand_resource(next_flow_mapping=None, err_level=None, resource_info=No
             if pan== 0: #如果一番寻找后回到了最开始那个边缘，就意味着必须卸载到云端了，因为所有的边缘都已经试过了。
                 print(" -------- send to cloud --------")
                 next_flow_mapping[taskname]["node_role"] = "cloud"
-                next_flow_mapping[taskname]["node_ip"] = list(resource_info["cloud"].keys())[0]
+                next_flow_mapping[taskname]["node_ip"] = list(
+                    resource_info["cloud"].keys())[0]
                 tune_msg = "task-{} send to cloud".format(taskname)
             break
     
@@ -302,6 +309,7 @@ def adjust_parameters(output=0, job_uid=None,
     assert job_uid, "should provide job_uid"
 
     global prev_video_conf, prev_flow_mapping, prev_runtime_info
+    global available_fps, available_resolution
 
     next_video_conf = prev_video_conf[job_uid]
     next_flow_mapping = prev_flow_mapping[job_uid]
@@ -444,7 +452,7 @@ def scheduler(
 
     global lastTime
 
-    if not runtime_info or not user_constraint:
+    if not bool(runtime_info) or not bool(user_constraint):
         root_logger.info("to get COLD start executation plan")
         return get_cold_start_plan(
             job_uid=job_uid,
