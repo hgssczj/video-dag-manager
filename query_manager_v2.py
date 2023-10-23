@@ -19,6 +19,7 @@ from logging_utils import root_logger
 import logging_utils
 
 import common
+import json
 
 class Query():
 
@@ -122,7 +123,7 @@ class Query():
                 self.result[k].update(v)
             else:
                 root_logger.error("unsupported sync result key: {}. value is: {}".format(k, v))
-
+#以下的get_last_plan_result和get_appended_result_list在query_manager里被删除了
     
     def get_last_plan_result(self):
         if self.result and 'latest_result' in self.result:
@@ -275,9 +276,9 @@ def user_submit_query_cbk():
     # TODO：更新sidechan信息
     # cloud_ip = manager.get_cloud_addr().split(":")[0]
     cloud_ip = "127.0.0.1"
-    r_sidechan = query_manager.sess.post(url="http://{}:{}/user/update_node_addr".format(cloud_ip, 6100),
+    r_sidechan = query_manager.sess.post(url="http://{}:{}/user/update_node_addr".format(cloud_ip, 7100),
                                    json={"job_uid": job_uid,
-                                         "node_addr": node_addr.split(":")[0] + ":6101"})
+                                         "node_addr": node_addr.split(":")[0] + ":7101"})
 
     return flask.jsonify({"status": 0,
                           "msg": "submitted to (cloud) manager from api: /query/submit_query",
@@ -393,13 +394,14 @@ def cloud_scheduler_loop(query_manager=None):
                 #     url="http://{}/job/get_runtime/{}".format(node_addr, query_id)
                 # )
                 # runtime_info = r.json()
+                # 这里直接使用get_runtime来获取内容，也就是说，不需要向边缘端发出请求来直接获取边缘端情境了。
                 runtime_info = query.get_runtime()
 
                 #修改：只有当runtimw_info不存在或者含有delay的时候才运行。
                 if not runtime_info or 'delay' in runtime_info :
-                # conf, flow_mapping = scheduler_func.pid_mogai_scheduler.scheduler(
-                # conf, flow_mapping = scheduler_func.pid_content_aware_scheduler.scheduler(
-                # conf, flow_mapping = scheduler_func.lat_first_pid.scheduler(
+                    # conf, flow_mapping = scheduler_func.pid_mogai_scheduler.scheduler(
+                    # conf, flow_mapping = scheduler_func.pid_content_aware_scheduler.scheduler(
+                    # conf, flow_mapping = scheduler_func.lat_first_pid.scheduler(
                     conf, flow_mapping = scheduler_func.lat_first_pid_muledge.scheduler(
                         # flow=job.get_dag_flow(),
                         job_uid=query_id,
@@ -409,7 +411,7 @@ def cloud_scheduler_loop(query_manager=None):
                         # last_plan_res=last_plan_result,
                         user_constraint=user_constraint
                     )
-                print("下面展示即将发送到云端的调度计划")
+                print("下面展示即将发送到边端的调度计划")
                 print(type(query_id),query_id)
                 print(type(conf),conf)
                 print(type(flow_mapping),flow_mapping)
@@ -425,55 +427,51 @@ def cloud_scheduler_loop(query_manager=None):
         except Exception as e:
             root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
 
-# 云端调度器主循环：从json文件中获取调度方案并直接执行，没有思考能力
+# 云端调度器主循环：读取json文件的配置并直接使用，不进行自主调度
 def cloud_scheduler_loop_static(query_manager=None):
     assert query_manager
     assert isinstance(query_manager, QueryManager)
-
     while True:
         # 每5s调度一次
         time.sleep(3)
-
         root_logger.info("start new schedule ...")
         try:
-
-            
             # 访问已注册的所有job实例，获取实例中保存的结果，生成调度策略
             query_dict = query_manager.query_dict.copy()
             for qid, query in query_dict.items():
                 assert isinstance(query, Query)
-
                 query_id = query.query_id
                 node_addr = query.node_addr
-                # last_plan_result = query.get_last_plan_result() #可使用query.pipeline获取流水线
                 user_constraint = query.user_constraint
                 assert node_addr
-
-                # 获取当前query的运行时情境（query_id == job_uid
-                r = query_manager.sess.get(
-                    url="http://{}/job/get_runtime/{}".format(node_addr, query_id)
-                )
-                runtime_info = r.json()
-                # 更新查询的运行时情境（以便用户从云端获取）
-                if runtime_info:
-                    query.set_runtime(runtime_info=runtime_info)
-                    print("展示pipeline构成:")
-                    print(type(query.pipeline))
-                    print(query.pipeline)
-                    ''''
-                    print("下面展示即将发送到云端的调度计划")
-                    print(type(query_id),query_id)
-                    print(type(conf),conf)
-                    print(type(flow_mapping),flow_mapping)
-
-                    # 更新查询策略（以便用户从云端获取）
-                    query.set_plan(video_conf=conf, flow_mapping=flow_mapping)
-                    # 主动post策略到对应节点（即更新对应视频流query pipeline的执行策略），让节点代理执行，不等待执行结果
-                    r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
-                                json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping})
-                    '''
-        # except AssertionError as e:
-        #     root_logger.error("caught assertion, msg={}".format(e), exc_info=True)
+                conf={
+                    "resolution": "360p",
+                    "fps": 1,
+                    "encoder": "JEPG"
+                }
+                flow_mapping={
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "172.27.156.251",
+                        "node_role": "host"  
+                    },
+                    "face_alignment": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                }
+                with open('csy_test_data.json') as f:
+                    csy_test_data = json.load(f)
+                    conf=csy_test_data['video_conf']
+                    flow_mapping=csy_test_data['flow_mapping']
+                print("下面展示即将发送到边端的调度计划，无自主调度，读取文件而已：")
+                print(type(query_id),query_id)
+                print(type(conf),conf)
+                print(type(flow_mapping),flow_mapping)
+                # 主动post策略到对应节点（即更新对应视频流query pipeline的执行策略），让节点代理执行，不等待执行结果
+                r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
+                            json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping})
         except Exception as e:
             root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
 
@@ -504,4 +502,4 @@ if __name__ == "__main__":
                args=(video_serv_inter_port,)).start()
     time.sleep(1)
 
-    cloud_scheduler_loop(query_manager)
+    cloud_scheduler_loop_static(query_manager)

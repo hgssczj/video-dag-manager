@@ -89,12 +89,23 @@ def get_pred_delay(conf_fps=None, cam_fps=None, resolution=None, flow_map=None, 
 
     return total_delay
 
+'''
 # TODO：给定fps和resolution，结合运行时情境，获取预测时延
 def get_pred_acc(conf_fps=None, cam_fps=None, resolution=None, runtime_info=None):
     if runtime_info and 'obj_stable' in runtime_info:
         if not runtime_info['obj_stable'] and conf_fps < 20:
             return 0.6
     return 0.9
+'''
+
+#'''
+# TODO：给定fps和resolution，结合运行时情境，获取预测时延
+def get_pred_acc(conf_fps=None, cam_fps=None, resolution=None, runtime_info=None):
+    if runtime_info and 'obj_stable' in runtime_info:
+        if runtime_info['obj_stable']>=0.3 and conf_fps < 20:
+            return 0.6
+    return 0.9
+#'''
 
 
 
@@ -215,10 +226,8 @@ def get_cold_start_plan(
 # -------------------------------------------
 # ---- TODO：根据资源情境，尝试分配更多资源----
 def try_expand_resource(next_flow_mapping=None, err_level=None, resource_info=None,job_uid=None):
-    #进行粗略版本的多边协同修改：node_role为host时，暂且将node_ip挪到其他边缘。详细判断等之后再慢慢考虑。
+    #进行粗略版本的多边协同修改：node_role为host时，暂且将node_ip挪到其他边缘。挪动方式是遍历从0开始的u偶有边缘，如果遍历一圈回来，就挪到云端。
     global  init_flow_mapping
-    print("初始冷启动计划1为",init_flow_mapping)
-    first_flow_mapping=[job_uid]
     tune_msg = None
     for taskname, task_mapping in reversed(list(next_flow_mapping.items())):#流水线反向寻找任务
         if task_mapping["node_role"] == "host": #考虑是卸载到云端还是卸载到边缘端
@@ -230,13 +239,11 @@ def try_expand_resource(next_flow_mapping=None, err_level=None, resource_info=No
                     print(" -------- try to send to another edge --------")
                     next_flow_mapping[taskname]["node_role"] = "host"
                     next_flow_mapping[taskname]["node_ip"] = list(resource_info["host"].keys())[(i+1)%edge_num]
-                    print("初始冷启动计划2为",init_flow_mapping)
-                    print("初始冷启动计划3为",first_flow_mapping)
-                    print("初始冷启动计划4为",init_flow_mapping[job_uid][taskname])
-                    print("初始冷启动计划5为",init_flow_mapping[job_uid][taskname]["node_ip"])
+                    print("当前找到的边缘端ip和初始冷启动ip分别是(相等就换到云):")
                     print(next_flow_mapping[taskname]["node_ip"],init_flow_mapping[job_uid][taskname]["node_ip"])
                     tune_msg = "task-{} send to another edge".format(taskname)
-                    if next_flow_mapping[taskname]["node_ip"]!=init_flow_mapping[job_uid][taskname]["node_ip"]:
+                    # if next_flow_mapping[taskname]["node_ip"]!=init_flow_mapping[job_uid][taskname]["node_ip"]: 这里需要注意，一开始任务冷启动的时候可能卸载到云端。所以不能直接和冷启动时的ip比较。
+                    if next_flow_mapping[taskname]["node_ip"]!=list(resource_info["host"].keys())[0]:
                         pan=1 
                     break  
             if pan== 0: #如果一番寻找后回到了最开始那个边缘，就意味着必须卸载到云端了，因为所有的边缘都已经试过了。
@@ -246,6 +253,72 @@ def try_expand_resource(next_flow_mapping=None, err_level=None, resource_info=No
                     resource_info["cloud"].keys())[0]
                 tune_msg = "task-{} send to cloud".format(taskname)
             break
+    
+    return tune_msg, next_flow_mapping
+
+
+# -------------------------------------------
+# ---- TODO：基于try_expand_resource改进得到，在时延不满足要求时，根据需要决定是卸载到云端还是卸载到边缘----
+#   try_adjust_resource(next_flow_mapping=next_flow_mapping, err_level=err_level, resource_info=resource_info,runtime_info=runtime_info,user_constraint=user_constraint,job_uid=job_uid)
+def try_adjust_resource(next_flow_mapping=None, err_level=None, resource_info=None,runtime_info=None,user_constraint=None,job_uid=None):
+    # 当前时延不足，可能是传输时延导致的。所以首先要进行判断，到底应该卸载到云还是卸载到边。
+    # 所以，首先应该看传输时延的问题。runtime_info里含有总时延和各阶段处理时延，二者相减可以得到传输时延；不如这样吧，如果发现传输时延占据了总时延的一定比例，就选择从云端卸载到边缘端。
+    # 至于卸载到哪一个边缘端，不如就设置为init_flow_mapping[job_uid][taskname]["node_ip"]。从云卸载到边比从边卸载到云更加容易。
+    #进行粗略版本的多边协同修改：node_role为host时，暂且将node_ip挪到其他边缘。详细判断等之后再慢慢考虑。
+    global  init_flow_mapping
+    tune_msg = None
+    # 首先要获取传输时延
+    print("当前各阶段时延是：")
+    print(runtime_info['plan_result'])
+    process_delay=0
+    total_delay=float(runtime_info['delay']) #总时延
+    for k,v in (runtime_info['plan_result']['process_delay'].items()):
+        process_delay+=v  #累加存储的各阶段处理时延
+    transmit_delay=float(max(0.0,total_delay-process_delay))
+    print("求出传输时延是",transmit_delay)
+
+    #如果传输时延占据总时延的六成以上，就考虑从云端撤回，如何
+    if transmit_delay>=0.6*total_delay:
+        print("传输时延过大，尝试从云卸载到边")
+        print("查看next_flow_mapping")
+        print(next_flow_mapping)
+        for taskname, task_mapping in list(next_flow_mapping.items()):#流水线正向寻找任务，把遇到的第一个云端给卸载回边缘
+            if task_mapping["node_role"] == "cloud": #考虑是卸载到云端还是卸载到边缘端。如果需要移动到边就在第一个边呆着。
+                print(" -------- send to edge --------")
+                next_flow_mapping[taskname]["node_role"] = "host"
+                next_flow_mapping[taskname]["node_ip"] = list(resource_info["host"].keys())[0]  
+                tune_msg = "task-{} send to host".format(taskname)
+                break
+    
+    else:# 否则，还是考虑将任务卸载到云端。以下是考虑卸载到云端的操作
+        print("传输时延较小，尝试从边卸载到云")
+        print("查看next_flow_mapping")
+        print(next_flow_mapping)
+        for taskname, task_mapping in reversed(list(next_flow_mapping.items())):#流水线反向寻找任务
+            if task_mapping["node_role"] == "host": #考虑是卸载到云端还是卸载到边缘端
+                edge_num=len(list(resource_info["host"].keys()))
+                pan=0
+                for i in range(0,edge_num-1): #从所有边缘端中，取当前边缘端的下一个边缘端，如果到末尾了就从头开始。如果最后选出来的ip和初始冷启动的ip不一样，就设置Pan=1
+                #表示找到了合适卸载的边缘端。无论是否成果，最后都会break，因为没有必要继续找其他可能有效的边缘端了。
+                    if task_mapping["node_ip"]==list(resource_info["host"].keys())[i]:
+                        print(" -------- try to send to another edge --------")
+                        next_flow_mapping[taskname]["node_role"] = "host"
+                        next_flow_mapping[taskname]["node_ip"] = list(resource_info["host"].keys())[(i+1)%edge_num]
+                        print("当前找到的边缘端ip和初始冷启动ip分别是(相等就换到云):")
+                        print(next_flow_mapping[taskname]["node_ip"],init_flow_mapping[job_uid][taskname]["node_ip"])
+                        tune_msg = "task-{} send to another edge".format(taskname)
+                        # 说明一下：由于初始化问题，如果一个任务冷启动时被分配到边，那一定是在第一个边上。所以，如果不断移动边发现回到第一个边，就考虑卸载到云
+                        # 反之，如果新找到的边缘端ip不是第一个边缘端的ip，就设置pan=1，不需要移动到云
+                        if next_flow_mapping[taskname]["node_ip"]!=list(resource_info["host"].keys())[0]:
+                            pan=1 
+                        break  
+                if pan== 0: #如果一番寻找后回到了最开始那个边缘，就意味着必须卸载到云端了，因为所有的边缘都已经试过了。
+                    print(" -------- send to cloud --------")
+                    next_flow_mapping[taskname]["node_role"] = "cloud"
+                    next_flow_mapping[taskname]["node_ip"] = list(
+                        resource_info["cloud"].keys())[0]
+                    tune_msg = "task-{} send to cloud".format(taskname)
+                break
     
     return tune_msg, next_flow_mapping
 
@@ -368,6 +441,7 @@ def adjust_parameters(output=0, job_uid=None,
                 if not tune_msg:
                     tune_level -= 1
         else:
+            '''
             if 'obj_stable' in runtime_info and runtime_info['obj_stable']:
                 # 场景稳定，优先降低帧率
                 init_prior = 1
@@ -376,7 +450,18 @@ def adjust_parameters(output=0, job_uid=None,
                                                                 err_level=err_level, 
                                                                 runtime_info=runtime_info,
                                                                 init_prior=init_prior, best_effort=best_effort)
+            '''
 
+            #'''
+            if 'obj_stable' in runtime_info and (runtime_info['obj_stable']<0.3):
+                # 场景稳定，优先降低帧率
+                init_prior = 1
+                best_effort = False
+                tune_msg, next_video_conf = try_reduce_calculation(next_video_conf=next_video_conf, 
+                                                                err_level=err_level, 
+                                                                runtime_info=runtime_info,
+                                                                init_prior=init_prior, best_effort=best_effort)
+            #'''
     elif err_level < 0:
         # level < 0，时延不满足要求
         # TODO：结合运行时情境（资源），应该调整策略，以降低时延：
@@ -387,6 +472,7 @@ def adjust_parameters(output=0, job_uid=None,
         #       结合运行时情境（应用），调整fps和resolution，比如：
         #              场景稳定则优先降低fps（对精度影响较小）
         #              物体较大则降低resolution（对精度影响较小）
+        '''
         if 'obj_stable' in runtime_info and runtime_info['obj_stable']:
             # 场景稳定，优先降低帧率
             init_prior = 1
@@ -395,6 +481,18 @@ def adjust_parameters(output=0, job_uid=None,
                                                                err_level=err_level, 
                                                                runtime_info=runtime_info,
                                                                init_prior=init_prior, best_effort=best_effort)
+        '''
+        #'''
+        if 'obj_stable' in runtime_info and (runtime_info['obj_stable']<0.3):
+            # 场景稳定，优先降低帧率
+            init_prior = 1
+            best_effort = False
+            tune_msg, next_video_conf = try_reduce_calculation(next_video_conf=next_video_conf, 
+                                                               err_level=err_level, 
+                                                               runtime_info=runtime_info,
+                                                               init_prior=init_prior, best_effort=best_effort)
+        #'''
+
         elif 'obj_size' in runtime_info and runtime_info['obj_size'] > 500:
             # 场景不稳定，但物体够大，优先降低分辨率
             init_prior = 0
@@ -404,8 +502,11 @@ def adjust_parameters(output=0, job_uid=None,
                                                                runtime_info=runtime_info,
                                                                init_prior=init_prior, best_effort=best_effort)
 
+
+
         if not tune_msg:
-            tune_msg, next_flow_mapping = try_expand_resource(next_flow_mapping=next_flow_mapping, err_level=err_level, resource_info=resource_info,job_uid=job_uid)
+            # tune_msg, next_flow_mapping = try_expand_resource(next_flow_mapping=next_flow_mapping, err_level=err_level, resource_info=resource_info,job_uid=job_uid)
+            tune_msg, next_flow_mapping = try_adjust_resource(next_flow_mapping=next_flow_mapping, err_level=err_level, resource_info=resource_info,runtime_info=runtime_info,user_constraint=user_constraint,job_uid=job_uid)
 
         if not tune_msg:
             # 资源分配完毕，且无法根据情境降低计算量，则按收益大小降低计算量
@@ -444,6 +545,8 @@ def scheduler(
     runtime_info=None,
     user_constraint=None,
 ):
+    print("当前调度器获得的runtime_info(含各阶段时延):")
+    print(runtime_info)
 
     assert job_uid, "should provide job_uid for scheduler to get prev_plan of job"
 

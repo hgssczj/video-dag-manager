@@ -15,9 +15,9 @@ src = None
 # TODO 多视频流同时进入时，需要考虑如何建立多视频流输入机制
 # 本地视频流
 video_info_list = [
-    {"id": 0, "type": "student in classroom", "path": "input/input.mov", "url": "http://127.0.0.1:5912/video0"},
-    {"id": 1, "type": "people in meeting-room", "path": "input/input1.mp4",  "url": "http://127.0.0.1:5912/video1"},
-    {"id": 3, "type": "traffic flow outdoor", "path": "input/traffic-720p.mp4", "url": "http://127.0.0.1:5912/video3"}
+    {"id": 0, "type": "student in classroom", "path": "input/input.mov", "url": "http://127.0.0.1:7912/video0"},
+    {"id": 1, "type": "people in meeting-room", "path": "input/input1.mp4",  "url": "http://127.0.0.1:7912/video1"},
+    {"id": 3, "type": "traffic flow outdoor", "path": "input/traffic-720p.mp4", "url": "http://127.0.0.1:7912/video3"}
 ]
 
 
@@ -63,7 +63,7 @@ def start_video_stream(port):
 
 if __name__ == '__main__':
 
-    start_video_stream(5912)
+    start_video_stream(7912)
 
 '''
 import cv2

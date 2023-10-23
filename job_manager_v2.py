@@ -19,6 +19,7 @@ from logging_utils import root_logger
 import logging_utils
 
 import common
+import json
 from camera_simulation import video_info_list
 
 resolution_wh = {
@@ -349,7 +350,8 @@ class Job():
             # ---- 2、执行，同步更新运行时情境 ----
             frame_result = dict()
             plan_result = dict()
-            plan_result['delay'] = dict()
+            plan_result['delay'] = dict()  #记录当前帧处理过程中每一个task对应的总时延
+            plan_result['process_delay']=dict() #记录当前帧处理过程中每一个task对应的计算时延，process_delay加上网络传输时延才等于delay
             for taskname in self.pipeline:
 
                 root_logger.info("to forward taskname={}".format(taskname))
@@ -368,6 +370,14 @@ class Job():
                 root_logger.info("get url {}".format(url))
 
                 st_time = time.time()
+                #可以在这里设置一个时延，强行拉长传输时延。如下，强制读取文件获取时延。
+                sleep_time=0
+                with open('csy_test_data.json') as f:
+                    csy_test_data = json.load(f)
+                    sleep_time=csy_test_data['sleep_time']
+                print("睡一会",sleep_time)
+                time.sleep(sleep_time)
+  
                 output_ctx = self.invoke_service(serv_url=url, taskname=taskname, input_ctx=input_ctx)
                 # 重试
                 while not output_ctx:
@@ -379,6 +389,16 @@ class Job():
                 root_logger.info("got service result: {}, (delta_t={})".format(
                                   output_ctx.keys(), ed_time - st_time))
                 plan_result['delay'][taskname] = ed_time - st_time
+                print("展示云端所发资源信息列表:")
+                print(output_ctx['proc_resource_info_list'])
+                temp_proc_delay=0
+                #从列表中选取最大的作为时延
+                for proc_info in output_ctx['proc_resource_info_list']:
+                    if proc_info['latency']>temp_proc_delay:
+                        temp_proc_delay=proc_info['latency']
+                print("获取当前阶段处理时延为：",temp_proc_delay)
+                plan_result['process_delay'][taskname]=temp_proc_delay
+                #下面的注释不用管
                 # 运行时感知：应用相关
                 # wrapped_ctx = output_ctx.copy()
                 # wrapped_ctx['delay'] = (ed_time - st_time) / ((cam_frame_id - curr_cam_frame_id + 1) * 1.0)
@@ -392,7 +412,13 @@ class Job():
                 plan_result['delay'][taskname] = \
                     plan_result['delay'][taskname] / ((cam_frame_id - curr_cam_frame_id + 1) * 1.0)
                 total_frame_delay += plan_result['delay'][taskname]
-
+            #'''
+            for taskname in plan_result['process_delay']:
+                plan_result['process_delay'][taskname] = \
+                    plan_result['process_delay'][taskname] / ((cam_frame_id - curr_cam_frame_id + 1) * 1.0)
+            #完成以上处理后，total_frame_delay是总时延，而plan_result里完整包含了当前帧各阶段的真实时延，应该作为runtime_info的一部分
+            #'''
+            
             self.update_runtime(taskname='end_pipe', output_ctx={"delay": total_frame_delay})
             output_ctx["frame_id"] = cam_frame_id
             output_ctx["n_loop"] = n
@@ -402,6 +428,14 @@ class Job():
             # 将当前帧的运行时情境和调度策略同步推送到云端query manager
             frame_result[common.SYNC_RESULT_KEY_PLAN] = self.get_plan()
             frame_result[common.SYNC_RESULT_KEY_RUNTIME] = self.get_runtime()
+
+            #将plan_result放入frame_result[common.SYNC_RESULT_KEY_RUNTIME]
+            frame_result[common.SYNC_RESULT_KEY_RUNTIME]['plan_result']=plan_result
+            print("当前帧各阶段时延plan_result")
+            print(plan_result)
+            print("当前待上传到云端frame_result")
+            print(frame_result)
+
 
             curr_cam_frame_id = cam_frame_id
             curr_conf_frame_id = conf_frame_id

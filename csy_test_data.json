@@ -1,0 +1,20 @@
+{
+    "sleep_time": 0,  
+    "video_conf":{
+        "resolution": "360p",
+        "fps": 1,
+        "encoder": "JEPG"
+    },
+    "flow_mapping": {
+        "face_detection": {
+            "model_id": 0,
+            "node_ip": "172.27.156.251",
+            "node_role": "host"  
+        },
+        "face_alignment": {
+            "model_id": 0,
+            "node_ip": "114.212.81.11",
+            "node_role": "cloud"
+        }
+    }
+}
