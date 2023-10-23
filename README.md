@@ -1,30 +1,9 @@
 # video-dag-manager (no-render-demo)
-以下为no-render-demo分支的新增说明。
+以下为no-render-test分支的新增说明。
 
-本工程为no-render-demo分支下的代码，相比最初的no-render版本，进行了如下改动：
-（1）全面修改了运行时的端口。为防止在实验室共享设备上运行时出现端口冲突，本工程所有端口均在原始基础上增加1000;同时，增加了修改cloud_sidechan和edge_sidechan端口的参数。
-（2）新建了`query_manger_v2.py`和`job_manger_v2.py`，二者配合新的调度器实现边边协同功能。
-（3）新建了scheduler_func目录下的`lat_first_pid_muledge.py`，其中的调度器被`query_manger_v2.py`使用。
-（4）新建了`camera_simulation.py`，边端启动时需要运行该进程，以提供视频流循环播放服务。使用本工程时必须先准备好input目录，视频名和目录如下：
-    "type": "student in classroom", "path": "input/input.mov"
-    "type": "people in meeting-room", "path": "input/input1.mp4"
-    "type": "traffic flow outdoor", "path": "input/traffic-720p.mp4"
-（5）对sniff进行了两处修改，解决了可检测人脸数为0时导致的除0错误
-（6）新增了expr目录下的headup_detect_delay_test_new.py和headup_detect_delay_test_new2.py用于进行测试。二者区别在于后者向6000端口请求。
-
-本工程最好结合SchedulingSystem下的app_server和app_client使用。如果不愿意使用6500作为端口，使用本工程代码时需要修改`query_manger_v2.py`和`job_manger_v2.py`中ServerManager和ClientManager对server_port和edge_port的初始化，同时还需要修改`query_manger_v2.py`中 @query_app.route("/query/submit_query", methods=["POST"])下函数定义中的“6100”he "6101"为其他端口。本人并不建议进行这样的修改。
-
-建议启动方法（不修改上文所说的这些初始化端口的前提下）：
-
-进入video-dag-manager目录下：
-如果是在云端，运行python3.8 query_manager_v2.py --query_port 6000 --serv_cloud_addr=114.212.81.11:6500 --video_cloud_port 6100
-
-如果是在边缘端，首先运行：
-python3 camera_simulation.py
-然后才运行：
-python3 job_manager_v2.py --query_addr=114.212.81.11:6000 --tracker_port 6001 --serv_cloud_addr=114.212.81.11:6500 --video_side_port 6101
-
-
+本工程为no-render-test分支下的代码，比no-render-demo版本更新，也更不稳定。相比no-render-demo存在以下区别
+（1）端口由6100变为7100，由6101变为7101，以配合Scheduling-System的main-test版本。
+（2）继续使用`query_manger_v2.py`和`job_manger_v2.py`，二者配合新的调度器实现边边协同功能。
 
 
 以下为no-render版本的原始readme内容。

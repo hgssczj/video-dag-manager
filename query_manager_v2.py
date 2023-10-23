@@ -276,9 +276,9 @@ def user_submit_query_cbk():
     # TODO：更新sidechan信息
     # cloud_ip = manager.get_cloud_addr().split(":")[0]
     cloud_ip = "127.0.0.1"
-    r_sidechan = query_manager.sess.post(url="http://{}:{}/user/update_node_addr".format(cloud_ip, 6100),
+    r_sidechan = query_manager.sess.post(url="http://{}:{}/user/update_node_addr".format(cloud_ip, 7100),
                                    json={"job_uid": job_uid,
-                                         "node_addr": node_addr.split(":")[0] + ":6101"})
+                                         "node_addr": node_addr.split(":")[0] + ":7101"})
 
     return flask.jsonify({"status": 0,
                           "msg": "submitted to (cloud) manager from api: /query/submit_query",
