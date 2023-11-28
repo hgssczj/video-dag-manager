@@ -441,37 +441,38 @@ def cloud_scheduler_loop_static(query_manager=None):
             for qid, query in query_dict.items():
                 assert isinstance(query, Query)
                 query_id = query.query_id
-                node_addr = query.node_addr
-                user_constraint = query.user_constraint
-                assert node_addr
-                conf={
-                    "resolution": "360p",
-                    "fps": 1,
-                    "encoder": "JEPG"
-                }
-                flow_mapping={
-                    "face_detection": {
-                        "model_id": 0,
-                        "node_ip": "172.27.156.251",
-                        "node_role": "host"  
-                    },
-                    "face_alignment": {
-                        "model_id": 0,
-                        "node_ip": "114.212.81.11",
-                        "node_role": "cloud"
+                if query.video_id!=99:  #如果是99，意味着在进行视频测试，此时云端调度器不工作
+                    node_addr = query.node_addr
+                    user_constraint = query.user_constraint
+                    assert node_addr
+                    conf={
+                        "resolution": "360p",
+                        "fps": 1,
+                        "encoder": "JEPG"
                     }
-                }
-                with open('csy_test_data.json') as f:
-                    csy_test_data = json.load(f)
-                    conf=csy_test_data['video_conf']
-                    flow_mapping=csy_test_data['flow_mapping']
-                print("下面展示即将发送到边端的调度计划，无自主调度，读取文件而已：")
-                print(type(query_id),query_id)
-                print(type(conf),conf)
-                print(type(flow_mapping),flow_mapping)
-                # 主动post策略到对应节点（即更新对应视频流query pipeline的执行策略），让节点代理执行，不等待执行结果
-                r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
-                            json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping})
+                    flow_mapping={
+                        "face_detection": {
+                            "model_id": 0,
+                            "node_ip": "172.27.133.85",
+                            "node_role": "host"  
+                        },
+                        "face_alignment": {
+                            "model_id": 0,
+                            "node_ip": "114.212.81.11",
+                            "node_role": "cloud"
+                        }
+                    }
+                    with open('csy_test_data.json') as f:
+                        csy_test_data = json.load(f)
+                        conf=csy_test_data['video_conf']
+                        flow_mapping=csy_test_data['flow_mapping']
+                    print("下面展示即将发送到边端的调度计划，无自主调度，读取文件而已：")
+                    print(type(query_id),query_id)
+                    print(type(conf),conf)
+                    print(type(flow_mapping),flow_mapping)
+                    # 主动post策略到对应节点（即更新对应视频流query pipeline的执行策略），让节点代理执行，不等待执行结果
+                    r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
+                                json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping})
         except Exception as e:
             root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
 

@@ -14,10 +14,12 @@ src = None
 
 # TODO 多视频流同时进入时，需要考虑如何建立多视频流输入机制
 # 本地视频流
+#改造为从云端获取视频流
 video_info_list = [
-    {"id": 0, "type": "student in classroom", "path": "input/input.mov", "url": "http://127.0.0.1:7912/video0"},
-    {"id": 1, "type": "people in meeting-room", "path": "input/input1.mp4",  "url": "http://127.0.0.1:7912/video1"},
-    {"id": 3, "type": "traffic flow outdoor", "path": "input/traffic-720p.mp4", "url": "http://127.0.0.1:7912/video3"}
+    {"id": 0, "type": "student in classroom", "path": "input/input.mov", "url": "http://114.212.81.11:7912/video0"},
+    {"id": 1, "type": "people in meeting-room", "path": "input/input1.mp4",  "url": "http://114.212.81.11:7912/video1"},
+    {"id": 3, "type": "traffic flow outdoor", "path": "input/traffic-720p.mp4", "url": "http://114.212.81.11:7912/video3"},
+    {"id": 99, "type": "cut people in meeting-room", "path": "input/test-cut1.mp4", "url": "http://114.212.81.11:7912/video99"}
 ]
 
 
@@ -55,6 +57,11 @@ def read_video3():
     return flask.Response(get_video_frame("input/traffic-720p.mp4"),
                           mimetype='multipart/x-mixed-replace; boundary=frame')
 
+@video_source_app.route('/video99')
+# @flask_cors.cross_origin()
+def read_video99():
+    return flask.Response(get_video_frame("input/test-cut1.mp4"),
+                          mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
 def start_video_stream(port):

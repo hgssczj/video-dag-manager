@@ -1,7 +1,0 @@
-n_loop,frame_id,total,up,fps,resolution,delay,face_detection,face_alignment
-1,1.0,23,8,30,480p,61.888091802597046,host,host
-2,2.0,23,10,30,480p,60.06148910522461,host,host
-3,3.0,27,10,10,480p,69.85938096046448,host,host
-4,4.0,25,11,5,480p,67.3111503124237,host,host
-5,5.0,24,10,1,360p,50.771230816841125,host,host
-6,30.0,22,6,1,360p,3.6022052673193126,host,host

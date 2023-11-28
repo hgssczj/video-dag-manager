@@ -467,11 +467,6 @@ class Job():
 
 
 
-
-
-
-
-
 # 单例变量：主线程任务管理器，Manager
 job_manager = JobManager()
 # 单例变量：后台web线程
@@ -479,11 +474,6 @@ flask.Flask.logger_name = "listlogger"
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
 tracker_app = flask.Flask(__name__)
 flask_cors.CORS(tracker_app)
-
-
-
-
-
 
 
 

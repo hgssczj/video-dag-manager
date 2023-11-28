@@ -530,12 +530,6 @@ def adjust_parameters(output=0, job_uid=None,
 
 
 
-
-
-
-
-
-
 # -----------------
 # ---- 调度入口 ----
 def scheduler(
