@@ -129,7 +129,7 @@ if __name__ == "__main__":
                 #选择调度策略的范围和制定模型的范围是两回事
                 #第一步是根据采样需要指定调度策略
                 conf={
-                        "resolution": "360p",
+                        "reso": "360p",
                         "fps": 1,
                         "encoder": "JEPG"
                     }
@@ -178,7 +178,7 @@ if __name__ == "__main__":
 
                     encoder=res['ext_plan']['video_conf']['encoder']
                     fps=res['ext_plan']['video_conf']['fps']
-                    reso=res['ext_plan']['video_conf']['resolution']
+                    reso=res['ext_plan']['video_conf']['reso']
 
                     obj_n=res['ext_runtime']['obj_n']
                     obj_size=res['ext_runtime']['obj_size']
@@ -237,7 +237,7 @@ if __name__ == "__main__":
                     'face_alignment': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'}, 
                     'face_detection': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'} 
                 }, 
-            'video_conf':   {'encoder': 'JEPG', 'fps': 1, 'resolution': '360p'}
+            'video_conf':   {'encoder': 'JEPG', 'fps': 1, 'reso': '360p'}
             }, 
 
 'ext_runtime': {
@@ -255,6 +255,4 @@ if __name__ == "__main__":
 'n_loop': 1, 
 'proc_resource_info_list': [{'cpu_util_limit': 1.0, 'cpu_util_use': 0.060020833333333336, 'latency': 2.3111135959625244, 'pid': 505503}]
 }
-结束：
-{'count_result': {'total': 24, 'up': 20}, 'delay': 0.16154261735769418, 'execute_flag': True, 'ext_plan': {'flow_mapping': {'face_alignment': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'}, 'face_detection': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'}}, 'video_conf': {'encoder': 'JEPG', 'fps': 1, 'resolution': '360p'}}, 'ext_runtime': {'delay': 0.16154261735769418, 'obj_n': 24.0, 'obj_size': 219.36678242330404, 'obj_stable': 1, 'plan_result': {'delay': {'face_alignment': 0.09300840817964993, 'face_detection': 0.06853420917804424}, 'process_delay': {'face_alignment': 0.08888898446009709, 'face_detection': 0.060828484021700345}}}, 'frame_id': 25.0, 'n_loop': 1, 'proc_resource_info_list': [{'cpu_util_limit': 1.0, 'cpu_util_use': 0.060020833333333336, 'latency': 2.3111135959625244, 'pid': 505503}]}
 '''

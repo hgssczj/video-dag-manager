@@ -152,7 +152,7 @@ def get_cold_start_plan(
 
     # 时延优先策略：算量最小，算力最大
     cold_video_conf = {
-        "resolution": "360p",
+        "reso": "360p",
         "fps": 30,
         # "ntracking": 5,
         "encoder": "JPEG",
@@ -195,14 +195,14 @@ def get_cold_start_plan(
                     # 防止符合要求的配置被替换
                     min_delay_delta = 0.0
                     if not min_acc_delta or min_acc_delta > abs(acc_lb - acc):
-                        cold_video_conf["resolution"] = resol
+                        cold_video_conf["reso"] = resol
                         cold_video_conf["fps"] = fps
                         cold_flow_mapping = flow_map
                         min_acc_delta = abs(acc_lb - acc)
                 else:
                     # 若时延不符合要求，找出尽量符合的
                     if not min_delay_delta or min_delay_delta > abs(delay_ub - delay):
-                        cold_video_conf["resolution"] = resol
+                        cold_video_conf["reso"] = resol
                         cold_video_conf["fps"] = fps
                         cold_flow_mapping = flow_map
                         min_delay_delta = abs(delay_ub - delay)
@@ -334,7 +334,7 @@ def try_reduce_calculation(
     global available_fps, available_resolution
 
     resolution_index = available_resolution.index(
-        next_video_conf["resolution"])
+        next_video_conf["reso"])
     fps_index = available_fps.index(next_video_conf["fps"])
 
     tune_msg = None
@@ -355,7 +355,7 @@ def try_reduce_calculation(
         if curr_prior == 0:
             if resolution_index > 0:
                 print(" -------- resolution lower -------- (init_prior={})".format(init_prior))
-                next_video_conf["resolution"] = available_resolution[resolution_index - 1]
+                next_video_conf["reso"] = available_resolution[resolution_index - 1]
                 tune_msg = "resolution {} -> {}".format(available_resolution[resolution_index],
                                                         available_resolution[resolution_index - 1])
         
@@ -392,7 +392,7 @@ def adjust_parameters(output=0, job_uid=None,
     assert isinstance(flow, list), "flow not list"
 
     resolution_index = available_resolution.index(
-        next_video_conf["resolution"])
+        next_video_conf["reso"])
     fps_index = available_fps.index(next_video_conf["fps"])
 
     err_level = round(output)
@@ -416,7 +416,7 @@ def adjust_parameters(output=0, job_uid=None,
         #              若优化目标为最小化云端开销，可以拉回到边端计算；
         tune_level = err_level
         pred_acc = get_pred_acc(conf_fps=next_video_conf['fps'], cam_fps=30.0,
-                                resolution=next_video_conf["resolution"],
+                                resolution=next_video_conf["reso"],
                                 runtime_info=runtime_info)
         
         # 若此时预测精度达不到要求，可以提高fps和resolution
@@ -433,7 +433,7 @@ def adjust_parameters(output=0, job_uid=None,
                 elif tune_level == 1:
                     if resolution_index + 1 < len(available_resolution):
                         print(" -------- resolution higher -------- (err_level={}, tune_msg={})".format(err_level, tune_msg))
-                        next_video_conf["resolution"] = available_resolution[resolution_index + 1]
+                        next_video_conf["reso"] = available_resolution[resolution_index + 1]
                         tune_msg = "resolution {} -> {}".format(available_resolution[resolution_index],
                                                                 available_resolution[resolution_index + 1])
                 

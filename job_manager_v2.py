@@ -96,10 +96,10 @@ def sfg_get_next_init_task(
     print("new_cam_frame_id={} new_conf_frame_id={}".format(new_cam_frame_id, new_conf_frame_id))
 
 
-    # 根据video_conf['resolution']调整大小
+    # 根据video_conf['reso']调整大小
     frame = cv2.resize(frame, (
-        resolution_wh[video_conf['resolution']]['w'],
-        resolution_wh[video_conf['resolution']]['h']
+        resolution_wh[video_conf['reso']]['w'],
+        resolution_wh[video_conf['reso']]['h']
     ))
 
     input_ctx = dict()

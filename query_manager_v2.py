@@ -446,7 +446,7 @@ def cloud_scheduler_loop_static(query_manager=None):
                     user_constraint = query.user_constraint
                     assert node_addr
                     conf={
-                        "resolution": "360p",
+                        "reso": "360p",
                         "fps": 1,
                         "encoder": "JEPG"
                     }
