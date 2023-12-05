@@ -38,8 +38,8 @@ model_op={
         }
 
 conf_and_serv_info={  #各种配置参数的可选值
-    "reso":["1080p","720p","480p","360p"],
-    "fps":[30,20,10,5,1],
+    "reso":["360p", "480p", "720p", "1080p"],
+    "fps":[1, 5, 10, 20, 30],
     "encoder":["JPEG"],
     "face_alignment_ip":["114.212.81.11","172.27.143.164","172.27.151.145"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
     "face_detection_ip":["114.212.81.11","172.27.143.164","172.27.151.145"],
@@ -53,22 +53,22 @@ service_info_list=[
     {
         "name":'face_detection',
         "value":'face_detection_proc_delay',
-        "conf":["reso","fps"]
+        "conf":["reso","fps","encoder"]
     },
     {
         "name":'face_alignment',
         "value":'face_alignment_proc_delay',
-        "conf":["reso","fps"]
+        "conf":["reso","fps","encoder"]
     },
     {
         "name":'face_detection_trans',
         "value":'face_detection_trans_delay',
-        "conf":["reso","fps"]
+        "conf":["reso","fps","encoder"]
     },
     {
         "name":'face_alignment_trans',
         "value":'face_alignment_trans_delay',
-        "conf":["reso","fps"]
+        "conf":["reso","fps","encoder"]
     },
 ]
 
@@ -169,6 +169,7 @@ class KnowledgeBaseBuilder():
         self.query_body['node_addr']=self.node_addr
         r = self.sess.post(url="http://{}/query/submit_query".format(self.query_addr),
                     json=query_body)
+        print(r)
         resp = r.json()
         print(resp)
         self.query_id = resp["query_id"]
@@ -223,7 +224,7 @@ class KnowledgeBaseBuilder():
 
 
 
-    def write_in_file(self,r1,r2,r3):   #pipeline指定了任务类型   
+    def write_in_file(self,r2,r3):   #pipeline指定了任务类型   
         resource_info = r2.json()
         resp = r3.json()
 
@@ -330,7 +331,25 @@ class KnowledgeBaseBuilder():
             return {"status":2,"des":"fail to post one query request"}
         
         # 如果r1 r2 r3都正常
-        updatetd_result=self.write_in_file(r1=r1,r2=r2,r3=r3)
+        updatetd_result=self.write_in_file(r2=r2,r3=r3)
+
+        return {"status":3,"des:":"succeed to record a row","updatetd_result":updatetd_result}
+    
+    # 不更新配置，仅仅是获取结果
+    def get_write(self):
+         
+        #（1）获取资源情境,获取node_ip指定的边缘节点的内存使用率
+        r2 = self.sess.get(url="http://{}/get_resource_info".format(self.service_addr))
+        if not r2.json():
+            return {"status":1,"des":"fail to get resource info"}
+          
+        #（2）查询执行结果并处理
+        r3 = self.sess.get(url="http://{}/query/get_result/{}".format(self.query_addr, self.query_id))  
+        if not r3.json():
+            return {"status":2,"des":"fail to post one query request"}
+        
+        # 如果r1 r2 r3都正常
+        updatetd_result=self.write_in_file(r2=r2,r3=r3)
 
         return {"status":3,"des:":"succeed to record a row","updatetd_result":updatetd_result}
 
@@ -359,6 +378,23 @@ class KnowledgeBaseBuilder():
         avg_delay=all_delay/self.sample_bound
         print("完成对当前配置的",self.sample_bound,"次采样，平均时延是", avg_delay)
         return avg_delay
+    
+    def just_record(self,record_num):
+        filename=self.init_record_file()
+        record_sum=0
+        while(record_sum<record_num):
+            get_resopnse=self.get_write()
+            if(get_resopnse['status']==3):
+                updatetd_result=get_resopnse['updatetd_result']
+                for i in range(0,len(updatetd_result)):
+                    print(updatetd_result[i])
+                    record_sum+=1
+
+        self.fp.close()
+        print("记录结束，查看文件")
+        return filename 
+
+
 
     # 以下函数根据配置多次调用collect_for_sample，对指定配置进行多次采样，每次采样都会成功录入相关结果到配置文件之中
     def sample_and_record(self,sample_bound):
@@ -522,6 +558,18 @@ class KnowledgeBaseBuilder():
         plt.plot(x_value,y_value)
         plt.title(title_name)
         plt.show()
+    
+    def draw_delay_and_cons(self,x_value1,y_value1,y_value2,title_name):
+        plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
+        plt.rcParams['axes.unicode_minus']=False #用来正常显示负号 #有中文出现的情况，需要u'内容'
+        plt.ylim(0,1)
+        plt.yticks(fontproperties='Times New Roman', )
+        plt.xticks(fontproperties='Times New Roman', )
+        plt.plot(x_value1,y_value1,label="实际时延")
+        plt.plot(x_value1,y_value2,label="时延约束")
+        plt.title(title_name)
+        plt.legend()
+        plt.show()
 
     
     '''
@@ -535,8 +583,22 @@ class KnowledgeBaseBuilder():
     host,172.27.151.145,0.7347646951675415,172.27.151.145,0.006814241409301758
 
     '''
+    '''
+    
+
+    query_body = {
+        "node_addr": "172.27.143.164",
+        "video_id": 100,   #100号是测试调度器的
+        "pipeline": ["face_detection", "face_alignment"],#制定任务类型
+        "user_constraint": {
+            "delay": 0.3,  #用户约束暂时设置为0.3
+            "accuracy": 0.7
+        }
+    }  
+    '''
     def draw_picture_from_sample(self,filepath): #根据文件采样结果绘制曲线
         df = pd.read_csv(filepath)
+        df = df.drop(index=[0])
 
         # 要求绘制
         # 总时延随时间的变化
@@ -546,9 +608,14 @@ class KnowledgeBaseBuilder():
         self.conf_names
         self.serv_names
 
-        # 绘制总时延
-        self.draw_picture(x_value=df['n_loop'],y_value=df['all_delay'],title_name="all_delay/时间")
+        cons_delay=[]
+        for x in df['n_loop']:
+            cons_delay.append(self.query_body['user_constraint']['delay'])
 
+        # 绘制总时延和约束时延
+        self.draw_delay_and_cons(x_value1=df['n_loop'],y_value1=df['all_delay'],y_value2=cons_delay,title_name="all_delay&constraint_delay/时间")
+
+        '''
         for serv_name in self.serv_names:
             serv_role_name=serv_name+'_role'
             serv_ip_name=serv_name+'_ip'
@@ -564,45 +631,69 @@ class KnowledgeBaseBuilder():
         
         for conf_name in self.conf_names:
             self.draw_picture(x_value=df['n_loop'],y_value=df[conf_name],title_name=conf_name+"/时间")
-         
+        '''
+
+
+
+
+
+
+
+query_body = {
+        "node_addr": "172.27.143.164",
+        "video_id": 100,   #如果需要建立新的知识库，此处video_id应该改为99
+        "pipeline": ["face_detection", "face_alignment"],#制定任务类型
+        "user_constraint": {
+            "delay": 0.1,  #用户约束暂时设置为0.3
+            "accuracy": 0.7
+        }
+    }  
 
 if __name__ == "__main__":
 
-    kb_builder=KnowledgeBaseBuilder(expr_name="headup-detect_video99_newbuilder_bayes",
+    kb_builder=KnowledgeBaseBuilder(expr_name="headup-detect_video100_test",
                                     node_ip='172.27.143.164',
-                                    node_addr="172.27.143.164:7001",
-                                    query_addr="114.212.81.11:7000",
-                                    service_addr="114.212.81.11:7500",
+                                    node_addr="172.27.143.164:5001",
+                                    query_addr="114.212.81.11:5000",
+                                    service_addr="114.212.81.11:5500",
                                     query_body=query_body,
                                     conf_names=conf_names,
                                     serv_names=serv_names,
                                     service_info_list=service_info_list)
     
-    # kb_builder.init_record_file()
-
+   # 如果只想发出一个查询并查看任务的执行情况，使用以下if条件对应的代码。此时，查询发出的query_body内的video_id最好不要是99，
+   # 因为这种情况下云端会认为当前处于知识库建立阶段而不执行调度。
+   # 云端调度器仅在video_id不为99的时候才会发挥调度作用。因此video_id为99的视频是专门在知识库建立过程中用于采样的。
+    need_to_test=0
+    if need_to_test==1: 
+        kb_builder.send_query() 
+        kb_builder.just_record(record_num=50)
     
-    #发出查询请求
+    # 如果想要建立知识库，使用以下if条件对应的代码。sample_and_record是循环每一种配置的采样的方法。sample_and_record_bayes基于贝叶斯进行采样。
+    # sample_bound表示对于每一种配置进行采样的次数，会取采样次数的平均值来作为这种配置下对应的性能指标。
+    # sample_and_record_bayes方法的n_trials参数用于指定进行多少次贝叶斯优化的采样。
+    # 执行完以下代码后，会得到一个本目录下的文件，记录所有的采样结果。根据这个文件可以提取得到json形式的知识库。
     need_to_build=0
     if need_to_build==1:
         kb_builder.send_query() 
         kb_builder.sample_and_record(sample_bound=10) #调用函数以5为每种配置的采样大小进行循环采样
         # filename=kb_builder.sample_and_record_bayes(sample_bound=10,n_trials=80)
     
-    
-    
     filepath='20231130_21_16_40_knowledgebase_builder_0.3_0.7_headup-detect_video99_newbuilder_bayes.csv'
     filepath='20231130_19_44_42_knowledgebase_builder_0.3_0.7_headup-detect_video99_newbuilder_rotate.csv'
-    filepath='20231203_17_17_09_knowledgebase_builder_0.3_0.7_headup-detect_video99_newbuilder_bayes.csv'
+    # filepath='20231203_17_17_09_knowledgebase_builder_0.3_0.7_headup-detect_video99_newbuilder_bayes.csv'
     filepath='20231203_17_37_27_knowledgebase_builder_0.3_0.7_headup-detect_video99_newbuilder_rotate.csv'
-
-    need_to_create=1
-    if need_to_create==1:
-        kb_builder.create_evaluator_from_samples(filepath=filepath)
-
+    filepath='20231205_09_46_44_knowledgebase_builder_0.3_0.7_headup-detect_video100_test.csv' # 约束为0.3
+    
+    # 如果想要基于need_to_test或need_to_build的结果进行可视化分析，可调用以下if条件对应的代码进行绘图。
     need_to_draw=0
     if need_to_draw==1:
         kb_builder.draw_picture_from_sample(filepath=filepath)
 
+    # 如果想要基于need_to_test或need_to_build的结果建立知识库，可调用以下if条件对应的代码在本目录下生成各个模块的知识库，以json文件形式存储。
+    need_to_create=0
+    if need_to_create==1:
+        kb_builder.create_evaluator_from_samples(filepath=filepath)
 
     exit()
 

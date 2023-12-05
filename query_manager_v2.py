@@ -276,9 +276,9 @@ def user_submit_query_cbk():
     # TODO：更新sidechan信息
     # cloud_ip = manager.get_cloud_addr().split(":")[0]
     cloud_ip = "127.0.0.1"
-    r_sidechan = query_manager.sess.post(url="http://{}:{}/user/update_node_addr".format(cloud_ip, 7100),
+    r_sidechan = query_manager.sess.post(url="http://{}:{}/user/update_node_addr".format(cloud_ip, 5100),
                                    json={"job_uid": job_uid,
-                                         "node_addr": node_addr.split(":")[0] + ":7101"})
+                                         "node_addr": node_addr.split(":")[0] + ":5101"})
 
     return flask.jsonify({"status": 0,
                           "msg": "submitted to (cloud) manager from api: /query/submit_query",
@@ -343,10 +343,6 @@ def node_join_cbk():
     query_manager.add_video(node_addr=node_addr, video_id=video_id, video_type=video_type)
 
     return flask.jsonify({"status": 0, "msg": "joined one video to query_manager", "node_addr": node_addr})
-
-
-
-
 
 
 
@@ -473,6 +469,53 @@ def cloud_scheduler_loop_static(query_manager=None):
                     # 主动post策略到对应节点（即更新对应视频流query pipeline的执行策略），让节点代理执行，不等待执行结果
                     r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
                                 json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping})
+                
+        except Exception as e:
+            root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
+
+# 云端调度器主循环：基于知识库进行调度器
+def cloud_scheduler_loop_kb(query_manager=None):
+    assert query_manager
+    assert isinstance(query_manager, QueryManager)
+    import scheduler_func.lat_first_kb_muledge
+    while True:
+        # 每5s调度一次
+        time.sleep(3)
+        
+        root_logger.info("start new schedule ...")
+        try:
+            # 获取资源情境
+            r = query_manager.sess.get(
+                url="http://{}/get_resource_info".format(query_manager.service_cloud_addr))
+            resource_info = r.json()
+            # 为所有query生成调度策略
+            query_dict = query_manager.query_dict.copy()
+            for qid, query in query_dict.items():
+                assert isinstance(query, Query)
+                query_id = query.query_id
+                if query.video_id!=99:  #如果是99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
+                    node_addr = query.node_addr
+                    user_constraint = query.user_constraint
+                    assert node_addr
+
+                    runtime_info = query.get_runtime()
+                    #修改：只有当runtimw_info不存在或者含有delay的时候才运行。
+                    if not runtime_info or 'delay' in runtime_info :
+                        conf, flow_mapping = scheduler_func.lat_first_kb_muledge.scheduler(
+                            job_uid=query_id,
+                            dag={"generator": "x", "flow": query.pipeline},
+                            resource_info=resource_info,
+                            runtime_info=runtime_info,
+                            user_constraint=user_constraint
+                        )
+                    print("下面展示即将发送到边端的调度计划：")
+                    print(type(query_id),query_id)
+                    print(type(conf),conf)
+                    print(type(flow_mapping),flow_mapping)
+
+                    # 更新边端策略
+                    r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
+                                json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping})
         except Exception as e:
             root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
 
@@ -503,4 +546,4 @@ if __name__ == "__main__":
                args=(video_serv_inter_port,)).start()
     time.sleep(1)
 
-    cloud_scheduler_loop_static(query_manager)
+    cloud_scheduler_loop_kb(query_manager)

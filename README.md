@@ -1,20 +1,22 @@
-# video-dag-manager (no-render-demo)
-以下为no-render-test分支的新增说明。
+# video-dag-manager (no-render-test)
+no-render-test分支的video-dag-manager继承了no-render-demo分支，有以下异同点：
 
-本工程为no-render-test分支下的代码，比no-render-demo版本更新，也更不稳定。相比no-render-demo存在以下区别
-（1）端口由6100变为7100，由6101变为7101，以配合Scheduling-System的main-test版本。
-（2）继续使用`query_manger_v2.py`和`job_manger_v2.py`，二者配合新的调度器实现边边协同功能。
+相同点：
+本分支与no-render-demo分支一样都支持一云多边结构，都按照彭清桦师兄的初版架构进行设计。其中的job_manager.py、query_manager.py、cloud_sidechan、edge_sidechan都和原版保持一致。
 
+不同点：
+初版的video-dag-manager调度器基于PID进行，本分支的调度器基于知识库进行。本分支提供了一系列建立知识库的接口，并更正了原始版本中的大量错误，重写了视频端提供方式。
+相比原版，主要工作集中在`query_manger_v2.py`和`job_manger_v2.py`，以及scheduler_func目录下的lat_first_kb_muledge.py（基于知识库的多边调度）、整个expr_data2目录及内部的knowledgebase_builder.py（离线采样构建知识库、进行测试并绘制相应图片）
 
-以下为no-render版本的原始readme内容。
 
 ## 1 大致结构
 
-云端运行`query_manger.py`，在5000端口提供服务；
+云端运行`query_manger_v2.py`，在5000端口提供服务；也需要运行`app_server_test.py`，在5500端口提供服务。
 
-边端运行`job_manager.py`，在5001端口提供服务；
+边端运行`job_manager_v2.py`，在5001端口提供服务；也需要运行`app_client_test,py`，在5500端口提供服务。
 
-云端+边端运行`service_demo.py`，在5500端口提供服务；
+此外还需要运行`camera_simulation.py`，在7912端口提供服务。为减轻边缘端负载，将其在云端运行。
+
 
 总体线程模型如下图所示。用户通过/query/submit_query接口针对视频流提交查询请求（参见`expr/`的测试脚本的POST请求），查询请求被下发到特定的边缘节点后，在边缘节点为任务生成一个Job对象。云端调度器周期性地更新各查询的执行计划（以下称该过程为`调度`）、下发给对应的Job对象，Job对象负责根据调度计划，请求5500的计算服务，汇总结果上报给云：
 
@@ -38,38 +40,38 @@ Job状态主要有三类
 - （2）为了运行预加载模型：pytorch==1.13.0，torchvision==0.14.0，对应版本的cuda和cudnn等
 - （3）其余依赖可依据报错安装
 
-**注意**：启动`job_manager.py`的节点，应该在项目根目录下新建input/目录并存放数据视频，如input.mov、input1.mp4、traffic-720p.mp4，否则无法读取视频
+**注意**：启动`job_manager_V2.py`时，应确保`camera_simulation.py`已经在云端运行。如果一定要在边端运行`camera_simulation.py`，需要修改其中video_info_list所包含的各个链接的ip地址。
 
-伪分布式启动：
+云端启动：
 
 ```shell
-# 先启动query_manager（监听5000端口），后启动job_manager（监听5001端口，并通过5001端口与query_manager通信）
-$ python3 service_demo.py
-$ python3 query_manager.py
-$ python3 job_manager.py
+# 在云端将终端拆分为三个，依次运行以下程序。由于运行过程中需要目录下的大量配置文件，应该在video-dag-manager目录下运行`camera_simulation.py`和`query_manger_v2.py`
+# 在实验室云服务器上运行代码之前，往往需要执行一次如下命令：
+$ unset LD_LIBRARY_PATH
+# 运行app_server_test。往往在外层目录运行它。
+$ python3.8 SchedulingSystem-main-demo/SchedulingSystem/server/app_server_test.py --server_ip=114.212.81.11 --server_port=5500 --edge_port=5500
+# 进入video-dag-manager目录
+# 运行视频流提供进程
+$ python3.8 camera_simulation.py
+# 运行云端查询控制和调度进程
+$ python3.8 query_manager_v2.py --query_port 5000 --serv_cloud_addr=114.212.81.11:5500 --video_cloud_port 5100
+
 
 # 使用如下命令，方便在文件中查询error日志
 $ python3 job_manager.py 2>&1 | tee demo.log
 ```
 
-分布式启动：
+边缘启动：
 
 ```shell
-# 注意：修改service_demo.py中的"cloud"的ip为边端可访问的云端ip
-cloud$ python3 service_demo.py
-# --serv_cloud_addr指定请求计算服务的ip和端口
-cloud$ python3 query_manager.py \
-               --serv_cloud_addr=114.212.81.11:5500
-
-# 注意：service_demo.py的修改与cloud的文件保持一致
-edge$ python3 service_demo.py
-# 参数说明：
-#   --query_addr指明边端接入点（注册视频流信息、汇报结果、接收调度结果）
-# 注意：
-#   在项目根目录下新建input/目录存放数据视频————input.mov、input1.mp4、traffic-720p.mp4
-edge$ python3 job_manager.py \
-              --query_addr=114.212.81.11:5000 \
-              --serv_cloud_addr=114.212.81.11:5500
+# 在边缘将终端拆分为两个，依次运行以下程序。由于运行过程中需要目录下的大量配置文件，应该在video-dag-manager目录下运行`job_manger_v2.py`
+# 在tx2设备上运行代码之前，往往需要执行一次如下命令,防止运行过程中jtop未启动：
+$ sudo systemctl restart jtop.service
+# 运行app_client_test。往往在外层目录运行它。
+$ python3 SchedulingSystem-main-demo/SchedulingSystem/client/app_client_test.py --server_ip=114.212.81.11 --server_port=5500 --edge_ip=0.0.0.0 --edge_port=5500
+# 进入video-dag-manager目录
+# 运行边缘端任务控制进程
+$ python3 job_manager_v2.py --query_addr=114.212.81.11:5000 --tracker_port 5001 --serv_cloud_addr=114.212.81.11:5500 --video_side_port 5101
 ```
 
 ## 3 计算服务接口示例
@@ -167,41 +169,35 @@ edge$ python3 job_manager.py \
 接口：GET :5000/query/get_agg_info/<query_id>
 返回结果：
 {
-    // 该部分是列表，代表最近10帧的处理结果
+    // 该部分是列表，代表最近10帧的处理结果。经过改造，其包含每一个任务的执行和传输时延。
     "appended_result": [
         {
-            "count_result": {
-                "#no_helmet": 1
-            },
-            "n_loop": 11,
-            "frame_id": 300,
-            "delay": 0.2,
-            // 当前帧的调度执行计划
-            "ext_plan": {
-                "flow_mapping": {
-                    "face_detection": {
-                        "model_id": 0,
-                        "node_ip": "192.168.56.102",
-                        "node_role": "host"  // node_role有三种可能：host、edge、cloud，前端只区分cloud和非cloud，非cloud显示为“边端”
-                    },
-                    "face_alignment": {
-                        "model_id": 0,
-                        "node_ip": "192.168.56.102",
-                        "node_role": "cloud"
-                    }
-                },
-                "video_conf": {
-                    "encoder": "JEPG",
-                    "fps": 1,
-                    "resolution": "360p"
-                }
-            },
-            // 当前帧的运行时情境
-            "ext_runtime": {
-                "delay": 0.05,
-                "obj_n": 2,
-                "obj_stable": true
-            }
+                'count_result': {'total': 24, 'up': 20}, 
+                'delay': 0.16154261735769418, 
+                'execute_flag': True, 
+                'ext_plan': {
+                            'flow_mapping': 
+                                {   
+                                    'face_alignment': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'}, 
+                                    'face_detection': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'} 
+                                }, 
+                            'video_conf':   {'encoder': 'JEPG', 'fps': 1, 'reso': '360p'}
+                            }, 
+
+                'ext_runtime': {
+                                    'delay': 0.16154261735769418, 
+                                    'obj_n': 24.0, 
+                                    'obj_size': 219.36678242330404, 
+                                    'obj_stable': 1, 
+                                    'plan_result': 
+                                        {
+                                            'delay': {'face_alignment': 0.09300840817964993, 'face_detection': 0.06853420917804424}, 
+                                            'process_delay': {'face_alignment': 0.08888898446009709, 'face_detection': 0.060828484021700345}
+                                        }
+                                }, 
+                'frame_id': 25.0, 
+                'n_loop': 1, 
+                'proc_resource_info_list': [{'cpu_util_limit': 1.0, 'cpu_util_use': 0.060020833333333336, 'latency': 2.3111135959625244, 'pid': 505503}]
         },
         ...
     ],
@@ -353,3 +349,8 @@ flow_mapping = {
     直接获取`Content-Type: image/jpeg`的帧
 }
 ```
+
+## 9 知识库建立者knowledgebase_builder
+
+该文件位于expr_data2目录之中。其中实现了一个KnowledgeBaseBuilder类，改类提供建立知识库的方法。
+其所建立的知识库以json文件形式存在，往往需要复制粘贴到knowledgebase_bayes或knowledgebase_rotate目录下，被query_manager_v2的调度器使用。
