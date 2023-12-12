@@ -72,17 +72,7 @@ service_info_list=[
     },
 ]
 
-#可能需要建一个类来专门负责朝云端发送请求
-#以下是发出查询的基本内容，指定了Node地址和视频id，以及流水线要求、用户约束
-query_body = {
-        "node_addr": "172.27.133.85:7001",
-        "video_id": 99,   #99号是专门用于离线启动知识库的测试视频
-        "pipeline": ["face_detection", "face_alignment"],#制定任务类型
-        "user_constraint": {
-            "delay": 0.3,  #用户约束暂时设置为0.3
-            "accuracy": 0.7
-        }
-    }
+
 
 conf_names=["reso","fps","encoder"]   #这里存储流水线任务涉及的所有配置参数组合，但不报考任务卸载flow_mapping对应的内容
 serv_names=["face_detection","face_alignment"]   #这里包含流水线里涉及的各个服务的名称
@@ -259,10 +249,11 @@ class KnowledgeBaseBuilder():
             }
             '''
             row={}
-            
+            # print("查看待处理结果")
+            # print(res)
             row['n_loop']=res['n_loop']
             row['frame_id']=res['frame_id']
-            row['all_delay']=res['ext_runtime'][ 'delay']
+            row['all_delay']=res[ 'delay']
             row['edge_mem_ratio']=edge_mem_ratio
 
             for i in range(0,len(self.conf_names)):
@@ -314,6 +305,7 @@ class KnowledgeBaseBuilder():
 
     #发出一次请求并获取结果，期间更新配置，获取情境，查询结果，然后记录。
     def post_get_write(self,conf,flow_mapping):
+        # print("开始发出消息并配置")
         #（1）更新配置
         r1 = self.sess.post(url="http://{}/job/update_plan".format(self.node_addr),
                         json={"job_uid": self.query_id, "video_conf": conf, "flow_mapping": flow_mapping})
@@ -324,11 +316,22 @@ class KnowledgeBaseBuilder():
         r2 = self.sess.get(url="http://{}/get_resource_info".format(self.service_addr))
         if not r2.json():
             return {"status":1,"des":"fail to get resource info"}
+        else:
+            print("收到资源情境为:")
+            print(r2.json())
           
         #（3）查询执行结果并处理
         r3 = self.sess.get(url="http://{}/query/get_result/{}".format(self.query_addr, self.query_id))  
         if not r3.json():
             return {"status":2,"des":"fail to post one query request"}
+        
+                # (4) 查看当前运行时情境
+        r4 = self.sess.get(url="http://{}/query/get_runtime/{}".format(self.query_addr, self.query_id))  
+        if not r4.json():
+            return {"status":2,"des":"fail to post one query request"}
+        else:
+            print("收到运行时情境为:")
+            print(r4.json())
         
         # 如果r1 r2 r3都正常
         updatetd_result=self.write_in_file(r2=r2,r3=r3)
@@ -342,12 +345,22 @@ class KnowledgeBaseBuilder():
         r2 = self.sess.get(url="http://{}/get_resource_info".format(self.service_addr))
         if not r2.json():
             return {"status":1,"des":"fail to get resource info"}
+        else:
+            print("收到资源情境为:")
+            print(r2.json())
           
         #（2）查询执行结果并处理
         r3 = self.sess.get(url="http://{}/query/get_result/{}".format(self.query_addr, self.query_id))  
         if not r3.json():
             return {"status":2,"des":"fail to post one query request"}
         
+        # (4) 查看当前运行时情境
+        r4 = self.sess.get(url="http://{}/query/get_runtime/{}".format(self.query_addr, self.query_id))  
+        if not r4.json():
+            return {"status":2,"des":"fail to post one query request"}
+        else:
+            print("收到运行时情境为:")
+            print(r4.json())
         # 如果r1 r2 r3都正常
         updatetd_result=self.write_in_file(r2=r2,r3=r3)
 
@@ -384,6 +397,21 @@ class KnowledgeBaseBuilder():
         record_sum=0
         while(record_sum<record_num):
             get_resopnse=self.get_write()
+            if(get_resopnse['status']==3):
+                updatetd_result=get_resopnse['updatetd_result']
+                for i in range(0,len(updatetd_result)):
+                    print(updatetd_result[i])
+                    record_sum+=1
+
+        self.fp.close()
+        print("记录结束，查看文件")
+        return filename 
+    
+    def just_record_with_static_plan(self,record_num,conf,flow_mapping):
+        filename=self.init_record_file()
+        record_sum=0
+        while(record_sum<record_num):
+            get_resopnse=self.post_get_write(conf=conf,flow_mapping=flow_mapping)
             if(get_resopnse['status']==3):
                 updatetd_result=get_resopnse['updatetd_result']
                 for i in range(0,len(updatetd_result)):
@@ -636,12 +664,9 @@ class KnowledgeBaseBuilder():
 
 
 
-
-
-
 query_body = {
-        "node_addr": "172.27.143.164",
-        "video_id": 100,   #如果需要建立新的知识库，此处video_id应该改为99
+        "node_addr": "172.27.151.145:5001",
+        "video_id": 99,   #如果需要建立新的知识库，此处video_id应该改为99
         "pipeline": ["face_detection", "face_alignment"],#制定任务类型
         "user_constraint": {
             "delay": 0.1,  #用户约束暂时设置为0.3
@@ -651,15 +676,39 @@ query_body = {
 
 if __name__ == "__main__":
 
-    kb_builder=KnowledgeBaseBuilder(expr_name="headup-detect_video100_test",
-                                    node_ip='172.27.143.164',
-                                    node_addr="172.27.143.164:5001",
+    kb_builder=KnowledgeBaseBuilder(expr_name="headup-detect_video100_verify",
+                                    node_ip='172.27.151.145',
+                                    node_addr="172.27.151.145:5001",
                                     query_addr="114.212.81.11:5000",
                                     service_addr="114.212.81.11:5500",
                                     query_body=query_body,
                                     conf_names=conf_names,
                                     serv_names=serv_names,
                                     service_info_list=service_info_list)
+
+    # 在一个静态配置之下持续采样获取数据 使用此方法时采用99作为视频编号
+    need_to_verify=1  
+    if need_to_verify==1:
+        kb_builder.send_query() 
+        conf={
+            "reso": "360p",
+            "fps": 1,
+            "encoder": "JEPG"
+        }
+        flow_mapping={
+            "face_detection": {
+                "model_id": 0,
+                "node_ip": "172.27.151.145",
+                "node_role": "host"  
+            },
+            "face_alignment": {
+                "model_id": 0,
+                "node_ip": "114.212.81.11",
+                "node_role": "cloud"
+            }
+        }
+        kb_builder.just_record_with_static_plan(record_num=50,conf=conf,flow_mapping=flow_mapping)
+
     
    # 如果只想发出一个查询并查看任务的执行情况，使用以下if条件对应的代码。此时，查询发出的query_body内的video_id最好不要是99，
    # 因为这种情况下云端会认为当前处于知识库建立阶段而不执行调度。
@@ -681,9 +730,20 @@ if __name__ == "__main__":
     
     filepath='20231130_21_16_40_knowledgebase_builder_0.3_0.7_headup-detect_video99_newbuilder_bayes.csv'
     filepath='20231130_19_44_42_knowledgebase_builder_0.3_0.7_headup-detect_video99_newbuilder_rotate.csv'
-    # filepath='20231203_17_17_09_knowledgebase_builder_0.3_0.7_headup-detect_video99_newbuilder_bayes.csv'
+    filepath='20231203_17_17_09_knowledgebase_builder_0.3_0.7_headup-detect_video99_newbuilder_bayes.csv'
     filepath='20231203_17_37_27_knowledgebase_builder_0.3_0.7_headup-detect_video99_newbuilder_rotate.csv'
-    filepath='20231205_09_46_44_knowledgebase_builder_0.3_0.7_headup-detect_video100_test.csv' # 约束为0.3
+    
+    filepath='20231203_17_17_09_knowledgebase_builder_0.3_0.7_headup-detect_video99_newbuilder_bayes.csv'
+
+    filepath='20231205_15_44_34_knowledgebase_builder_0.4_0.7_headup-detect_video100_test.csv'
+    filepath='20231205_15_46_10_knowledgebase_builder_0.3_0.7_headup-detect_video100_test.csv'
+    filepath='20231205_15_48_05_knowledgebase_builder_0.2_0.7_headup-detect_video100_test.csv'
+    filepath='20231205_15_50_36_knowledgebase_builder_0.1_0.7_headup-detect_video100_test.csv'
+    filepath='20231205_15_42_28_knowledgebase_builder_0.5_0.7_headup-detect_video100_test.csv' 
+    
+    
+    
+    
     
     # 如果想要基于need_to_test或need_to_build的结果进行可视化分析，可调用以下if条件对应的代码进行绘图。
     need_to_draw=0

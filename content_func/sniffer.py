@@ -1,4 +1,6 @@
 import numpy as np
+import math
+from logging_utils import root_logger
 
 class Sniffer():
     CONTENT_ELE_MAXN = 50
@@ -91,10 +93,6 @@ class Sniffer():
         # 获取场景稳定性
         if 'obj_n' in self.runtime_pkg_list.keys():
             print("来看stable:")
-            print("来看stable:")
-            print("来看stable:")
-            print("来看stable:")
-            print("来看satble:")
             print("当前的obj_stable值是:",self.obj_stable_value)
             # runtime_desc['obj_stable'] = True if self.obj_stable_value < 0.3 else False
             runtime_desc['obj_stable'] = self.obj_stable_value #直接赋值

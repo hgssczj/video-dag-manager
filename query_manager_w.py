@@ -13,14 +13,10 @@ import time
 import functools
 import argparse
 from werkzeug.serving import WSGIRequestHandler
-import sys
 
 import field_codec_utils
 from logging_utils import root_logger
 import logging_utils
-
-import common
-import json
 
 class Query():
     CONTENT_ELE_MAXN = 50
@@ -40,33 +36,19 @@ class Query():
         self.result = None
         # 查询指令运行时情境
         self.current_runtime = dict()
-        # 以下两个内容用于存储边端同步来的运行时情境
         self.runtime_pkg_list = dict()
         self.runtime_info_list = dict()  # key为任务名，value为列表
-        # 历史记录
-        self.plan_list = []
-        self.runtime_list = []
 
     # ---------------------------------------
     # ---- 属性 ----
     def set_plan(self, video_conf, flow_mapping):
-        while len(self.plan_list) >= QueryManager.LIST_BUFFER_SIZE_PER_QUERY:
-            print("len(self.plan_list)={}".format(len(self.plan_list)))
-            del self.plan_list[0]
-        self.plan_list.append(self.get_plan())
-
         self.flow_mapping = flow_mapping
         self.video_conf = video_conf
         assert isinstance(self.flow_mapping, dict)
         assert isinstance(self.video_conf, dict)
 
     def get_plan(self):
-        return {
-            common.PLAN_KEY_VIDEO_CONF: self.video_conf,
-            common.PLAN_KEY_FLOW_MAPPING: self.flow_mapping
-        }
-    
-    
+        return {"video_conf": self.video_conf, "flow_mapping": self.flow_mapping}
 
     def update_runtime(self, runtime_info):
         for taskname in runtime_info:
@@ -232,18 +214,13 @@ class Query():
         return runtime_desc
     
     def set_runtime(self, runtime_info):
-        while len(self.runtime_list) >= QueryManager.LIST_BUFFER_SIZE_PER_QUERY:
-            print("len(self.runtime_list)={}".format(len(self.runtime_list)))
-            del self.runtime_list[0]
-        self.runtime_list.append(self.current_runtime)
         self.current_runtime = runtime_info
     
     def get_runtime(self):
         new_runtime = self.aggregate_runtime()
         assert isinstance(new_runtime, dict)
         if new_runtime:  # 若new_runtime非空，则更新current_runtime；否则保持current_runtime
-            self.set_runtime(new_runtime)
-            # self.current_runtime = new_runtime
+            self.current_runtime = new_runtime
         return self.current_runtime
 
     def set_user_constraint(self, user_constraint):
@@ -257,40 +234,21 @@ class Query():
         return self.query_id
     
     def update_result(self, new_result):
-        '''
-        更新query的处理结果。
-        该函数由query对应的job通过RESTFUL API触发，参见/query/sync_result接口
-        由于runtime在云端生成，所以此处根据result更新的时候只会重置plan
-        '''
         if not self.result:
-            self.result = {
-                common.SYNC_RESULT_KEY_APPEND: list(),
-                common.SYNC_RESULT_KEY_LATEST: dict()
-            }
+            self.result = {"appended_result": list(), "latest_result": dict()}
         assert isinstance(self.result, dict)
 
         for k, v in new_result.items():
             assert k in self.result.keys()
-            if k == common.SYNC_RESULT_KEY_APPEND:
+            if k == "appended_result":
                 # 仅保留最近一批结果（防止爆内存）
                 if len(self.result[k]) > QueryManager.LIST_BUFFER_SIZE_PER_QUERY:
                     del self.result[k][0]
                 self.result[k].append(v)
-                # 更新plan
-                if isinstance(v, dict):
-                    assert(common.SYNC_RESULT_KEY_PLAN in v.keys())
-                    assert(common.SYNC_RESULT_KEY_RUNTIME in v.keys())
-                    self.set_plan(
-                        video_conf=v[common.SYNC_RESULT_KEY_PLAN][common.PLAN_KEY_VIDEO_CONF],
-                        flow_mapping=v[common.SYNC_RESULT_KEY_PLAN][common.PLAN_KEY_FLOW_MAPPING],
-                    )
-            elif k == common.SYNC_RESULT_KEY_LATEST:
+            else:
                 # 直接替换结果
                 assert isinstance(v, dict)
                 self.result[k].update(v)
-            else:
-                root_logger.error("unsupported sync result key: {}. value is: {}".format(k, v))
-#以下的get_last_plan_result和get_appended_result_list在query_manager里被删除了
     
     def get_last_plan_result(self):
         if self.result and 'latest_result' in self.result:
@@ -504,9 +462,9 @@ def query_get_agg_info_cbk(query_id):
     resp = dict()
     resp.update(query_manager.get_query_result(query_id))
 
-    # resp["latest_result"] = dict()
-    # resp["latest_result"]["plan"] = query_manager.get_query_plan(query_id)
-    # resp["latest_result"]["runtime"] = query_manager.get_query_runtime(query_id)
+    resp["latest_result"] = dict()
+    resp["latest_result"]["plan"] = query_manager.get_query_plan(query_id)
+    resp["latest_result"]["runtime"] = query_manager.get_query_runtime(query_id)
     return flask.jsonify(resp)
 
 @query_app.route("/node/get_video_info", methods=["GET"])
@@ -550,8 +508,8 @@ def cloud_scheduler_loop(query_manager=None):
     # import scheduler_func.pid_scheduler
     # import scheduler_func.pid_mogai_scheduler
     # import scheduler_func.pid_content_aware_scheduler
-    # import scheduler_func.lat_first_pid
-    import scheduler_func.lat_first_pid_muledge
+    import scheduler_func.lat_first_pid
+    import scheduler_func.lat_first_pid_resource_runtime
 
 
     while True:
@@ -572,141 +530,63 @@ def cloud_scheduler_loop(query_manager=None):
 
                 query_id = query.query_id
                 node_addr = query.node_addr
+                # last_plan_result = query.get_last_plan_result()
                 user_constraint = query.user_constraint
                 assert node_addr
 
+                '''
+                # 旧版本的运行时情境获取方式：向边端job_manager发送请求，边端聚合之后发给云
                 # 获取当前query的运行时情境（query_id == job_uid
-                # r = query_manager.sess.get(
-                #     url="http://{}/job/get_runtime/{}".format(node_addr, query_id)
-                # )
-                # runtime_info = r.json()
-                # 这里直接使用get_runtime来获取内容，也就是说，不需要向边缘端发出请求来直接获取边缘端情境了。
+                r = query_manager.sess.get(
+                    url="http://{}/job/get_runtime/{}".format(node_addr, query_id)
+                )
+                runtime_info = r.json()
+                # 更新查询的运行时情境（以便用户从云端获取）
+                if runtime_info:
+                    query.set_runtime(runtime_info=runtime_info)  # 每调度一次更新一次云端Query中的runtime
+                '''
+                # 新版本的运行时情境获取方式，直接从云端的query_manager或者query中获取
                 runtime_info = query.get_runtime()
                 root_logger.info("In cloud_scheduler_loop, runtime_info is {}".format(runtime_info))
 
-                #修改：只有当runtimw_info不存在或者含有delay的时候才运行。
-                if not runtime_info or 'delay' in runtime_info :
-                    # conf, flow_mapping = scheduler_func.pid_mogai_scheduler.scheduler(
-                    # conf, flow_mapping = scheduler_func.pid_content_aware_scheduler.scheduler(
-                    # conf, flow_mapping = scheduler_func.lat_first_pid.scheduler(
-                    conf, flow_mapping = scheduler_func.lat_first_pid_muledge.scheduler(
-                        # flow=job.get_dag_flow(),
-                        job_uid=query_id,
-                        dag={"generator": "x", "flow": query.pipeline},
-                        resource_info=resource_info,
-                        runtime_info=runtime_info,
-                        # last_plan_res=last_plan_result,
-                        user_constraint=user_constraint
-                    )
-                print("下面展示即将发送到边端的调度计划")
-                print(type(query_id),query_id)
-                print(type(conf),conf)
-                print(type(flow_mapping),flow_mapping)
+                # conf, flow_mapping = scheduler_func.pid_mogai_scheduler.scheduler(
+                # conf, flow_mapping = scheduler_func.pid_content_aware_scheduler.scheduler(
 
-                # # 更新运行时情境和查询策略（以便用户从云端获取）
-                # query.set_plan_and_runtime(video_conf=conf, flow_mapping=flow_mapping, runtime_info=runtime_info)
+                conf, flow_mapping = scheduler_func.lat_first_pid.scheduler(
+                    # flow=job.get_dag_flow(),
+                    job_uid=query_id,
+                    dag={"generator": "x", "flow": query.pipeline},
+                    resource_info=resource_info,
+                    runtime_info=runtime_info,
+                    # last_plan_res=last_plan_result,
+                    user_constraint=user_constraint
+                )
 
+                '''
+                conf, flow_mapping, resource_alloc = scheduler_func.lat_first_pid_resource_runtime.scheduler(
+                    # flow=job.get_dag_flow(),
+                    job_uid=query_id,
+                    dag={"generator": "x", "flow": query.pipeline},
+                    resource_info=resource_info,
+                    runtime_info=runtime_info,
+                    # last_plan_res=last_plan_result,
+                    user_constraint=user_constraint
+                )
+                '''
+                # 更新查询策略（以便用户从云端获取）
+                query.set_plan(video_conf=conf, flow_mapping=flow_mapping)
                 # 主动post策略到对应节点（即更新对应视频流query pipeline的执行策略），让节点代理执行，不等待执行结果
+
                 r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
                             json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping})
+
+                '''
+                r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
+                                            json={"job_uid": query_id, "video_conf": conf,
+                                                  "flow_mapping": flow_mapping, "resource_alloc": resource_alloc})
+                '''
         # except AssertionError as e:
         #     root_logger.error("caught assertion, msg={}".format(e), exc_info=True)
-        except Exception as e:
-            root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
-
-# 云端调度器主循环：读取json文件的配置并直接使用，不进行自主调度
-def cloud_scheduler_loop_static(query_manager=None):
-    assert query_manager
-    assert isinstance(query_manager, QueryManager)
-    while True:
-        # 每5s调度一次
-        time.sleep(3)
-        root_logger.info("start new schedule ...")
-        try:
-            # 访问已注册的所有job实例，获取实例中保存的结果，生成调度策略
-            query_dict = query_manager.query_dict.copy()
-            for qid, query in query_dict.items():
-                assert isinstance(query, Query)
-                query_id = query.query_id
-                if query.video_id!=99:  #如果是99，意味着在进行视频测试，此时云端调度器不工作
-                    node_addr = query.node_addr
-                    user_constraint = query.user_constraint
-                    assert node_addr
-                    conf={
-                        "reso": "360p",
-                        "fps": 1,
-                        "encoder": "JEPG"
-                    }
-                    flow_mapping={
-                        "face_detection": {
-                            "model_id": 0,
-                            "node_ip": "114.212.81.11",
-                            "node_role": "cloud"
-                        },
-                        "face_alignment": {
-                            "model_id": 0,
-                            "node_ip": "114.212.81.11",
-                            "node_role": "cloud"
-                        }
-                    }
-                    with open('csy_test_data.json') as f:
-                        csy_test_data = json.load(f)
-                        conf=csy_test_data['video_conf']
-                        flow_mapping=csy_test_data['flow_mapping']
-                    print("下面展示即将发送到边端的调度计划，无自主调度，读取文件而已：")
-                    print(type(query_id),query_id)
-                    print(type(conf),conf)
-                    print(type(flow_mapping),flow_mapping)
-                    # 主动post策略到对应节点（即更新对应视频流query pipeline的执行策略），让节点代理执行，不等待执行结果
-                    r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
-                                json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping})
-                
-        except Exception as e:
-            root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
-
-# 云端调度器主循环：基于知识库进行调度器
-def cloud_scheduler_loop_kb(query_manager=None):
-    assert query_manager
-    assert isinstance(query_manager, QueryManager)
-    import scheduler_func.lat_first_kb_muledge
-    while True:
-        # 每5s调度一次
-        time.sleep(3)
-        
-        root_logger.info("start new schedule ...")
-        try:
-            # 获取资源情境
-            r = query_manager.sess.get(
-                url="http://{}/get_resource_info".format(query_manager.service_cloud_addr))
-            resource_info = r.json()
-            # 为所有query生成调度策略
-            query_dict = query_manager.query_dict.copy()
-            for qid, query in query_dict.items():
-                assert isinstance(query, Query)
-                query_id = query.query_id
-                if query.video_id!=99:  #如果是99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
-                    node_addr = query.node_addr
-                    user_constraint = query.user_constraint
-                    assert node_addr
-
-                    runtime_info = query.get_runtime()
-                    #修改：只有当runtimw_info不存在或者含有delay的时候才运行。
-                    if not runtime_info or 'delay' in runtime_info :
-                        conf, flow_mapping = scheduler_func.lat_first_kb_muledge.scheduler(
-                            job_uid=query_id,
-                            dag={"generator": "x", "flow": query.pipeline},
-                            resource_info=resource_info,
-                            runtime_info=runtime_info,
-                            user_constraint=user_constraint
-                        )
-                    print("下面展示即将发送到边端的调度计划：")
-                    print(type(query_id),query_id)
-                    print(type(conf),conf)
-                    print(type(flow_mapping),flow_mapping)
-
-                    # 更新边端策略
-                    r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
-                                json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping})
         except Exception as e:
             root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
 
@@ -717,24 +597,22 @@ if __name__ == "__main__":
                         type=int, default=5000)
     parser.add_argument('--serv_cloud_addr', dest='serv_cloud_addr',
                         type=str, default='127.0.0.1:5500')
-    parser.add_argument('--video_cloud_port', dest='video_cloud_port',
-                        type=int, default=5100)
     args = parser.parse_args()
 
     threading.Thread(target=start_query_listener,
                      args=(args.query_port,),
                      name="QueryFlask",
-                     daemon=True).start()
+                     daemon=True).start()  # 启动云端flask服务器（用户提交任务、获取边端执行结果）
     
     time.sleep(1)
 
-    query_manager.set_service_cloud_addr(addr=args.serv_cloud_addr)
+    query_manager.set_service_cloud_addr(addr=args.serv_cloud_addr)  # 指定请求计算服务、获得运行时情境的ip和端口
 
     # 启动视频流sidechan（由云端转发请求到边端）
     import cloud_sidechan
-    video_serv_inter_port = args.video_cloud_port
+    video_serv_inter_port = 5100
     mp.Process(target=cloud_sidechan.init_and_start_video_proc,
-               args=(video_serv_inter_port,)).start()
+               args=(video_serv_inter_port,)).start()  # 启动另一个服务器进程，用于直接向边缘端请求视频帧并提供给前端页面显示
     time.sleep(1)
 
-    cloud_scheduler_loop_kb(query_manager)
+    cloud_scheduler_loop(query_manager)  # 主线程运行调度器函数

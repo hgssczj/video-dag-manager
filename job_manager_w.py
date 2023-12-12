@@ -18,10 +18,6 @@ import field_codec_utils
 from logging_utils import root_logger
 import logging_utils
 
-import common
-import json
-from camera_simulation import video_info_list
-
 resolution_wh = {
     "360p": {
         "w": 480,
@@ -67,10 +63,6 @@ def sfg_get_next_init_task(
         # 从video_fps中实际读取
         cam_frame_id = video_cap.get(cv2.CAP_PROP_POS_FRAMES)
         ret, frame = video_cap.read()
-        if not ret:
-            root_logger.error('Camera input error，please check.')
-            time.sleep(1)
-            continue
 
         # 视频流sidechan
         video_q.put_nowait({
@@ -96,10 +88,10 @@ def sfg_get_next_init_task(
     print("new_cam_frame_id={} new_conf_frame_id={}".format(new_cam_frame_id, new_conf_frame_id))
 
 
-    # 根据video_conf['reso']调整大小
+    # 根据video_conf['resolution']调整大小
     frame = cv2.resize(frame, (
-        resolution_wh[video_conf['reso']]['w'],
-        resolution_wh[video_conf['reso']]['h']
+        resolution_wh[video_conf['resolution']]['w'],
+        resolution_wh[video_conf['resolution']]['h']
     ))
 
     input_ctx = dict()
@@ -132,7 +124,11 @@ class JobManager():
         self.sess = requests.Session()
 
         # 本地视频流
-        self.video_info_list = video_info_list
+        self.video_info_list = [
+            {"id": 0, "type": "student in classroom", "url": "input/input.mov"},
+            {"id": 1, "type": "people in meeting-room", "url": "input/input1.mp4"},
+            {"id": 3, "type": "traffic flow outdoor", "url": "input/traffic-720p.mp4"}
+        ]
 
         # 模拟数据库：记录下发到本地的job
         self.job_dict = dict()
@@ -171,7 +167,7 @@ class JobManager():
         assert isinstance(job, Job)
         job.set_plan(video_conf=video_conf, flow_mapping=flow_mapping)
 
-        # root_logger.info("updated job-{} plan".format(job.get_job_uid()))
+        root_logger.info("updated job-{} plan".format(job.get_job_uid()))
         
     # 获取运行时情境
     def get_job_runtime(self, job_uid):
@@ -181,7 +177,7 @@ class JobManager():
         assert isinstance(job, Job)
         rt = job.get_runtime()
 
-        # root_logger.info("get runtime of job-{}: {}".format(job_uid, rt))
+        root_logger.info("get runtime of job-{}: {}".format(job_uid, rt))
         return rt
 
     # 在本地启动新的job
@@ -194,11 +190,11 @@ class JobManager():
                   user_constraint=user_constraint)
         job.set_manager(self)
         self.job_dict[job.get_job_uid()] = job
-        # root_logger.info("current job_dict={}".format(self.job_dict.keys()))
+        root_logger.info("current job_dict={}".format(self.job_dict.keys()))
 
     # 工作节点获取未分配工作线程的查询任务
     def start_new_job(self):
-        # root_logger.info("job_dict keys: {}".format(self.job_dict.keys()))
+        root_logger.info("job_dict keys: {}".format(self.job_dict.keys()))
 
         n = 0
         for jid, job in self.job_dict.items():
@@ -210,7 +206,7 @@ class JobManager():
                 n += 1
 
         
-        # root_logger.info("{}/{} jobs running".format(n, len(self.job_dict)))
+        root_logger.info("{}/{} jobs running".format(n, len(self.job_dict)))
 
     # TODO：将Job的结果同步到query manager（本地不存放结果）
     def sync_job_result(self, job_uid, job_result, report2qm=True):
@@ -267,7 +263,7 @@ class Job():
         self.worker_thread = None
         # 运行时情境
         self.sniffer = content_func.sniffer.Sniffer(job_uid=job_uid)
-        # self.current_runtime = dict()
+        self.current_runtime = dict()
         # 调度状态机：执行计划与历史计划的执行结果
         self.user_constraint = user_constraint
         self.flow_mapping = None
@@ -303,10 +299,7 @@ class Job():
         assert isinstance(self.video_conf, dict)
 
     def get_plan(self):
-        return {
-            common.PLAN_KEY_VIDEO_CONF: self.video_conf,
-            common.PLAN_KEY_FLOW_MAPPING: self.flow_mapping
-        }
+        return {"video_conf": self.video_conf, "flow_mapping": self.flow_mapping}
 
     def set_user_constraint(self, user_constraint):
         self.user_constraint = user_constraint
@@ -315,20 +308,16 @@ class Job():
     def get_user_constraint(self):
         return self.user_constraint
     
-    '''
     # -----------------------
     # ---- 运行时情境相关 ----
     def update_runtime(self, taskname, output_ctx):
         self.sniffer.sniff(taskname=taskname, output_ctx=output_ctx)
-    '''
 
-    '''
     def get_runtime(self):
         new_runtime = self.sniffer.describe_runtime()
         if new_runtime:
             self.current_runtime = new_runtime
         return self.current_runtime
-    '''
     
     # ------------------
     # ---- 执行循环 ----
@@ -363,9 +352,8 @@ class Job():
             plan_result = dict()
             plan_result['delay'] = dict()  # 保存DAG中每一步执行的时延
             runtime_dict = dict()
-            plan_result['process_delay']=dict() #记录当前帧处理过程中每一个task对应的计算时延，process_delay加上网络传输时延才等于delay
             for taskname in self.pipeline:
-                print("开始执行服务",taskname)
+
                 root_logger.info("to forward taskname={}".format(taskname))
 
                 input_ctx = output_ctx
@@ -382,16 +370,6 @@ class Job():
                 root_logger.info("get url {}".format(url))
 
                 st_time = time.time()
-                #可以在这里设置一个时延，强行拉长传输时延。如下，强制读取文件获取时延。
-                '''
-                sleep_time=0
-                with open('csy_test_data.json') as f:
-                    csy_test_data = json.load(f)
-                    sleep_time=csy_test_data['sleep_time']
-                print("睡一会",sleep_time)
-                time.sleep(sleep_time)
-                '''
-  
                 output_ctx = self.invoke_service(serv_url=url, taskname=taskname, input_ctx=input_ctx)
                 # 重试
                 while not output_ctx:
@@ -403,10 +381,6 @@ class Job():
                 root_logger.info("got service result: {}, (delta_t={})".format(
                                   output_ctx.keys(), ed_time - st_time))
                 plan_result['delay'][taskname] = ed_time - st_time
-                print("展示云端所发资源信息:") #把各阶段时延都保存到plan_result内以便同步到云端
-                print(output_ctx['proc_resource_info'])
-                plan_result['process_delay'][taskname]=output_ctx['proc_resource_info']['compute_latency']
-                #下面的注释不用管
                 # 运行时感知：应用相关
                 # wrapped_ctx = output_ctx.copy()
                 # wrapped_ctx['delay'] = (ed_time - st_time) / ((cam_frame_id - curr_cam_frame_id + 1) * 1.0)
@@ -416,11 +390,10 @@ class Job():
                 output_ctx['task_conf'] = self.video_conf  # 将当前任务的可配置参数也报告给运行时情境
 
                 runtime_dict[taskname] = output_ctx
-                print("完成情境获取")
-                # self.update_runtime(taskname=taskname, output_ctx=output_ctx)
+                # self.update_runtime(taskname=taskname, output_ctx=output_ctx)  # 将DAG每一步的结果都汇报给运行时情境并更新情境
 
             n += 1
-            print("流水线初步完成，进行收尾处理")
+
             total_frame_delay = 0
             for taskname in plan_result['delay']:
                 plan_result['delay'][taskname] = \
@@ -431,10 +404,6 @@ class Job():
                 "frame_id": cam_frame_id,
                 "n_loop": n
             }
-            #完成以上处理后，total_frame_delay是总时延，而plan_result里完整包含了当前帧各阶段的真实时延，应该作为runtime_info的一部分
-            for taskname in plan_result['process_delay']:
-                plan_result['process_delay'][taskname] = \
-                    plan_result['process_delay'][taskname] / ((cam_frame_id - curr_cam_frame_id + 1) * 1.0)
             # self.update_runtime(taskname='end_pipe', output_ctx={"delay": total_frame_delay})  # 将DAG执行的总时延也作为情境汇报
 
             # DAG执行结束之后再次更新运行时情境，主要用于运行时情境画像，为知识库建立提供数据
@@ -445,24 +414,22 @@ class Job():
             output_ctx["n_loop"] = n
             output_ctx["delay"] = total_frame_delay
             frame_result.update(output_ctx)
-            # 将当前帧的运行时情境和调度策略同步推送到云端query manager
-            frame_result[common.SYNC_RESULT_KEY_PLAN] = self.get_plan()
-            # frame_result[common.SYNC_RESULT_KEY_RUNTIME] = self.get_runtime()
-            frame_result[common.SYNC_RESULT_KEY_RUNTIME] = {}
-            # 将plan_result放入frame_result[common.SYNC_RESULT_KEY_RUNTIME]
-            frame_result[common.SYNC_RESULT_KEY_RUNTIME]['plan_result']=plan_result
 
             curr_cam_frame_id = cam_frame_id
             curr_conf_frame_id = conf_frame_id
 
             # 3、通过job manager同步结果到query manager
             #    注意：本地不保存结果
-            print("开始情境同步")
             self.manager.sync_job_result(job_uid=self.get_job_uid(),
                                            job_result={
-                                                common.SYNC_RESULT_KEY_APPEND: frame_result,
-                                            }
-                                        )
+                                            #    "appended_result": frame_result
+                                               "appended_result": frame_result,  # 每一帧最后的执行结果
+                                               "latest_result": {
+                                                   "plan": self.get_plan()  # 当前的调度方案
+                                            #        "plan_result": plan_result
+                                                }
+                                            })
+
             # 4、通过job manager同步运行时情境信息到query manager，本地不保存情境信息
             self.manager.sync_job_runtime(job_uid=self.get_job_uid(), job_runtime=runtime_dict)
 
@@ -516,7 +483,7 @@ def job_submit_job_cbk():
                            pipeline=para['pipeline'],
                            user_constraint=para['user_constraint'])
     return flask.jsonify({"status": 0,
-                          "msg": "submitted to manager from api: job/submit_job",
+                          "msg": "submitted to manager from api: node/submit_job",
                           "job_uid": para["job_uid"]})
 
 # 接受调度计划更新
@@ -524,7 +491,7 @@ def job_submit_job_cbk():
 @flask_cors.cross_origin()
 def job_update_plan_cbk():
     para = flask.request.json
-    # root_logger.info("/job/update_plan got para={}".format(para))
+    root_logger.info("/job/update_plan got para={}".format(para))
 
     # 与工作节点模拟CPU执行的主循环竞争manager
     job_manager.update_job_plan(job_uid=para['job_uid'],
@@ -534,14 +501,13 @@ def job_update_plan_cbk():
     return flask.jsonify({"status": 0, "msg": "node updated plan (manager.update_job_plan)"})
 
 # 获取job的运行时情境
-'''
 @tracker_app.route("/job/get_runtime/<job_uid>", methods=["GET"])
 @flask_cors.cross_origin()
 def job_sync_runtime_cbk(job_uid):
     rt = job_manager.get_job_runtime(job_uid=job_uid)
 
     return flask.jsonify(rt)
-'''
+
 
 
 
@@ -555,13 +521,11 @@ def start_tracker_listener(serv_port=5001):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--query_addr', dest='query_addr',
-                        type=str, default='114.212.81.11:5000')
-    parser.add_argument('--tracker_port', dest='tracker_port',
+                        type=str, default='127.0.0.1:5000')
+    parser.add_argument('--tracker_port', dest='tracker_port', 
                         type=int, default=5001)
     parser.add_argument('--serv_cloud_addr', dest='serv_cloud_addr',
-                        type=str, default='114.212.81.11:5500')
-    parser.add_argument('--video_side_port', dest='video_side_port',
-                        type=int, default=5101)
+                        type=str, default='127.0.0.1:5500')
     args = parser.parse_args()
 
     # 接受下发的query生成job、接收更新的调度策略
@@ -581,7 +545,7 @@ if __name__ == "__main__":
 
     # 启动视频流sidechan（由云端转发请求到边端）
     import edge_sidechan
-    video_serv_inter_port = args.video_side_port
+    video_serv_inter_port = 5101
     mp.Process(target=edge_sidechan.init_and_start_video_proc,
                args=(video_q, video_serv_inter_port,)).start()
     time.sleep(1)
