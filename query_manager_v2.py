@@ -34,6 +34,7 @@ class Query():
         self.user_constraint = user_constraint
         self.flow_mapping = None
         self.video_conf = None
+        self.resource_limit = None
         # NOTES: 目前仅支持流水线
         assert isinstance(self.pipeline, list)
         # 查询指令结果
@@ -49,7 +50,7 @@ class Query():
 
     # ---------------------------------------
     # ---- 属性 ----
-    def set_plan(self, video_conf, flow_mapping):
+    def set_plan(self, video_conf, flow_mapping, resource_limit):
         while len(self.plan_list) >= QueryManager.LIST_BUFFER_SIZE_PER_QUERY:
             print("len(self.plan_list)={}".format(len(self.plan_list)))
             del self.plan_list[0]
@@ -57,13 +58,16 @@ class Query():
 
         self.flow_mapping = flow_mapping
         self.video_conf = video_conf
+        self.resource_limit = resource_limit
         assert isinstance(self.flow_mapping, dict)
         assert isinstance(self.video_conf, dict)
+        assert isinstance(self.resource_limit,dict)
 
     def get_plan(self):
         return {
             common.PLAN_KEY_VIDEO_CONF: self.video_conf,
-            common.PLAN_KEY_FLOW_MAPPING: self.flow_mapping
+            common.PLAN_KEY_FLOW_MAPPING: self.flow_mapping,
+            common.PLAN_KEY_RESOURCE_LIMIT: self.resource_limit
         }
     
     
@@ -283,6 +287,7 @@ class Query():
                     self.set_plan(
                         video_conf=v[common.SYNC_RESULT_KEY_PLAN][common.PLAN_KEY_VIDEO_CONF],
                         flow_mapping=v[common.SYNC_RESULT_KEY_PLAN][common.PLAN_KEY_FLOW_MAPPING],
+                        resource_limit=v[common.SYNC_RESULT_KEY_PLAN][common.PLAN_KEY_RESOURCE_LIMIT]
                     )
             elif k == common.SYNC_RESULT_KEY_LATEST:
                 # 直接替换结果
@@ -603,14 +608,20 @@ def cloud_scheduler_loop(query_manager=None):
                 print(type(conf),conf)
                 print(type(flow_mapping),flow_mapping)
 
-                # # 更新运行时情境和查询策略（以便用户从云端获取）
-                # query.set_plan_and_runtime(video_conf=conf, flow_mapping=flow_mapping, runtime_info=runtime_info)
+                resource_limit={
+                    "face_detection": {
+                        "cpu_util_limit": 1,
+                        "mem_util_limit": 1,
+                    },
+                    "face_alignment": {
+                        "cpu_util_limit": 1,
+                        "mem_util_limit": 1,
+                    }
+                }
 
                 # 主动post策略到对应节点（即更新对应视频流query pipeline的执行策略），让节点代理执行，不等待执行结果
                 r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
-                            json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping})
-        # except AssertionError as e:
-        #     root_logger.error("caught assertion, msg={}".format(e), exc_info=True)
+                            json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping,"resource_limit":resource_limit})
         except Exception as e:
             root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
 
@@ -635,7 +646,7 @@ def cloud_scheduler_loop_static(query_manager=None):
                     conf={
                         "reso": "360p",
                         "fps": 1,
-                        "encoder": "JEPG"
+                        "encoder": "JPEG"
                     }
                     flow_mapping={
                         "face_detection": {
@@ -649,6 +660,16 @@ def cloud_scheduler_loop_static(query_manager=None):
                             "node_role": "cloud"
                         }
                     }
+                    resource_limit={
+                        "face_detection": {
+                            "cpu_util_limit": 1,
+                            "mem_util_limit": 1,
+                        },
+                        "face_alignment": {
+                            "cpu_util_limit": 1,
+                            "mem_util_limit": 1,
+                        }
+                    }
                     with open('csy_test_data.json') as f:
                         csy_test_data = json.load(f)
                         conf=csy_test_data['video_conf']
@@ -659,7 +680,7 @@ def cloud_scheduler_loop_static(query_manager=None):
                     print(type(flow_mapping),flow_mapping)
                     # 主动post策略到对应节点（即更新对应视频流query pipeline的执行策略），让节点代理执行，不等待执行结果
                     r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
-                                json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping})
+                                json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping,'resource_limit':resource_limit})
                 
         except Exception as e:
             root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
@@ -703,10 +724,20 @@ def cloud_scheduler_loop_kb(query_manager=None):
                     print(type(query_id),query_id)
                     print(type(conf),conf)
                     print(type(flow_mapping),flow_mapping)
+                    resource_limit={
+                        "face_detection": {
+                            "cpu_util_limit": 1,
+                            "mem_util_limit": 1,
+                        },
+                        "face_alignment": {
+                            "cpu_util_limit": 1,
+                            "mem_util_limit": 1,
+                        }
+                    }
 
                     # 更新边端策略
                     r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
-                                json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping})
+                                json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping,'resource_limit':resource_limit})
         except Exception as e:
             root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
 

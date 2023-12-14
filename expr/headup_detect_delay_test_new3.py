@@ -131,7 +131,7 @@ if __name__ == "__main__":
                 conf={
                         "reso": "360p",
                         "fps": 1,
-                        "encoder": "JEPG"
+                        "encoder": "JPEG"
                     }
                 flow_mapping={
                         "face_detection": model_op['model1'],

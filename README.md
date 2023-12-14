@@ -74,6 +74,17 @@ $ python3 SchedulingSystem-main-demo/SchedulingSystem/client/app_client_test.py 
 $ python3 job_manager_v2.py --query_addr=114.212.81.11:5000 --tracker_port 5001 --serv_cloud_addr=114.212.81.11:5500 --video_side_port 5101
 ```
 
+使用知识库：
+
+```shell
+# video-dag-manager目录下的expr_data2目录里的knowledgebase_builder提供了建立知识库需要的一系列接口。
+# 建议的使用方法是在云和边之外的设备，比如工位主机上运行这个程序。
+# 具体来说，先完成云和边上的启动（云端运行`query_manger_v2.py`，在5000端口提供服务；也需要运行`app_server_test.py`，在5500端口提供服务。边端运行`job_manager_v2.py`，在5001端口提供服务；也需要运行`app_client_test,py`，在5500端口提供服务。这里的app_server_test.py和app_client_test,py在运行之后就不需要重新加载服务，因为它已经在主函数里创建了服务。不过目前只能运行人脸检测+姿态估计任务）
+# 使用python knowledgebase_builder.py可以朝云端发出query，然后进行采样。详见文件内部说明。
+```
+
+
+
 ## 3 计算服务接口示例
 
 ```js
@@ -181,7 +192,7 @@ $ python3 job_manager_v2.py --query_addr=114.212.81.11:5000 --tracker_port 5001 
                                     'face_alignment': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'}, 
                                     'face_detection': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'} 
                                 }, 
-                            'video_conf':   {'encoder': 'JEPG', 'fps': 1, 'reso': '360p'}
+                            'video_conf':   {'encoder': 'JPEG', 'fps': 1, 'reso': '360p'}
                             }, 
 
                 'ext_runtime': {

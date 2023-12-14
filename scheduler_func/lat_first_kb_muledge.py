@@ -152,7 +152,7 @@ def get_transfer_delay(resolution=None, flow_map=None, resource_info=None):
 "conf": {
     "reso": "360p"
     "fps": 1,
-    "encoder": "JEPG",
+    "encoder": "JPEG",
 }
 service_info_list=[
     {

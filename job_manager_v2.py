@@ -162,14 +162,20 @@ class JobManager():
         port = self.service_cloud_addr.split(':')[1]
         url = "http://{}:{}/execute_task/{}".format(choice["node_ip"], port, taskname)
         return url
+    
+    # 计算限制资源的url，与服务的具体选择强相关
+    def get_limit_resource_url(self, taskname, choice):
+        port = self.service_cloud_addr.split(':')[1]
+        url = "http://{}:{}/limit_task_resource".format(choice["node_ip"], port)
+        return url
 
     # 更新调度计划：与通信进程竞争self.job_dict[job.get_job_uid()]，修改job状态
-    def update_job_plan(self, job_uid, video_conf, flow_mapping):
+    def update_job_plan(self, job_uid, video_conf, flow_mapping,resource_limit):
         assert job_uid in self.job_dict.keys()
 
         job = self.job_dict[job_uid]
         assert isinstance(job, Job)
-        job.set_plan(video_conf=video_conf, flow_mapping=flow_mapping)
+        job.set_plan(video_conf=video_conf, flow_mapping=flow_mapping,resource_limit=resource_limit)
 
         # root_logger.info("updated job-{} plan".format(job.get_job_uid()))
         
@@ -272,6 +278,7 @@ class Job():
         self.user_constraint = user_constraint
         self.flow_mapping = None
         self.video_conf = None
+        self.resource_limit = None
         # keepalive的http客户端：用于请求计算服务
         self.sess = requests.Session()
 
@@ -293,19 +300,22 @@ class Job():
 
     # ---------------------------------------
     # ---- 执行计划与执行计划结果的相关函数 ----
-    def set_plan(self, video_conf, flow_mapping):
+    def set_plan(self, video_conf, flow_mapping, resource_limit):
         if self.get_state() == Job.JOB_STATE_UNSCHED:
             self.state = Job.JOB_STATE_READY
 
         self.flow_mapping = flow_mapping
         self.video_conf = video_conf
+        self.resource_limit = resource_limit
         assert isinstance(self.flow_mapping, dict)
         assert isinstance(self.video_conf, dict)
+        assert isinstance(self.resource_limit,dict)
 
     def get_plan(self):
         return {
             common.PLAN_KEY_VIDEO_CONF: self.video_conf,
-            common.PLAN_KEY_FLOW_MAPPING: self.flow_mapping
+            common.PLAN_KEY_FLOW_MAPPING: self.flow_mapping,
+            common.PLAN_KEY_RESOURCE_LIMIT:self.resource_limit
         }
 
     def set_user_constraint(self, user_constraint):
@@ -375,22 +385,32 @@ class Job():
                 ))
 
                 # 根据flow_mapping，执行task（本地不保存结果）
-                root_logger.info("flow_mapping ={}".format(self.flow_mapping))
+                # root_logger.info("flow_mapping ={}".format(self.flow_mapping))
                 choice = self.flow_mapping[taskname]
-                root_logger.info("get choice of '{}' in flow_mapping, choose: {}".format(taskname, choice))
+                # root_logger.info("get choice of '{}' in flow_mapping, choose: {}".format(taskname, choice))
+
+                # 首先进行资源限制
+                url = self.manager.get_limit_resource_url(taskname, choice)
+                root_logger.info("获取限制资源的url {}".format(url))
+
+                task_limit={}
+                task_limit['task_name']=taskname
+                task_limit['cpu_util_limit']=self.resource_limit[taskname]['cpu_util_limit']
+                task_limit['mem_util_limit']=self.resource_limit[taskname]['mem_util_limit']
+
+                resp=self.limit_service_resource(limit_url=url,taskname=taskname,task_limit=task_limit)
+                # 重试,完成资源限制
+                while not resp:
+                    time.sleep(1)
+                    resp=self.limit_service_resource(limit_url=url,taskname=taskname,task_limit=task_limit)
+                
+                root_logger.info("got limit resp: {}".format(resp.keys()))
+                
+
                 url = self.manager.get_chosen_service_url(taskname, choice)
-                root_logger.info("get url {}".format(url))
+                # root_logger.info("get url {}".format(url))
 
                 st_time = time.time()
-                #可以在这里设置一个时延，强行拉长传输时延。如下，强制读取文件获取时延。
-                '''
-                sleep_time=0
-                with open('csy_test_data.json') as f:
-                    csy_test_data = json.load(f)
-                    sleep_time=csy_test_data['sleep_time']
-                print("睡一会",sleep_time)
-                time.sleep(sleep_time)
-                '''
   
                 output_ctx = self.invoke_service(serv_url=url, taskname=taskname, input_ctx=input_ctx)
                 # 重试
@@ -481,6 +501,21 @@ class Job():
                 root_logger.error("got serv result: {}".format(r.text))
             root_logger.error("caught exception: {}".format(e), exc_info=True)
             return None
+    
+    def limit_service_resource(self, limit_url, taskname, task_limit):
+        root_logger.info("get limit_url={}".format(limit_url))
+
+        r = None
+
+        try:
+            r = self.sess.post(url=limit_url, json=task_limit)
+            return r.json()
+
+        except Exception as e:
+            if r:
+                root_logger.error("limit_resource: {}".format(r.text))
+            root_logger.error("caught exception: {}".format(e), exc_info=True)
+            return None
 
 
 
@@ -529,7 +564,8 @@ def job_update_plan_cbk():
     # 与工作节点模拟CPU执行的主循环竞争manager
     job_manager.update_job_plan(job_uid=para['job_uid'],
                                 video_conf=para['video_conf'],
-                                flow_mapping=para['flow_mapping'])
+                                flow_mapping=para['flow_mapping'],
+                                resource_limit=para['resource_limit'])
 
     return flask.jsonify({"status": 0, "msg": "node updated plan (manager.update_job_plan)"})
 
