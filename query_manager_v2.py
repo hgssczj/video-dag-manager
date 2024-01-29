@@ -705,7 +705,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
             for qid, query in query_dict.items():
                 assert isinstance(query, Query)
                 query_id = query.query_id
-                if query.video_id!=99:  #如果是99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
+                if query.video_id<99:  #如果是大于等于99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
                     node_addr = query.node_addr
                     user_constraint = query.user_constraint
                     assert node_addr

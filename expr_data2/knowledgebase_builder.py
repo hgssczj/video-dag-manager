@@ -60,28 +60,35 @@ conf_and_serv_info={  #各种配置参数的可选值
 
 }
 '''
+#'''
 # 以下是缩小范围版，节省知识库大小
 conf_and_serv_info={  #各种配置参数的可选值
-    "reso":["360p", "480p"],
-    "fps":[20, 30],
+    "reso":["1080p"],
+    "fps":[30],
     "encoder":["JPEG"],
     
     "face_alignment_ip":["114.212.81.11","172.27.151.145"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
     "face_detection_ip":["114.212.81.11","172.27.151.145"],
-    "face_alignment_mem_util_limit":[0.2,0.3],
-    "face_alignment_cpu_util_limit":[0.2,0.3],
-    "face_detection_mem_util_limit":[0.2,0.3],
-    "face_detection_cpu_util_limit":[0.2,0.3],
+    "car_detection_ip":["114.212.81.11","172.27.151.145"],
+    "face_alignment_mem_util_limit":[1.0],
+    "face_alignment_cpu_util_limit":[1.0],
+    "face_detection_mem_util_limit":[1.0],
+    "face_detection_cpu_util_limit":[1.0],
+    "car_detection_mem_util_limit":[1.0],
+    "car_detection_cpu_util_limit":[1.0],
 
     "face_alignment_trans_ip":["114.212.81.11","172.27.151.145"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
     "face_detection_trans_ip":["114.212.81.11","172.27.151.145"],
-    "face_alignment_trans_mem_util_limit":[0.2,0.3],
-    "face_alignment_trans_cpu_util_limit":[0.2,0.3],
-    "face_detection_trans_mem_util_limit":[0.2,0.3],
-    "face_detection_trans_cpu_util_limit":[0.2,0.3],
+    "car_detection_trans_ip":["114.212.81.11","172.27.151.145"],
+    "face_alignment_trans_mem_util_limit":[1.0],
+    "face_alignment_trans_cpu_util_limit":[1.0],
+    "face_detection_trans_mem_util_limit":[1.0],
+    "face_detection_trans_cpu_util_limit":[1.0],
+    "car_detection_trans_mem_util_limit":[1.0],
+    "car_detection_trans_cpu_util_limit":[1.0],
 
 }
-
+#'''
 
 
 # 每一个特定任务对应一个KnowledgeBaseBuilder类
@@ -106,6 +113,8 @@ class KnowledgeBaseBuilder():
         self.written_n_loop = dict()
         self.writer = None
         self.sample_bound = None
+        # 用于记录字典查询过程中设计到的配置，不希望其重复
+        self.explore_conf_dict=dict()
 
         self.sess = requests.Session()  #客户端通信
     
@@ -140,7 +149,7 @@ class KnowledgeBaseBuilder():
                 models_dicts[conf_num-i-1][key]=models_dicts[conf_num-i]
         
         evaluator=models_dicts[0]  #获取最终的评估器
-        print(evaluator)
+        # print(evaluator)
         # 建立初始化性能评估器并写入文件
         f=open(eval_name+".json","w")
         json.dump(evaluator,f,indent=1)
@@ -619,6 +628,8 @@ class KnowledgeBaseBuilder():
         '''
 
         return self.collect_for_sample(conf=conf,flow_mapping=flow_mapping,resource_limit=resource_limit)
+        # 使用此函数，目标是最优化采样得到的时延
+
 
     # 以贝叶斯采样的方式获取离线知识库
     def sample_and_record_bayes(self,sample_bound,n_trials):
@@ -635,6 +646,23 @@ class KnowledgeBaseBuilder():
         self.fp.close()
         print("记录结束，查看文件")
         return filename
+    
+    # ample_and_record_bayes_sparse的目的是建立稀疏的贝叶斯优化采样的知识库
+    def sample_and_record_bayes_sparse(self,sample_bound,n_trials):
+        self.sample_bound=sample_bound
+
+        filename=self.init_record_file()
+
+        #执行一次get_and_write就可以往文件里成果写入数据
+        study = optuna.create_study()
+        study.optimize(self.objective,n_trials=n_trials)
+
+        print(study.best_params)
+
+        self.fp.close()
+        print("记录结束，查看文件")
+        return filename
+
     
 
 
@@ -687,7 +715,7 @@ class KnowledgeBaseBuilder():
                 # 联立所有条件从df中获取对应内容,conf_df里包含满足所有条件的列构成的df
                 conf_df=df[condition_all]
                 if(len(conf_df)>0): #如果满足条件的内容不为空，可以开始用其中的数值来初始化字典
-                    print("存在满足条件的字典")
+                    # print("存在满足条件的字典")
                     conf_kind+=1
                     avg_value=conf_df[service_info['value']].mean()  #获取均值
                     # print(conf_df[['d_ip','a_ip','fps','reso',service_info['value']]])
@@ -746,7 +774,7 @@ class KnowledgeBaseBuilder():
                 # 联立所有条件从df中获取对应内容,conf_df里包含满足所有条件的列构成的df
                 conf_df=df[condition_all]
                 if(len(conf_df)>0): #如果满足条件的内容不为空，可以开始用其中的数值来初始化字典
-                    print("存在满足条件的字典")
+                    # print("存在满足条件的字典")
                     conf_kind+=1
                     avg_value=conf_df[service_info['value']].mean()  #获取均值
                     # print(conf_df[['d_ip','a_ip','fps','reso',service_info['value']]])
@@ -898,6 +926,8 @@ class KnowledgeBaseBuilder():
 
         # '''
         for serv_name in self.serv_names:
+            if serv_name=="face_detection":  #专门研究姿态估计情况
+                continue
             serv_role_name=serv_name+'_role'
             serv_ip_name=serv_name+'_ip'
             serv_proc_delay_name=serv_name+'_proc_delay'
@@ -933,12 +963,19 @@ class KnowledgeBaseBuilder():
         # '''
 
 
+# 尝试进行探索
+          
+
+
+
+
 
 # 使用KnowledgeBaseBuilder需要提供以下参数：
 # service_info_list描述了构成流水线的所有阶段的服务。下图表示face_detection和face_alignment构成的流水线
 # 由于同时需要为数据处理时延和数据传输时延建模，因此还有face_detection_trans和face_alignment_trans。一共4个需要关注的服务。
 # 每一个服务都有自己的value，用于从采样得到的csv文件里提取相应的时延；conf表示影响该服务性能的配置，
 # 但是conf没有包括设备ip、cpu和mem资源约束，因为这是默认的。一个服务默认使用conf里的配置参数加上Ip和资源约束构建字典。
+'''
 service_info_list=[
     {
         "name":'face_detection',
@@ -962,6 +999,7 @@ service_info_list=[
     },
 ]
 
+
 # 下图的conf_names表示流水线上所有服务的conf的总和。
 conf_names=["reso","fps","encoder"]
 
@@ -980,10 +1018,40 @@ query_body = {
             "accuracy": 0.7
         }
     }  
+'''
+service_info_list=[
+    {
+        "name":'car_detection',
+        "value":'car_detection_proc_delay',
+        "conf":["reso","fps","encoder"]
+    },
+    {
+        "name":'car_detection_trans',
+        "value":'car_detection_trans_delay',
+        "conf":["reso","fps","encoder"]
+    },
+]
+
+# 下图的conf_names表示流水线上所有服务的conf的总和。
+conf_names=["reso","fps","encoder"]
+
+#这里包含流水线里涉及的各个服务的名称
+serv_names=["car_detection"]   
+# 进行车辆检测
+query_body = {
+        "node_addr": "172.27.151.145:5001",
+        "video_id": 101,   
+        "pipeline": ["car_detection"],#制定任务类型
+        "user_constraint": {
+            "delay": 0.1,  #用户约束暂时设置为0.3
+            "accuracy": 0.7
+        }
+    }  
+
 
 if __name__ == "__main__":
 
-    kb_builder=KnowledgeBaseBuilder(expr_name="headup-detect_video99_resource_limit_resource_rotate",
+    kb_builder=KnowledgeBaseBuilder(expr_name="car-detect_video3_test",
                                     node_ip='172.27.151.145',
                                     node_addr="172.27.151.145:5001",
                                     query_addr="114.212.81.11:5000",
@@ -995,7 +1063,7 @@ if __name__ == "__main__":
 
     # 以下函数的作用是：固定使用一种调度方案（表述为conf，flow_mapping，resource_limit）。首先调用send_query() 发出查询建立流水线，
     # 然后调用just_record_with_static_plan在给定的静态调度方案下进行采样，采样次数为record_num。采样结果会保存在新生成的csv文件里。
-    need_to_verify=1
+    need_to_verify=0
     if need_to_verify==1:
         kb_builder.send_query() 
         conf={
@@ -1028,7 +1096,7 @@ if __name__ == "__main__":
         # 此处的kb_builder.get_pred_delay(conf, flow_mapping,resource_limit)提供了从知识库里查询某种配置对应时延的方法。
         # print(kb_builder.get_pred_delay(conf, flow_mapping,resource_limit))
 
-        kb_builder.just_record_with_static_plan(record_num=20,conf=conf,flow_mapping=flow_mapping,resource_limit=resource_limit)
+        kb_builder.just_record_with_static_plan(record_num=50,conf=conf,flow_mapping=flow_mapping,resource_limit=resource_limit)
 
     
    # 如果不进行知识库的建立，只想验证云端调度器的工作效果，可以采用以下代码。此时query_body里的video_id不应该是99，否则query_manager_v2里的调度器不会工作。
@@ -1047,10 +1115,25 @@ if __name__ == "__main__":
     need_to_build=0
     if need_to_build==1:
         kb_builder.send_query() 
-        kb_builder.sample_and_record(sample_bound=10) #表示对于所有配置组合每种组合采样10次。
-        # filename=kb_builder.sample_and_record_bayes(sample_bound=10,n_trials=80)
+        kb_builder.sample_and_record(sample_bound=50) #表示对于所有配置组合每种组合采样10次。
+        filename=kb_builder.sample_and_record_bayes(sample_bound=10,n_trials=80)
     
+    # 以下文件是有2560条、包含了2种分辨率、2种帧率、2种资源使用率限制、2任务流水线遍历的结果
     filepath='20231213_21_25_23_knowledgebase_builder_0.1_0.7_headup-detect_video99_resource_limit_resource_rotate.csv'
+
+    # 以下文件是在cpu和内存使用率限制都为1的前提下，在2种设备上，得到的4*5*2*2*10=800条采样结果
+    filepath='20231213_10_26_37_knowledgebase_builder_0.1_0.7_headup-detect_video99_resource_limit_cpu_rotate_0.3_0.3.csv'
+
+    # 以下文件是在1080p、720p、480p、360p下，对人脸检测资源限制为1，然后对姿态估计任务进行7*7种资源限制的结果，在云边两种情况下，一共980条采样结果
+    # 但是，可能是因为每采样10次就修改一下内存资源限制，导致几乎看不出内存资源限制的变化
+    filepath='20231217_21_51_56_knowledgebase_builder_0.1_0.7_headup-detect_video99_resource_limit_resource_rotate.csv'
+    # filepath='20231217_22_17_45_knowledgebase_builder_0.1_0.7_headup-detect_video99_resource_limit_resource_rotate.csv'
+    # filepath='20231217_21_51_56_knowledgebase_builder_0.1_0.7_headup-detect_video99_resource_limit_resource_rotate.csv'
+    # filepath='20231217_21_51_56_knowledgebase_builder_0.1_0.7_headup-detect_video99_resource_limit_resource_rotate.csv'
+    
+    # 以下文件再30帧、分辨率为1080p下，测试内存使用率限制3重情况的姿态估计（限制量越来越小，从0.55到0.35到0.15）
+    filepath='20231218_22_12_39_knowledgebase_builder_0.1_0.7_headup-detect_video99_resource_limit_resource_rotate.csv'
+    filepath='20240104_11_30_34_knowledgebase_builder_0.1_0.7_car-detect_video3_test.csv'
     
     
     # 如果想要基于need_to_test或need_to_build的结果进行可视化分析，可调用以下if条件对应的代码进行绘图。
