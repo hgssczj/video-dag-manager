@@ -97,6 +97,7 @@ conf_and_serv_info={  #各种配置参数的可选值
 '''
 #'''
 #"172.27.151.145"
+'''
 conf_and_serv_info={  #各种配置参数的可选值
     "reso":["360p", "480p", "720p", "1080p"],
     "fps":[1, 5, 10, 20, 30],
@@ -120,6 +121,33 @@ conf_and_serv_info={  #各种配置参数的可选值
     "face_detection_trans_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
     "face_detection_trans_cpu_util_limit":[1.0],
     "car_detection_trans_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
+    "car_detection_trans_cpu_util_limit":[1.0],
+
+}
+'''
+conf_and_serv_info={  #各种配置参数的可选值
+    "reso":["480p"],
+    "fps":[30],
+    "encoder":["JPEG"],
+    
+    "face_alignment_ip":["172.27.151.145"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
+    "face_detection_ip":["172.27.151.145"],
+    "car_detection_ip":["172.27.151.145"],
+    "face_alignment_mem_util_limit":[1.00],
+    "face_alignment_cpu_util_limit":[1.0],
+    "face_detection_mem_util_limit":[1.00],
+    "face_detection_cpu_util_limit":[1.0],
+    "car_detection_mem_util_limit":[1.00],
+    "car_detection_cpu_util_limit":[1.0],
+
+    "face_alignment_trans_ip":["172.27.151.145"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
+    "face_detection_trans_ip":["172.27.151.145"],
+    "car_detection_trans_ip":["172.27.151.145"],
+    "face_alignment_trans_mem_util_limit":[1.00],
+    "face_alignment_trans_cpu_util_limit":[1.0],
+    "face_detection_trans_mem_util_limit":[1.00],
+    "face_detection_trans_cpu_util_limit":[1.0],
+    "car_detection_trans_mem_util_limit":[1.00],
     "car_detection_trans_cpu_util_limit":[1.0],
 
 }
@@ -1651,9 +1679,21 @@ serv_names=["face_detection","face_alignment"]
 #以下是发出query请求时的内容。注意video_id。当前文件需要配合query_manager_v2.py运行，后者使用的调度器会根据video_id的取值判断是否会运行。
 #建议将video_id设置为99，它对应的具体视频内容可以在camera_simulation里找到，可以自己定制。query_manager_v2.py的调度器发现query_id为99的时候，
 #不会进行调度动作。因此，知识库建立者可以自由使用update_plan接口操控任务的调度方案，不会受到云端调度器的影响了。
+'''
 query_body = {
         "node_addr": "172.27.151.145:5001",
         "video_id": 99,   
+        "pipeline": ["face_detection", "face_alignment"],#制定任务类型
+        "user_constraint": {
+            "delay": 0.6,  #用户约束暂时设置为0.3
+            "accuracy": 0.7
+        }
+    }  
+'''
+#这个query_body是测试完整的“人逐渐进入会议室”的
+query_body = {
+        "node_addr": "172.27.151.145:5001",
+        "video_id": 102,     
         "pipeline": ["face_detection", "face_alignment"],#制定任务类型
         "user_constraint": {
             "delay": 0.6,  #用户约束暂时设置为0.3
@@ -1731,9 +1771,7 @@ if __name__ == "__main__":
               "bin_nums"+str(bin_nums)+"sample_bound"+str(sample_bound)+"n_trials"+str(n_trials)
               
 
-
-
-    kb_builder=KnowledgeBaseBuilder(expr_name="sparse_build_headup_detect_control_mem",
+    kb_builder=KnowledgeBaseBuilder(expr_name="tight_build_headup_detect_people_in_mmeeting",
                                     node_ip='172.27.151.145',
                                     node_addr="172.27.151.145:5001",
                                     query_addr="114.212.81.11:5000",
@@ -1839,7 +1877,7 @@ if __name__ == "__main__":
     
     if need_tight_kb==1:
         kb_builder.send_query() 
-        kb_builder.sample_and_record(sample_bound=100) #表示对于所有配置组合每种组合采样sample_bound次。
+        kb_builder.sample_and_record(sample_bound=500) #表示对于所有配置组合每种组合采样sample_bound次。
     
 
     filepath='20240116_16_29_09_knowledgebase_builder_sparse_0.1_0.7_sparse_build_headup_detect.csv' #优化时延的贝叶斯稀疏采样
@@ -1894,10 +1932,157 @@ if __name__ == "__main__":
     filepath='20240126_19_49_43_knowledgebase_builder_sparse_0.1_0.7_sparse_build_headup_detect_control_mem.csv'
     filepath='20240126_19_50_33_knowledgebase_builder_sparse_0.1_0.7_sparse_build_headup_detect_control_mem.csv'
     filepath='20240126_19_48_34_knowledgebase_builder_sparse_0.1_0.7_sparse_build_headup_detect_control_mem.csv'
+    filepath='20240220_20_45_45_knowledgebase_builder_sparse_0.6_0.7_tight_build_headup_detect_people_in_mmeeting.csv'
     need_to_draw=0
     if need_to_draw==1:
         kb_builder.anylze_explore_result(filepath=filepath)
         kb_builder.draw_picture_from_sample(filepath=filepath)
+    
+    need_to_draw_2=1
+    if need_to_draw_2==1:
+        df = pd.read_csv(filepath)
+        df = df.drop(index=[0])
+        df = df[df.all_delay<3]
+
+
+
+        plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
+        plt.rcParams['axes.unicode_minus']=False #用来正常显示负号 #有中文出现的情况，需要u'内容'
+        #plt.ylim(0.3,0.6)
+        
+        plt.yticks(fontproperties='Times New Roman', )
+        plt.xticks(fontproperties='Times New Roman', )
+        
+       
+
+        print(len(df['n_loop']))
+        #现在有499个数据
+
+        all_delay0=np.array(df['all_delay'])
+
+        job1_avg=np.mean(all_delay0[0:100])
+        job2_avg=np.mean(all_delay0[100:200])
+        job3_avg=np.mean(all_delay0[200:300])
+        job4_avg=np.mean(all_delay0[300:400])
+        job5_avg=np.mean(all_delay0[400:499])
+
+        job_avg_delay=[]
+        for i in range(0,100):
+            job_avg_delay.append(job1_avg)
+
+        for i in range(0,100):
+            job_avg_delay.append(job2_avg)
+
+        for i in range(0,100):
+            job_avg_delay.append(job3_avg)
+
+        for i in range(0,100):
+            job_avg_delay.append(job4_avg)
+
+        for i in range(0,99):
+            job_avg_delay.append(job5_avg)
+
+        
+        #基于方法0进行时延估计:全程使用job1
+        f0_delay=[]
+        for i in range(0,499):
+            f0_delay.append(job1_avg)
+        
+        #基于方法1进行时延估计：不断更新平均值。间隔有三种。
+        f1_delay=[]
+        intervals= [10,25,100]
+        for interval in intervals:
+            temp=[]
+            for i in range(0,100):
+                temp.append(job1_avg)
+        
+            new_val=job1_avg
+            for i in range(100,499):
+                if i%interval==0:#间隔20
+                    new_val=(new_val+all_delay0[i])/2.0
+                temp.append(new_val)
+            
+            f1_delay.append(temp)
+        
+
+        #基于方法2进行时延估计：不断更新平均值。间隔有三种，权重暂定为my_wi
+        f2_delay=[]
+        intervals= [10,25,100]
+        for interval in intervals:
+            temp=[]
+            for i in range(0,100):
+                temp.append(job1_avg)
+        
+            new_val=job1_avg
+            for i in range(100,499):
+                if i%interval==0:#间隔20
+                    my_wi=0.8
+                    new_val=my_wi*new_val+(1.0-my_wi)*all_delay0[i]
+                temp.append(new_val)
+            
+            f2_delay.append(temp)
+        
+
+        #基于方法3进行时延估计：每次只取一部分。采样数目有三种
+        f3_delay=[]
+        sample_nums= [5,10,25]
+        for sample_num in sample_nums:
+            temp=[]
+            for i in range(0,100):
+                temp.append(job1_avg)
+        
+            for h in [1,2,3]:
+                for i in range(0,100):
+                    temp.append(np.mean(all_delay0[h*100:h*100+sample_num]))
+            for i in range(0,99):
+                    temp.append(np.mean(all_delay0[400:400+sample_num]))
+
+            f3_delay.append(temp)
+
+
+        #基于方法4进行时延估计：在job1的基础上以一定权值融合新job里的采样结果。采样数目有三种，my_wi有多种。
+        f4_delay=[]
+        sample_nums= [5,10,25]
+        for sample_num in sample_nums:
+            temp=[]
+            for i in range(0,100):
+                temp.append(job1_avg)
+            my_wi=0.3
+            for h in [1,2,3]:
+                for i in range(0,100):
+                    temp.append(my_wi*job1_avg+(1.0-my_wi)*np.mean(all_delay0[h*100:h*100+sample_num]))
+            for i in range(0,99):
+                    temp.append(my_wi*job1_avg+(1.0-my_wi)*np.mean(all_delay0[400:400+sample_num]))
+
+            f4_delay.append(temp)
+         #绘制真实总时延随时间的变化
+        # plt.plot(df['n_loop'],df['all_delay'],label="实际时延")
+        plt.plot(df['n_loop'],job_avg_delay,label="各阶段平均时延",linewidth=4,linestyle='--')
+        # plt.plot(df['n_loop'],f0_delay,label="f0估计时延",linewidth=4)
+
+        
+        # for i in range(0,len(f1_delay)):
+        #     plt.plot(df['n_loop'],f1_delay[i],label="f1估计时延-间隔"+str(intervals[i]),linewidth=2+i*0.5)
+
+        # for i in range(0,len(f2_delay)):
+        #    plt.plot(df['n_loop'],f2_delay[i],label="f2估计时延"+str(my_wi)+"-间隔"+str(intervals[i]),linewidth=2+i*0.5)
+
+        # for i in range(0,len(f3_delay)):
+        #    plt.plot(df['n_loop'],f3_delay[i],label="f3估计时延"+"-采样数"+str(sample_nums[i]),linewidth=2+i*0.5)
+
+        for i in range(0,len(f4_delay)):
+            plt.plot(df['n_loop'],f4_delay[i],label="f4估计时延"+str(my_wi)+"-采样数"+str(sample_nums[i]),linewidth=2+i*0.5)
+
+
+        
+        #plt.plot(df['n_loop'],f1_delay,label="f1法估计时延",linewidth=2)
+        #plt.plot(df['n_loop'],f2_delay,label="f2法估计时延",linewidth=2)
+
+        plt.title("各时延评估结果")
+        plt.legend()
+        plt.show()
+        
+
     
 
 
@@ -1980,7 +2165,7 @@ if __name__ == "__main__":
         
         file.close()
 
-    need_anylze_plan=1
+    need_anylze_plan=0
     if need_anylze_plan==1:
         plan_file_name='20240127_19_51_37cold_plan_list.txt'
         plan_file_name='20240127_16_53_18cold_plan_list.txt'
