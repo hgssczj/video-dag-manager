@@ -359,11 +359,12 @@ class Job():
 
         # 逐帧汇报结果，逐帧汇报运行时情境
         while True:
+            cur_plan = self.get_plan()  # 保存本次执行任务时的计划，避免出现执行任务过程中云端修改了执行计划，而导致任务执行前后计划不一致
             # 1、根据video_conf，获取本次循环的输入数据（TODO：从缓存区读取）
             cam_frame_id, conf_frame_id, output_ctx = \
                 sfg_get_next_init_task(job_uid=self.get_job_uid(),
                                        video_cap=cap,
-                                       video_conf=self.video_conf,
+                                       video_conf=cur_plan[common.PLAN_KEY_VIDEO_CONF],
                                        curr_cam_frame_id=curr_cam_frame_id,
                                        curr_conf_frame_id=curr_conf_frame_id)
             root_logger.info("done generator task, get_next_init_task({})".format(output_ctx.keys()))
@@ -374,6 +375,7 @@ class Job():
             plan_result['delay'] = dict()  # 保存DAG中每一步执行的时延
             runtime_dict = dict()
             plan_result['process_delay']=dict() #记录当前帧处理过程中每一个task对应的计算时延，process_delay加上网络传输时延才等于delay
+            proc_resource_info_dict = dict()
             for taskname in self.pipeline:
                 print("开始执行服务",taskname)
                 root_logger.info("to forward taskname={}".format(taskname))
@@ -386,7 +388,7 @@ class Job():
 
                 # 根据flow_mapping，执行task（本地不保存结果）
                 # root_logger.info("flow_mapping ={}".format(self.flow_mapping))
-                choice = self.flow_mapping[taskname]
+                choice = cur_plan[common.PLAN_KEY_FLOW_MAPPING][taskname]
                 # root_logger.info("get choice of '{}' in flow_mapping, choose: {}".format(taskname, choice))
 
                 # 首先进行资源限制
@@ -395,8 +397,8 @@ class Job():
 
                 task_limit={}
                 task_limit['task_name']=taskname
-                task_limit['cpu_util_limit']=self.resource_limit[taskname]['cpu_util_limit']
-                task_limit['mem_util_limit']=self.resource_limit[taskname]['mem_util_limit']
+                task_limit['cpu_util_limit']=cur_plan[common.PLAN_KEY_RESOURCE_LIMIT][taskname]['cpu_util_limit']
+                task_limit['mem_util_limit']=cur_plan[common.PLAN_KEY_RESOURCE_LIMIT][taskname]['mem_util_limit']
 
                 resp=self.limit_service_resource(limit_url=url,taskname=taskname,task_limit=task_limit)
                 # 重试,完成资源限制
@@ -433,8 +435,9 @@ class Job():
                 # self.update_runtime(taskname=taskname, output_ctx=wrapped_ctx)
                 output_ctx['proc_resource_info']['all_latency'] = ed_time - st_time  # 单位：秒(s)，任务实际执行时延+数据传输时延
                 output_ctx['proc_resource_info']['device_ip'] = choice["node_ip"]  # 将当前任务执行的节点也报告给运行时情境
-                output_ctx['task_conf'] = self.video_conf  # 将当前任务的可配置参数也报告给运行时情境
+                output_ctx['task_conf'] = cur_plan[common.PLAN_KEY_VIDEO_CONF]  # 将当前任务的可配置参数也报告给运行时情境
 
+                proc_resource_info_dict[taskname] = output_ctx['proc_resource_info']
                 runtime_dict[taskname] = output_ctx
                 print("完成情境获取")
                 # self.update_runtime(taskname=taskname, output_ctx=output_ctx)
@@ -466,11 +469,12 @@ class Job():
             output_ctx["delay"] = total_frame_delay
             frame_result.update(output_ctx)
             # 将当前帧的运行时情境和调度策略同步推送到云端query manager
-            frame_result[common.SYNC_RESULT_KEY_PLAN] = self.get_plan()
+            frame_result[common.SYNC_RESULT_KEY_PLAN] = cur_plan
             # frame_result[common.SYNC_RESULT_KEY_RUNTIME] = self.get_runtime()
             frame_result[common.SYNC_RESULT_KEY_RUNTIME] = {}
             # 将plan_result放入frame_result[common.SYNC_RESULT_KEY_RUNTIME]
             frame_result[common.SYNC_RESULT_KEY_RUNTIME]['plan_result']=plan_result
+            frame_result[common.SYNC_RESULT_KEY_RUNTIME]['proc_resource_info'] = proc_resource_info_dict
 
             curr_cam_frame_id = cam_frame_id
             curr_conf_frame_id = conf_frame_id

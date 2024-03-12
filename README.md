@@ -54,7 +54,7 @@ $ python3.8 SchedulingSystem-main-demo/SchedulingSystem/server/app_server_test.p
 # 运行视频流提供进程
 $ python3.8 camera_simulation.py
 # 运行云端查询控制和调度进程
-$ python3.8 query_manager_v2.py --query_port 5000 --serv_cloud_addr=114.212.81.11:5500 --video_cloud_port 5100
+$ python3.8 query_manager_v2.py --query_port=5000 --serv_cloud_addr=114.212.81.11:5500 --video_cloud_port=5100
 
 
 # 使用如下命令，方便在文件中查询error日志
@@ -71,7 +71,7 @@ $ sudo systemctl restart jtop.service
 $ python3 SchedulingSystem-main-demo/SchedulingSystem/client/app_client_test.py --server_ip=114.212.81.11 --server_port=5500 --edge_ip=0.0.0.0 --edge_port=5500
 # 进入video-dag-manager目录
 # 运行边缘端任务控制进程
-$ python3 job_manager_v2.py --query_addr=114.212.81.11:5000 --tracker_port 5001 --serv_cloud_addr=114.212.81.11:5500 --video_side_port 5101
+$ python3 job_manager_v2.py --query_addr=114.212.81.11:5000 --tracker_port=5001 --serv_cloud_addr=114.212.81.11:5500 --video_side_port=5101
 ```
 
 使用知识库：
