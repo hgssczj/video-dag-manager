@@ -310,6 +310,11 @@ class  KnowledgeBaseUser():
                     mem_limit=min(self.rsc_constraint[device_ip]['mem'],self.rsc_upper_bound[serv_name]['mem_limit'])
                     cpu_choice_range=[item for item in conf_info[serv_cpu_limit] if item <= cpu_limit]
                     mem_choice_range=[item for item in conf_info[serv_mem_limit] if item <= mem_limit]
+                    # 要防止资源约束导致取值范围为空的情况
+                    if len(cpu_choice_range)==0:
+                        cpu_choice_range=[item for item in conf_info[serv_cpu_limit]]
+                    if len(mem_choice_range)==0:
+                        mem_choice_range=[item for item in conf_info[serv_mem_limit]]
                     resource_limit[serv_name]["cpu_util_limit"]=trial.suggest_categorical(serv_cpu_limit,cpu_choice_range)
                     resource_limit[serv_name]["mem_util_limit"]=trial.suggest_categorical(serv_mem_limit,mem_choice_range)
         '''
@@ -534,8 +539,9 @@ class  KnowledgeBaseUser():
                             mem_util=0
                             for serv_name in resource_limit.keys():
                                 if flow_mapping[serv_name]['node_ip']==device_ip:
-                                    cpu_util+=resource_limit[serv_name]['cpu_util_limit']
-                                    mem_util+=resource_limit[serv_name]['mem_util_limit']
+                                    # 必须用round保留小数点，因为python对待浮点数不精确，0.35加上0.05会得到0.39999……
+                                    cpu_util=round(cpu_util+resource_limit[serv_name]['cpu_util_limit'],2)
+                                    mem_util=round(mem_util+resource_limit[serv_name]['mem_util_limit'],2)
                             cpu_util_ratio=float(cpu_util)/float(self.rsc_constraint[device_ip]['cpu'])
                             mem_util_ratio=float(mem_util)/float(self.rsc_constraint[device_ip]['mem'])
                             #print("展示一下该设备下资源使用率情况")
