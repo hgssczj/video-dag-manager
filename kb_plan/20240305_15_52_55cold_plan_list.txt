@@ -1,0 +1,7 @@
+['cons', 'n_trials', 'rotate_status', 'bayes_status', 'rotate_pred_delay', 'bayes_pred_delay']
+[0.4]
+[10]
+[]
+[0]
+[]
+[0]

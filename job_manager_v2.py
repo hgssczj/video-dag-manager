@@ -426,6 +426,7 @@ class Job():
                                   output_ctx.keys(), ed_time - st_time))
                 plan_result['delay'][taskname] = ed_time - st_time
                 print("展示云端所发资源信息:") #把各阶段时延都保存到plan_result内以便同步到云端
+                print(output_ctx.keys())
                 print(output_ctx['proc_resource_info'])
                 plan_result['process_delay'][taskname]=output_ctx['proc_resource_info']['compute_latency']
                 #下面的注释不用管
