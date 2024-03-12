@@ -693,6 +693,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
     while True:
         # 每5s调度一次
         time.sleep(3)
+        print('开始周期性的调度')
         
         root_logger.info("start new schedule ...")
         try:
@@ -705,15 +706,20 @@ def cloud_scheduler_loop_kb(query_manager=None):
             for qid, query in query_dict.items():
                 assert isinstance(query, Query)
                 query_id = query.query_id
+                
                 if query.video_id<99:  #如果是大于等于99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
+                    print("video_id",query.video_id)
                     node_addr = query.node_addr
                     user_constraint = query.user_constraint
                     assert node_addr
 
                     runtime_info = query.get_runtime()
+                    print("展示当前运行时情境内容")
+                    print(runtime_info)
                     #修改：只有当runtimw_info不存在或者含有delay的时候才运行。
+                    # best_conf, best_flow_mapping, best_resource_limit
                     if not runtime_info or 'delay' in runtime_info :
-                        conf, flow_mapping = scheduler_func.lat_first_kb_muledge.scheduler(
+                        conf, flow_mapping,resource_limit = scheduler_func.lat_first_kb_muledge.scheduler(
                             job_uid=query_id,
                             dag={"generator": "x", "flow": query.pipeline},
                             resource_info=resource_info,
@@ -724,20 +730,13 @@ def cloud_scheduler_loop_kb(query_manager=None):
                     print(type(query_id),query_id)
                     print(type(conf),conf)
                     print(type(flow_mapping),flow_mapping)
-                    resource_limit={
-                        "face_detection": {
-                            "cpu_util_limit": 1,
-                            "mem_util_limit": 1,
-                        },
-                        "face_alignment": {
-                            "cpu_util_limit": 1,
-                            "mem_util_limit": 1,
-                        }
-                    }
+                    print(type(resource_limit),resource_limit)
 
                     # 更新边端策略
                     r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
                                 json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping,'resource_limit':resource_limit})
+                else:
+                    print("不值得调度")
         except Exception as e:
             root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
 

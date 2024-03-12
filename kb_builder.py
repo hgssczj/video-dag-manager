@@ -9,7 +9,6 @@ import pandas as pd
 import numpy as np
 import scipy.signal
 import matplotlib.pyplot as plt
-import sklearn.metrics
 import time
 import optuna
 import itertools
@@ -1529,17 +1528,28 @@ query_body = {
         }
     }  
 '''
-#这个query_body是测试完整的“人逐渐进入会议室”的
+'''
+#这个query_body用于测试单位的“人进入会议室”，也就是只有一张脸的情况，工况不变，不触发调度器变化
 query_body = {
         "node_addr": "172.27.151.145:5001",
-        "video_id": 100,     
+        "video_id": 99,     
         "pipeline": ["face_detection", "face_alignment"],#制定任务类型
         "user_constraint": {
-            "delay": 0.2,  #用户约束暂时设置为0.3
+            "delay": 0.7,  #用户约束暂时设置为0.3
             "accuracy": 0.7
         }
     }  
-#'''
+'''
+#这个query_body用于测试单位的“人进入会议室”，也就是只有一张脸的情况，工况不变，但是会触发调度器变化，因为ifd很小
+query_body = {
+        "node_addr": "172.27.151.145:5001",
+        "video_id": 4,     
+        "pipeline": ["face_detection", "face_alignment"],#制定任务类型
+        "user_constraint": {
+            "delay": 0.7,  #用户约束暂时设置为0.3
+            "accuracy": 0.7
+        }
+    }  
 '''
 service_info_list=[
     {
@@ -1599,7 +1609,10 @@ if __name__ == "__main__":
     # 是否根据某个csv文件绘制画像 
     need_to_draw=0
     # 是否需要基于初始采样结果建立一系列字典，也就是时延有关的知识库
-    need_to_build=1
+    need_to_build=0
+
+    #是否需要发起一次简单的查询并测试调度器的功能
+    need_to_test=1
 
 
     #获取内存资源限制列表的时候，需要两步，第一步是下降，第二部是采取，两种方法都可以随机，也都可以不随机
@@ -1624,7 +1637,13 @@ if __name__ == "__main__":
                                     serv_names=serv_names,
                                     service_info_list=service_info_list,
                                     rsc_upper_bound=rsc_upper_bound)
-    
+    if need_to_test==1:
+        #kb_builder.send_query() 
+        #filepath=kb_builder.just_record(record_num=200)
+        filepath='kb_data/20240312_17_36_56_kb_builder_0.7_0.7_tight_build_headup_detect_people_in_mmeeting.csv'
+        kb_builder.anylze_explore_result(filepath=filepath)
+        kb_builder.draw_picture_from_sample(filepath=filepath)
+
 
     if need_sparse_kb==1:
 

@@ -286,15 +286,20 @@ class  KnowledgeBaseUser():
             conf[conf_name]=trial.suggest_categorical(conf_name,conf_and_serv_info[conf_name])
 
         #但是注意，每一种服务都有自己的专门取值范围
+        cloud_ip='' #记录云端ip,判断流水线是否已经开始进入云端
         for serv_name in self.serv_names:
             with open(kb_data_path+'/'+ serv_name+'_conf_info'+'.json', 'r') as f:  
                 conf_info = json.load(f)  
                 serv_ip=serv_name+"_ip"
-                flow_mapping[serv_name]=model_op[trial.suggest_categorical(serv_ip,conf_info[serv_ip])]
+                if bool(cloud_ip): #如果已经记录了云端ip，说明流水线已经迁移到云端了，此时后续阶段只能选择云端
+                    flow_mapping[serv_name]=model_op[cloud_ip]
+                else:
+                    flow_mapping[serv_name]=model_op[trial.suggest_categorical(serv_ip,conf_info[serv_ip])]
                 serv_cpu_limit=serv_name+"_cpu_util_limit"
                 serv_mem_limit=serv_name+"_mem_util_limit"
                 resource_limit[serv_name]={}
                 if flow_mapping[serv_name]["node_role"] =="cloud":  #对于云端没必要研究资源约束下的情况
+                    cloud_ip=flow_mapping[serv_name]["node_ip"]
                     resource_limit[serv_name]["cpu_util_limit"]=1.0
                     resource_limit[serv_name]["mem_util_limit"]=1.0
                     # 根据flow_mapping中的node_ip可以从rsc_constraint中获得该设备上的资源约束，通过serv_name可以获得rsc_upper_bound上的约束，
@@ -351,10 +356,10 @@ class  KnowledgeBaseUser():
             mul_objects.append(MAX_NUMBER)
         else:  #如果成功找到了一个可行的策略，按照如下方式计算返回值，目的是得到尽可能靠近约束时延0.7倍且小于约束时延的配置
             delay_constraint = self.user_constraint["delay"]
-            if pred_delay_total <= 0.8*delay_constraint:
+            if pred_delay_total <= 0.95*delay_constraint:
                 mul_objects.append(delay_constraint - pred_delay_total)
-            elif pred_delay_total > 0.2*delay_constraint:
-                mul_objects.append(0.2*delay_constraint + pred_delay_total)
+            elif pred_delay_total > 0.95*delay_constraint:
+                mul_objects.append(0.05*delay_constraint + pred_delay_total)
         
         # 然后加入各个设备上的优化目标：我需要获取每一个设备上的cpu约束，以及mem约束。
         
@@ -374,15 +379,15 @@ class  KnowledgeBaseUser():
             
             # 否则，说明在这个ip上消耗资源了。
             # 此时，如果是在云端，资源消耗根本不算什么,但是应该尽可能不选择云端才对。所以此处应该返回相对较大的结果。
-            # 云和边的权衡上，暂时先返回1试试看
+            # 那么应该返回多少比较合适呢？先设置为1看看。
             elif model_op[device_ip]['node_role']=='cloud':
-                mul_objects.append(1)
-                mul_objects.append(1)
+                mul_objects.append(1.0)
+                mul_objects.append(1.0)
 
-            # 只有在ip为边端且消耗了资源的情况下，才需要尽可能让资源最小化
+            # 只有在ip为边端且消耗了资源的情况下，才需要尽可能让资源最小化。这里的0.5是为了减小资源约束相对于时延的占比权重
             else: 
-                mul_objects.append(cpu_util)
-                mul_objects.append(mem_util)
+                mul_objects.append(0.5*cpu_util)
+                mul_objects.append(0.5*mem_util)
 
         # 返回的总优化目标数量应该有：1+2*ips个
         return mul_objects
@@ -445,14 +450,20 @@ class  KnowledgeBaseUser():
             for conf_name in self.conf_names:   #conf_names含有流水线上所有任务需要的配置参数的总和，但是不包括其所在的ip
                 # conf_list会包含各类配置参数取值范围,例如分辨率、帧率等
                 conf[conf_name]=trial.params[conf_name]
-
+            cloud_ip='' #用于记录云端ip并判断是不是已经到达分界点了，如果是后续都是云端ip
             for serv_name in self.serv_names:
                 serv_ip=serv_name+"_ip"
-                flow_mapping[serv_name]=model_op[trial.params[serv_ip]]
+                if bool(cloud_ip):
+                    flow_mapping[serv_name]=model_op[cloud_ip]
+                else:
+                    flow_mapping[serv_name]=model_op[trial.params[serv_ip]]
+
                 serv_cpu_limit=serv_name+"_cpu_util_limit"
                 serv_mem_limit=serv_name+"_mem_util_limit"
                 resource_limit[serv_name]={}
-                if model_op[trial.params[serv_ip]]['node_role']=='cloud':
+
+                if flow_mapping[serv_name]["node_role"] =="cloud":
+                    cloud_ip=flow_mapping[serv_name]["node_ip"]
                     resource_limit[serv_name]["cpu_util_limit"]=1.0
                     resource_limit[serv_name]["mem_util_limit"]=1.0
                 else:
@@ -474,8 +485,10 @@ class  KnowledgeBaseUser():
 
         # 从ans_params里删除重复项，并选择真正status不为0的有效帕累托最优解返回。同时存储该配置对应的预估时延
         ans_params_set=list(set(ans_params))
-        print("帕累托最优解总数",len(ans_params_set))
-        ans_params_valid=[]
+        print("帕累托最优解总数（含重复）",len(ans_params_set))
+        # 保存满足时延约束的解
+        params_in_delay_cons=[]
+        params_out_delay_cons=[]
         for param in ans_params_set:
             ans_dict=json.loads(param)
             #print(type(ans_dict))
@@ -486,10 +499,64 @@ class  KnowledgeBaseUser():
             status,pred_delay_list,pred_delay_total=self.get_pred_delay(conf=conf,
                                                                     flow_mapping=flow_mapping,
                                                                     resource_limit=resource_limit)
-            if status!=0:
+            if status!=0: #如果status不为0，才说明这个配置是有效的，否则是无效的
+                # 首先附加时延
+
+                
+                # 然后计算违背资源约束的程度。由于使用云端的时候被计为100%，因此不用专门区分云和边了
+                '''
+                rsc_constraint={
+                    "114.212.81.11":{
+                        "cpu": 1.0,
+                        "mem":1.0
+                    },
+                    "172.27.143.164": {
+                        "cpu": 0.6,
+                        "mem": 0.7
+                    },
+                    "172.27.151.145": {
+                        "cpu": 0.5,
+                        "mem": 0.8 
+                    },
+                '''
+                
+                num_cloud=0 #使用云端的服务的数量
+                for serv_name in flow_mapping.keys():
+                    if flow_mapping[serv_name]["node_role"] =="cloud":
+                        num_cloud+=1
+
+                deg_violate=0 #违反资源约束的程度
+                #print("分析资源使用情况")
+                for device_ip in self.rsc_constraint.keys():
+                        # 只针对非云设备计算违反资源约束程度
+                        if model_op[device_ip]['node_role']!='cloud':
+                            cpu_util=0
+                            mem_util=0
+                            for serv_name in resource_limit.keys():
+                                if flow_mapping[serv_name]['node_ip']==device_ip:
+                                    cpu_util+=resource_limit[serv_name]['cpu_util_limit']
+                                    mem_util+=resource_limit[serv_name]['mem_util_limit']
+                            cpu_util_ratio=float(cpu_util)/float(self.rsc_constraint[device_ip]['cpu'])
+                            mem_util_ratio=float(mem_util)/float(self.rsc_constraint[device_ip]['mem'])
+                            #print("展示一下该设备下资源使用率情况")
+                            #print(cpu_util,self.rsc_constraint[device_ip]['cpu'])
+                            #print(mem_util,self.rsc_constraint[device_ip]['mem'])
+                            if cpu_util_ratio>1:
+                                deg_violate+=cpu_util_ratio
+                            if mem_util_ratio>1:
+                                deg_violate+=mem_util_ratio
+                    
                 ans_dict['pred_delay_list']=pred_delay_list
                 ans_dict['pred_delay_total']=pred_delay_total
-                ans_params_valid.append(ans_dict)
+                ans_dict['num_cloud']=num_cloud
+                ans_dict['deg_violate']=deg_violate
+
+
+                # 根据配置是否满足时延约束，将其分为两类
+                if pred_delay_total < self.user_constraint["delay"]:
+                    params_in_delay_cons.append(ans_dict)
+                else:
+                    params_out_delay_cons.append(ans_dict)
                 '''
                 print(conf)
                 print(flow_mapping) 
@@ -498,7 +565,7 @@ class  KnowledgeBaseUser():
                 print(status)
                 '''
 
-        return ans_params_valid
+        return params_in_delay_cons,params_out_delay_cons
     
  
 

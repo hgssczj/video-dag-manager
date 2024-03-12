@@ -1,0 +1,2 @@
+n_loop,frame_id,total,up,d_role,d_ip,a_role,a_ip,encoder,fps,reso,obj_n,obj_size,obj_stable,all_delay,d_proc_delay,d_trans_delay,a_proc_delay,a_trans_delay
+1,25.0,24,20,host,172.27.156.251,host,172.27.156.251,JEPG,1,360p,24.0,219.37339843441796,1,1.4944983537380514,0.4692104963155893,0.007418274879455566,1.0135977084820087,0.004271874060997716
