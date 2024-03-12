@@ -19,6 +19,7 @@ video_info_list = [
     {"id": 0, "type": "student in classroom", "path": "input/input.mov", "url": "http://114.212.81.11:7912/video0"},
     {"id": 1, "type": "people in meeting-room", "path": "input/input1.mp4",  "url": "http://114.212.81.11:7912/video1"},
     {"id": 3, "type": "traffic flow outdoor", "path": "input/traffic-720p.mp4", "url": "http://114.212.81.11:7912/video3"},
+    {"id": 4, "type": "cut people in meeting-room", "path": "input/test-cut1.mp4", "url": "http://114.212.81.11:7912/video99"},
     {"id": 99, "type": "cut people in meeting-room", "path": "input/test-cut1.mp4", "url": "http://114.212.81.11:7912/video99"},
     {"id": 100, "type": "cut people in meeting-room", "path": "input/test-cut1.mp4", "url": "http://114.212.81.11:7912/video99"},
     {"id": 101, "type": "traffic flow outdoor", "path": "input/traffic-720p.mp4", "url": "http://114.212.81.11:7912/video3"},

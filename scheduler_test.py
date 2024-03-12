@@ -37,58 +37,16 @@ if __name__ == "__main__":
     # 要解决贝叶斯优化耗时太长的问题，就要尽可能缩小配置的已有取值范围。也就是说，在用贝叶斯优化搜索知识库进而冷启动的时候，需要自己指定一个conf_serv_info
     # 而且，在利用新的文件更新字典的时候，也需要更新conf_serv_info。
     # 为了方便起见，
-    '''
-    import pickle
 
-    my_list = [0.05, 2.8, 3.1, 'a', 'b']
-    file_path = "data.pkl" # 指定保存文件路径及名称
-    with open(file_path, 'wb') as file:
-        pickle.dump(my_list, file)
-    print("列表已保存到文件")
-
-    file_path = "data.pkl" # 指定保存文件路径及名称
-    with open(file_path, 'rb') as file:
-        my_list = pickle.load(file)
-    print("从文件中读取的列表：", my_list)
-    print(type(my_list))
-    for x in my_list:
-        print(type(x),x)
-    '''
-    '''
-    with open('conf_and_serv_info.json', 'w', encoding='utf-8') as f:
-        json.dump(conf_and_serv_info_sampled, f, ensure_ascii=False, indent=4)
-    with open('conf_and_serv_info.json', 'r', encoding='utf-8') as f:
-        loaded_conf_and_serv_info = json.load(f)
-
-        # 打印读取到的字典以验证内容
-        print("从文件中读取的JSON对象：")
-        print(type(loaded_conf_and_serv_info))
-        print(loaded_conf_and_serv_info)
-        for x in loaded_conf_and_serv_info.keys():
-            y=loaded_conf_and_serv_info[x]
-            print(type(y),type(y[0]))
-            print(y)
-    '''
-
-
-
-    #'''
+ 
     job_uid=1
     dag={}
     dag["flow"]= ["face_detection", "face_alignment"]
     user_constraint={}
-    user_constraint["delay"]= 0.3
+    user_constraint["delay"]= 0.8
 
-
-    #conf_and_serv_info["face_alignment_mem_util_limit"]=[0.25,0.3,0.35,0.4]
-    #conf_and_serv_info["face_detection_mem_util_limit"]=[0.25]
-    #conf_and_serv_info["face_alignment_cpu_util_limit"]=[0.3]
-    #conf_and_serv_info["face_detection_cpu_util_limit"]=[0.25]
-
-  
-
-
-    lat_first_kb_muledge.get_cold_start_plan(
+    #'''
+    lat_first_kb_muledge.scheduler(
             job_uid=1,
             dag=dag,
             resource_info=None,
