@@ -435,7 +435,10 @@ class Job():
                 # wrapped_ctx['delay'] = (ed_time - st_time) / ((cam_frame_id - curr_cam_frame_id + 1) * 1.0)
                 # self.update_runtime(taskname=taskname, output_ctx=wrapped_ctx)
                 output_ctx['proc_resource_info']['all_latency'] = ed_time - st_time  # 单位：秒(s)，任务实际执行时延+数据传输时延
-                output_ctx['proc_resource_info']['device_ip'] = choice["node_ip"]  # 将当前任务执行的节点也报告给运行时情境
+                output_ctx['proc_resource_info']['node_ip'] = choice["node_ip"]  # 将当前任务执行的节点也报告给运行时情境
+                output_ctx['proc_resource_info']['node_role'] = choice["node_role"]
+                output_ctx['proc_resource_info']['cpu_util_limit'] = task_limit['cpu_util_limit']
+                output_ctx['proc_resource_info']['mem_util_limit'] = task_limit['mem_util_limit']
                 output_ctx['task_conf'] = cur_plan[common.PLAN_KEY_VIDEO_CONF]  # 将当前任务的可配置参数也报告给运行时情境
 
                 proc_resource_info_dict[taskname] = output_ctx['proc_resource_info']

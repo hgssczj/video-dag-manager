@@ -170,6 +170,17 @@ $ python3 job_manager_v2.py --query_addr=114.212.81.11:5000 --tracker_port=5001 
     "status": 0
 }
 
+描述：返回某个视频查询的当前工况
+接口：GET :5000/query/get_work_condition/<query_id>
+返回数据：
+{
+    "obj_n": 5,
+    "obj_stable": True,
+    "obj_size": 300,
+    "delay": 0.2
+}
+
+
 描述：边端同步查询的处理结果
 接口：POST :5000/query/sync_result/<query_id>
 请求数据：
@@ -331,13 +342,136 @@ flow_mapping = {
 }
 ```
 
-## 7 运行时情境函数（参见`job_manager.py`中worker_loop函数和Job实例的sniffer对象，以及`content_func/`目录）
+## 7 运行时情境函数（参见`job_manager_v2.py`中worker_loop函数，以及`query_manager_v2.py`中`Query`类的成员函数`get_portrait_info`、`predict_resource_threshold`、`help_cold_start`等）
 
 感知流程：
 
-（1）更新运行时情境：`Job`实例每次拿到中间执行结果后，调用`update_runtime方法`。update_runtime方法会调用`Sniffer实例`的`sniff方法`，更新运行时情境（`sniff方法`本质上是维护若干个时间序列）；
+（1）更新运行时情境：边缘端的`Job`实例在执行完一个完整的任务后会将本轮执行过程中的运行时情境信息上传到云（边缘端本地不保存任何情境信息和中间结果，请求云端的`/query/sync_runtime`接口）；云端在拿到一次任务执行的运行时情境信息之后会对其进行处理，包括整理工况情境以便前端展示，以及后续进行运行时情境画像，为调度器提供参考。
 
-（2）获取运行时情境：调度器对任务调度前，请求边端的RESTFUL接口获取query（与job对应）的情境指标。该RESTFUL接口调用对应`Job实例`的`Sniffer实例`的`describe_runtime方法`，得到可用于指导调度的情境指标（`describe_runtime方法`本质上是基于现有的情境时间序列，计算出可指导调度的指标）。
+（2）获取运行时情境：若前端想要获取工况情境用于前端展示，则需要通过RESTful接口`/query/get_work_condition/<query_id>`进行访问，具体的返回结果格式见前面所述；弱调度器想要获取运行时情境画像参数，则可以通过直接调用`Query`类对象的成员函数的方式获取相关信息，具体的函数以及使用方式见下。
+
+##### 1. get_portrait_info():
+* 输入参数：无
+* 返回值：
+```
+{
+    'cur_latency': 0.5,  // 当前任务的执行时延
+    'user_constraint': {  // 当前的用户约束
+        "delay": 0.8,
+        "accuracy": 0.9
+    },
+    'if_overtime': True,  // 当前任务是否超时，True--超时；False--未超时
+    'available_resource': {  // 当前系统中每个设备上本query可以使用的资源量
+        '114.212.81.11': {  // 以ip地址表示各个设备
+            'node_role': 'cloud',  // 当前设备是云还是边
+            'available_cpu': 0.5,  // 当前设备可用的CPU利用率
+            'available_mem': 0.8  // 当前设备可用的内存利用率
+        },
+        '172.27.132.253': {
+            ...
+        }
+    },
+    'resource_portrait': {  // 当前任务中各个服务的资源画像
+        'face_detection': {  // 以服务名为key
+            'node_ip': '172.27.132.253',  // 当前服务的执行节点ip
+            'node_role': 'edge',  // 当前服务的执行节点类型
+            'cpu_util_limit': 0.5,  // 当前服务在当前执行节点上的CPU资源限制
+            'cpu_util_use': 0.4,  // 当前服务在当前执行节点上的实际CPU使用量
+            'mem_util_limit': 0.3,  // 当前服务在当前执行节点上的内存资源限制
+            'mem_util_use': 0.1,  // 当前服务在当前执行节点上的实际内存使用量
+            'cpu_portrait': 0,  // CPU资源画像分类，0--弱；1--中；2--强
+            'cpu_bmi': 0.1, // CPU资源的bmi值, (资源分配量-资源需求量) / 资源需求量
+            'cpu_bmi_lower_bound': 0, 
+            'cpu_bmi_upper_bound': 1.1, // 若'cpu_bmi'在['cpu_bmi_lower_bound', 'cpu_bmi_upper_bound']的范围内，说明cpu资源分配量处于合理范围内；若不在此范围内，则说明不合理
+            'mem_portrait': 0,  // 内存资源画像分类，0--弱；1--中；2--强
+            'mem_bmi': 0.1, // 内存资源的bmi值, (资源分配量-资源需求量) / 资源需求量
+            'mem_bmi_lower_bound': 0, 
+            'mem_bmi_upper_bound': 1.1, // 若'mem_bmi'在['mem_bmi_lower_bound', 'mem_bmi_upper_bound']的范围内，说明内存资源分配量处于合理范围内；若不在此范围内，则说明不合理
+            'resource_demand': {  // 当前服务在当前配置、当前工况下，在系统中各类设备上的中资源阈值。注意：由于目前只有一台服务器，且边缘节点都是tx2，所以没有按照ip进行不同设备的资源预估，而是直接对不同类别的设备进行资源预估
+                'cpu': {  // CPU资源
+                    'cloud': {  // 在服务器上的资源阈值
+                        'upper_bound': 0.1,  // 中资源阈值的上界
+                        'lower_bound': 0.05  // 中资源阈值的下界
+                    },
+                    'edge': {  // 在边缘设备上的资源阈值
+                        'upper_bound': 0.1,
+                        'lower_bound': 0.05
+                    }
+                },
+                'mem': {  // 内存资源
+                    'cloud': {
+                        'upper_bound': 0.1,
+                        'lower_bound': 0.05
+                    },
+                    'edge': {
+                        'upper_bound': 0.1,
+                        'lower_bound': 0.05
+                    }
+                }
+            }
+        },
+        'gender_classification': {
+            ...
+        }
+    }
+}
+```
+##### 2. predict_resource_threshold():
+* 输入参数：
+    * task_info：字典类型，包含字段如下
+```
+{
+    // 配置相关字段
+    'service_name': 'face_detection',  // 服务名
+    'fps': 15,  // 帧率，取值范围见common.py中变量fps_list
+    'reso': 2,  // 分辨率，整数，表示分辨率的字符串到整数的映射见common.py中变量reso_2_index_dict
+    
+    // 工况相关字段
+    'obj_num': 3  // 目标数量
+}
+```
+* 返回值：
+```
+{
+    'cpu': {  // CPU资源
+        'cloud': {  // 在服务器上的资源阈值
+            'upper_bound': server_cpu_upper_bound,  // 中资源阈值的上界
+            'lower_bound': server_cpu_lower_bound  // 中资源阈值的下界
+        },
+        'edge': {  // 在边缘设备上的资源阈值
+            'upper_bound': edge_cpu_upper_bound,
+            'lower_bound': edge_cpu_lower_bound
+        }
+    },
+    'mem': {  // 内存资源
+        'cloud': {
+            'upper_bound': server_mem_upper_bound,
+            'lower_bound': server_mem_lower_bound
+        },
+        'edge': {
+            'upper_bound': edge_mem_upper_bound,
+            'lower_bound': edge_mem_lower_bound
+        }
+    }
+}
+```
+
+##### 3. help_cold_start():
+* 输入参数：
+    * service：字符串类型，例如"face_detection"
+* 返回值：
+```
+{
+    'cpu': {  // CPU资源
+        'cloud': 0.1,  // 云端的最大资源阈值
+        'edge': 0.5  // 边端的最大资源阈值
+    },
+    'mem': {  // 内存资源
+        'cloud': 0.1,
+        'edge': 0.5
+    }
+}
+```
 
 ## 8 视频流sidechan接口
 
