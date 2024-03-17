@@ -107,7 +107,7 @@ conf_and_serv_info={  #各种配置参数的可选值
 
 }
 '''
-#'''
+'''
 # 以下是缩小范围版，节省知识库大小
 conf_and_serv_info={  #各种配置参数的可选值
     "reso":["360p","480p","720p","1080p"],
@@ -135,7 +135,7 @@ conf_and_serv_info={  #各种配置参数的可选值
     "car_detection_trans_cpu_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
 
 }
-#'''
+'''
 #'''
 #"172.27.151.145"
 '''
@@ -196,33 +196,42 @@ conf_and_serv_info={  #各种配置参数的可选值
 }
 '''
 '''
+["face_detection", "gender_classification"],
+'''
+#'''
 conf_and_serv_info={  #各种配置参数的可选值
-    "reso":["360p"],
-    "fps":[5],
+    "reso":["1080p"],
+    "fps":[30],
     "encoder":["JPEG"],
     
-    "face_alignment_ip":["172.27.151.145"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    "face_detection_ip":["172.27.151.145"],
-    "car_detection_ip":["172.27.151.145"],
-    "face_alignment_mem_util_limit":[0.3],
-    "face_alignment_cpu_util_limit":[0.3],
-    "face_detection_mem_util_limit":[0.1],
-    "face_detection_cpu_util_limit":[0.1],
-    "car_detection_mem_util_limit":[1.00],
-    "car_detection_cpu_util_limit":[1.0],
+    #"face_detection_ip":["172.27.143.164"],
+    #"gender_classification_ip":["172.27.143.164"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
+    "face_detection_ip":["114.212.81.11"],
+    "gender_classification_ip":["114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
+   
+    
+    "face_detection_mem_util_limit":[1.0],
+    "face_detection_cpu_util_limit":[1.0],
+    "gender_classification_mem_util_limit":[1.0],
+    "gender_classification_cpu_util_limit":[1.0],
 
-    "face_alignment_trans_ip":["172.27.151.145"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    "face_detection_trans_ip":["172.27.151.145"],
-    "car_detection_trans_ip":["172.27.151.145"],
-    "face_alignment_trans_mem_util_limit":[0.3],
-    "face_alignment_trans_cpu_util_limit":[0.3],
-    "face_detection_trans_mem_util_limit":[0.1],
-    "face_detection_trans_cpu_util_limit":[0.1],
-    "car_detection_trans_mem_util_limit":[1.00],
-    "car_detection_trans_cpu_util_limit":[1.0],
+    
+    #"face_detection_trans_ip":["172.27.143.164"],
+    #"gender_classification_trans_ip":["172.27.143.164"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
+
+    "face_detection_trans_ip":["114.212.81.11"],
+    "gender_classification_trans_ip":["114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
+    
+    
+    "face_detection_trans_mem_util_limit":[1.0],
+    "face_detection_trans_cpu_util_limit":[1.0],
+    "gender_classification_trans_mem_util_limit":[1.0],
+    "gender_classification_trans_cpu_util_limit":[1.0],
+    
+
 
 }
-'''
+#'''
 
 
 
@@ -408,7 +417,6 @@ class KnowledgeBaseBuilder():
         filename = kb_data_path+'/'+datetime.datetime.now().strftime('%Y%m%d_%H_%M_%S') + \
             '_' + os.path.basename(__file__).split('.')[0] + \
             '_' + str(self.query_body['user_constraint']['delay']) + \
-            '_' + str(self.query_body['user_constraint']['accuracy']) + \
             '_' + self.expr_name + \
             '.csv'
 
@@ -485,95 +493,187 @@ class KnowledgeBaseBuilder():
     # 方法：参数r2r3r4分别表示资源信息、执行回应和runtime_info，从中提取可以填充csv文件的信息，利用字典把所有不重复的感知结果都保存在updatetd_result之中
     # 返回值：updatetd_result，保存了当前的运行时情境和执行结果
     def write_in_file(self,r2,r3,r4):   #pipeline指定了任务类型   
-        resource_info = r2.json()
-        resp = r3.json()
-        runtime_info=r4.json()
-        # resource_info的典型结构
+        system_status = r2.json()
+        result = r3.json()
+        portrait_info=r4.json()
+        print("system_status")
+        print(system_status)
+        print('result')
+        print(result)
+        print('portrait_info')
+        print(portrait_info)
+        # system_status的典型结构
         '''
-        {
-            'cloud': {
-                '114.212.81.11': {
-                    'cpu_ratio': 1.3, 
-                    'gpu_compute_utilization': {'0': 0, '1': 0, '2': 0, '3': 0}, 
-                    'gpu_mem_total': {'0': 24.0, '1': 24.0, '2': 24.0, '3': 24.0}, 
-                    'gpu_mem_utilization': {'0': 5.941518147786459, '1': 1.2865702311197915, '2': 1.2865702311197915, '3': 1.2865702311197915}, 
-                    'mem_ratio': 4.6, 
-                    'mem_total': 251.56013107299805, 
-                    'n_cpu': 48, 
-                    'net_ratio(MBps)': 0.76916, 
-                    'swap_ratio': 0.0
-                }
-            }, 
-            'host': {
-                '172.27.151.145': {
-                    'cpu_ratio': 13.0, 
-                    'gpu_compute_utilization': {'0': 0.0}, 
-                    'gpu_mem_total': {'0': 3.9}, 
-                    'gpu_mem_utilization': {'0': 30.865302452674282}, 
-                    'mem_ratio': 76.3, 
-                    'mem_total': 7.675579071044922, 
-                    'n_cpu': 4, 
-                    'net_ratio(MBps)': 0.0125, 
-                    'swap_ratio': 36.6
+       {
+            "cloud": {
+                "114.212.81.11": {  //以ip为key，标记一个节点
+                    "device_state": {  //节点的整体资源利用情况
+                        "cpu_ratio": [0.2, 0.0, 0.2, 0.1, 0.3, 0.2, 0.0, 0.7, 0.9],  //节点各个cpu的占用百分比列表
+                        "mem_ratio": 5.4,  //节点的内存占用百分比
+                        "net_ratio(MBps)": 0.31806,  //节点的带宽
+                        "swap_ratio": 0.0, //节点交换内存使用情况
+                        "gpu_mem":  {  //节点各个GPU的显存占用百分比字典
+                            "0": 0.012761433919270834, // 第0张显卡
+                            "1": 0.012761433919270834, // 第1张显卡
+                        },
+                        "gpu_utilization": {  //节点各个GPU的计算能力利用率百分比字典
+                            "0": 7, // 第0张显卡；nano或tx2没有显卡，因此只有"0"这一个键；服务器有多张显卡
+                            "1": 8, // 第1张显卡
+                        },
+                    },
+                    "service_state": {  //节点上为各个服务分配的资源情况
+                        "face_alignment": {
+                            "cpu_util_limit": 0.5,
+                            "mem_util_limit": 0.5
+                        },
+                        "face_detection": {
+                            "cpu_util_limit": 0.5,
+                            "mem_util_limit": 0.5
+                        }
+                    }
+            }
+            },
+            "host": {
+                "172.27.142.109": {
+                    "device_state": {  //节点的整体资源利用情况
+                        "cpu_ratio": [0.2, 0.0, 0.2, 0.1, 0.3, 0.2, 0.0, 0.7, 0.9],  //节点各个cpu的占用百分比列表
+                        "mem_ratio": 5.4,  //节点的内存占用百分比
+                        "net_ratio(MBps)": 0.31806,  //节点的带宽
+                        "swap_ratio": 0.0, //节点交换内存使用情况
+                        "gpu_mem":  {  //节点各个GPU的显存占用百分比字典
+                            "0": 0.012761433919270834, // 第0张显卡
+                            "1": 0.012761433919270834, // 第1张显卡
+                        },
+                        "gpu_utilization": {  //节点各个GPU的计算能力利用率百分比字典
+                            "0": 7, // 第0张显卡；nano或tx2没有显卡，因此只有"0"这一个键；服务器有多张显卡
+                            "1": 8, // 第1张显卡
+                        },
+                    },
+                    "service_state": {  //节点上为各个服务分配的资源情况
+                        "face_alignment": {
+                            "cpu_util_limit": 0.5,
+                            "mem_util_limit": 0.5
+                        },
+                        "face_detection": {
+                            "cpu_util_limit": 0.5,
+                            "mem_util_limit": 0.5
+                        }
+                    }
                 }
             }
         }
-        
+                
         '''
-        # runtime_info的典型结构（抬头检测情况下）
+        # result的典型结构：
         '''
         {
-            'delay': 0.34250664710998535, 
-            'obj_n': 7.0, 
-            'obj_size': 4432.916892585744, 
-            'obj_stable': True, 
-            'runtime_portrait': {
-                'face_alignment': [
-                    {
-                        'resource_runtime': {
-                            'all_latency': 0.27319955825805664, 
-                            'compute_latency': 0.11972928047180176, 
-                            'cpu_portrait': 0, 
-                            'cpu_util_limit': 1.0, 
-                            'cpu_util_use': 0.2729375, 
-                            'device_ip': '114.212.81.11', 
-                            'mem_portrait': 0, 
-                            'mem_util_limit': 1.0, 
-                            'mem_util_use': 0.010848892680669442, 
-                            'pid': 2210028
-                        }, 
-                        'task_conf': {'encoder': 'JPEG', 'fps': 30, 'reso': '1080p'}, 
-                        'work_runtime': {'obj_n': 7}
+            // 该部分是列表，代表最近10帧的处理结果。经过改造，其包含每一个任务的执行和传输时延。
+            "appended_result": [
+                {
+                        'count_result': {'total': 24, 'up': 20}, 
+                        'delay': 0.16154261735769418, 
+                        'execute_flag': True, 
+                        'ext_plan': {
+                                    'flow_mapping': 
+                                        {   
+                                            'face_alignment': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'}, 
+                                            'face_detection': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'} 
+                                        }, 
+                                    'video_conf':   {'encoder': 'JPEG', 'fps': 1, 'reso': '360p'}
+                                    }, 
+
+                        'ext_runtime': {
+                                            'delay': 0.16154261735769418, 
+                                            'obj_n': 24.0, 
+                                            'obj_size': 219.36678242330404, 
+                                            'obj_stable': 1, 
+                                            'plan_result': 
+                                                {
+                                                    'delay': {'face_alignment': 0.09300840817964993, 'face_detection': 0.06853420917804424}, 
+                                                    'process_delay': {'face_alignment': 0.08888898446009709, 'face_detection': 0.060828484021700345}
+                                                }
+                                        }, 
+                        'frame_id': 25.0, 
+                        'n_loop': 1, 
+                        'proc_resource_info_list': [{'cpu_util_limit': 1.0, 'cpu_util_use': 0.060020833333333336, 'latency': 2.3111135959625244, 'pid': 505503}]
+                },
+                ...
+            ],
+
+            // 留空
+            "latest_result": {}
+        }
+        '''
+        # portrait_info的典型结构（性别检测情况下）
+        '''
+       {
+            'cur_latency': 0.5,  // 当前任务的执行时延
+            'user_constraint': {  // 当前的用户约束
+                "delay": 0.8,
+                "accuracy": 0.9
+            },
+            'if_overtime': True,  // 当前任务是否超时，True--超时；False--未超时
+            'available_resource': {  // 当前系统中每个设备上本query可以使用的资源量
+                '114.212.81.11': {  // 以ip地址表示各个设备
+                    'node_role': 'cloud',  // 当前设备是云还是边
+                    'available_cpu': 0.5,  // 当前设备可用的CPU利用率
+                    'available_mem': 0.8  // 当前设备可用的内存利用率
+                },
+                '172.27.132.253': {
+                    ...
+                }
+            },
+            'resource_portrait': {  // 当前任务中各个服务的资源画像
+                'face_detection': {  // 以服务名为key
+                    'node_ip': '172.27.132.253',  // 当前服务的执行节点ip
+                    'node_role': 'edge',  // 当前服务的执行节点类型
+                    'cpu_util_limit': 0.5,  // 当前服务在当前执行节点上的CPU资源限制
+                    'cpu_util_use': 0.4,  // 当前服务在当前执行节点上的实际CPU使用量
+                    'mem_util_limit': 0.3,  // 当前服务在当前执行节点上的内存资源限制
+                    'mem_util_use': 0.1,  // 当前服务在当前执行节点上的实际内存使用量
+                    'cpu_portrait': 0,  // CPU资源画像分类，0--弱；1--中；2--强
+                    'cpu_bmi': 0.1, // CPU资源的bmi值, (资源分配量-资源需求量) / 资源需求量
+                    'cpu_bmi_lower_bound': 0, 
+                    'cpu_bmi_upper_bound': 1.1, // 若'cpu_bmi'在['cpu_bmi_lower_bound', 'cpu_bmi_upper_bound']的范围内，说明cpu资源分配量处于合理范围内；若不在此范围内，则说明不合理
+                    'mem_portrait': 0,  // 内存资源画像分类，0--弱；1--中；2--强
+                    'mem_bmi': 0.1, // 内存资源的bmi值, (资源分配量-资源需求量) / 资源需求量
+                    'mem_bmi_lower_bound': 0, 
+                    'mem_bmi_upper_bound': 1.1, // 若'mem_bmi'在['mem_bmi_lower_bound', 'mem_bmi_upper_bound']的范围内，说明内存资源分配量处于合理范围内；若不在此范围内，则说明不合理
+                    'resource_demand': {  // 当前服务在当前配置、当前工况下，在系统中各类设备上的中资源阈值。注意：由于目前只有一台服务器，且边缘节点都是tx2，所以没有按照ip进行不同设备的资源预估，而是直接对不同类别的设备进行资源预估
+                        'cpu': {  // CPU资源
+                            'cloud': {  // 在服务器上的资源阈值
+                                'upper_bound': 0.1,  // 中资源阈值的上界
+                                'lower_bound': 0.05  // 中资源阈值的下界
+                            },
+                            'edge': {  // 在边缘设备上的资源阈值
+                                'upper_bound': 0.1,
+                                'lower_bound': 0.05
+                            }
+                        },
+                        'mem': {  // 内存资源
+                            'cloud': {
+                                'upper_bound': 0.1,
+                                'lower_bound': 0.05
+                            },
+                            'edge': {
+                                'upper_bound': 0.1,
+                                'lower_bound': 0.05
+                            }
+                        }
                     }
-                ], 
-                'face_detection': [
-                    {
-                        'resource_runtime': {
-                            'all_latency': 0.41181373596191406, 
-                            'compute_latency': 0.016497373580932617, 
-                            'cpu_portrait': 0, 
-                            'cpu_util_limit': 0.3, 
-                            'cpu_util_use': 0.10039583333333334, 
-                            'device_ip': '114.212.81.11', 
-                            'mem_portrait': 0, 
-                            'mem_util_limit': 1.0, 
-                            'mem_util_use': 0.008297492975166465, 
-                            'pid': 2210015
-                        }, 
-                        'task_conf': {'encoder': 'JPEG', 'fps': 30, 'reso': '1080p'}, 
-                        'work_runtime': {'obj_n': 7}
-                    }
-                ]
+                },
+                'gender_classification': {
+                    ...
+                }
             }
         }
-        
         '''
 
-        edge_mem_ratio=resource_info['host'][self.node_ip]['mem_ratio']
+        edge_mem_ratio=system_status['host'][self.node_ip]['device_state']['mem_ratio']
 
 
-        appended_result = resp['appended_result'] #可以把得到的结果直接提取出需要的内容，列表什么的。
-        latest_result = resp['latest_result'] #空的
+        appended_result = result['appended_result'] #可以把得到的结果直接提取出需要的内容，列表什么的。
+        latest_result = result['latest_result'] #空的
 
         # updatetd_result用于存储本次从云端获取的有效的更新结果
         updatetd_result=[]
@@ -634,35 +734,35 @@ class KnowledgeBaseBuilder():
                 # 要从runtime_info里获取资源信息。暂时只提取runtime_portrait列表中的第一个画像
                 # 以下用于获取每一个服务对应的cpu资源画像、限制和效果
                 field_name=serv_name+'_cpu_portrait'
-                row[field_name]=runtime_info['runtime_portrait'][serv_name][0]['resource_runtime']['cpu_portrait']
+                row[field_name]=portrait_info['resource_portrait'][serv_name]['cpu_portrait']
                 field_name=serv_name+'_cpu_util_limit'
-                row[field_name]=runtime_info['runtime_portrait'][serv_name][0]['resource_runtime']['cpu_util_limit']
+                row[field_name]=portrait_info['resource_portrait'][serv_name]['cpu_util_limit']
                 field_name=serv_name+'_cpu_util_use'
-                row[field_name]=runtime_info['runtime_portrait'][serv_name][0]['resource_runtime']['cpu_util_use']
+                row[field_name]=portrait_info['resource_portrait'][serv_name]['cpu_util_use']
 
                 # 以下用于获取每一个服务对应的内存资源画像、限制和效果
                 field_name=serv_name+'_mem_portrait'
-                row[field_name]=runtime_info['runtime_portrait'][serv_name][0]['resource_runtime']['mem_portrait']
+                row[field_name]=portrait_info['resource_portrait'][serv_name]['mem_portrait']
                 field_name=serv_name+'_mem_util_limit'
-                row[field_name]=runtime_info['runtime_portrait'][serv_name][0]['resource_runtime']['mem_util_limit']
+                row[field_name]=portrait_info['resource_portrait'][serv_name]['mem_util_limit']
                 field_name=serv_name+'_mem_util_use'
-                row[field_name]=runtime_info['runtime_portrait'][serv_name][0]['resource_runtime']['mem_util_use']
+                row[field_name]=portrait_info['resource_portrait'][serv_name]['mem_util_use']
 
                 # 以下用于获取每一个服务对应的cpu资源画像、限制和效果
                 field_name=serv_name+'_trans'+'_cpu_portrait'
-                row[field_name]=runtime_info['runtime_portrait'][serv_name][0]['resource_runtime']['cpu_portrait']
+                row[field_name]=portrait_info['resource_portrait'][serv_name]['cpu_portrait']
                 field_name=serv_name+'_trans'+'_cpu_util_limit'
-                row[field_name]=runtime_info['runtime_portrait'][serv_name][0]['resource_runtime']['cpu_util_limit']
+                row[field_name]=portrait_info['resource_portrait'][serv_name]['cpu_util_limit']
                 field_name=serv_name+'_trans'+'_cpu_util_use'
-                row[field_name]=runtime_info['runtime_portrait'][serv_name][0]['resource_runtime']['cpu_util_use']
+                row[field_name]=portrait_info['resource_portrait'][serv_name]['cpu_util_use']
 
                 # 以下用于获取每一个服务对应的内存资源画像、限制和效果
                 field_name=serv_name+'_trans'+'_mem_portrait'
-                row[field_name]=runtime_info['runtime_portrait'][serv_name][0]['resource_runtime']['mem_portrait']
+                row[field_name]=portrait_info['resource_portrait'][serv_name]['mem_portrait']
                 field_name=serv_name+'_trans'+'_mem_util_limit'
-                row[field_name]=runtime_info['runtime_portrait'][serv_name][0]['resource_runtime']['mem_util_limit']
+                row[field_name]=portrait_info['resource_portrait'][serv_name]['mem_util_limit']
                 field_name=serv_name+'_trans'+'_mem_util_use'
-                row[field_name]=runtime_info['runtime_portrait'][serv_name][0]['resource_runtime']['mem_util_use']
+                row[field_name]=portrait_info['resource_portrait'][serv_name]['mem_util_use']
                        
             n_loop=res['n_loop']
             if n_loop not in self.written_n_loop:  #以字典为参数，只有那些没有在字典里出现过的row才会被写入文件，
@@ -679,7 +779,7 @@ class KnowledgeBaseBuilder():
     # post_get_write：
     # 用途：更新调度计划，感知运行时情境，并调用post_get_write记录在csv文件中
     # 方法：使用update_plan接口将conf,flow_mapping,resource_limit应用在query_id指定的任务中
-    #      通过get_resource_info和get_result和get_runtime依次获取运行时情境
+    #      依次获取运行时情境
     #      使用post_get_write方法将感知到的结果写入文件之中
     # 返回值：包含updated_result的键值对
     def post_get_write(self,conf,flow_mapping,resource_limit):
@@ -691,7 +791,7 @@ class KnowledgeBaseBuilder():
             return {"status":0,"des":"fail to update plan"}
          
         #（2）获取资源情境,获取node_ip指定的边缘节点的内存使用率
-        r2 = self.sess.get(url="http://{}/get_resource_info".format(self.service_addr))
+        r2 = self.sess.get(url="http://{}/get_system_status".format(self.service_addr))
         if not r2.json():
             return {"status":1,"des":"fail to get resource info"}
         '''
@@ -706,7 +806,7 @@ class KnowledgeBaseBuilder():
             return {"status":2,"des":"fail to post one query request"}
         
         # (4) 查看当前运行时情境
-        r4 = self.sess.get(url="http://{}/query/get_runtime/{}".format(self.query_addr, self.query_id))  
+        r4 = self.sess.get(url="http://{}/query/get_portrait_info/{}".format(self.query_addr, self.query_id))  
         if not r4.json():
             return {"status":2,"des":"fail to post one query request"}
         '''
@@ -722,13 +822,13 @@ class KnowledgeBaseBuilder():
     
     # get_write：
     # 用途：感知运行时情境，并调用post_get_write记录在csv文件中。相比post_get_result，不会修改调度计划。
-    # 方法：通过get_resource_info和get_result和get_runtime依次获取运行时情境
+    # 方法：依次获取运行时情境
     #      使用post_get_write方法将感知到的结果写入文件之中
     # 返回值：包含updated_result的键值对
     def get_write(self):
          
         #（1）获取资源情境,获取node_ip指定的边缘节点的内存使用率
-        r2 = self.sess.get(url="http://{}/get_resource_info".format(self.service_addr))
+        r2 = self.sess.get(url="http://{}/get_system_status".format(self.service_addr))
         if not r2.json():
             return {"status":1,"des":"fail to get resource info"}
         '''
@@ -743,7 +843,7 @@ class KnowledgeBaseBuilder():
             return {"status":2,"des":"fail to post one query request"}
         
         # (4) 查看当前运行时情境
-        r4 = self.sess.get(url="http://{}/query/get_runtime/{}".format(self.query_addr, self.query_id))  
+        r4 = self.sess.get(url="http://{}/query/get_portrait_info/{}".format(self.query_addr, self.query_id))  
         if not r4.json():
             return {"status":2,"des":"fail to post one query request"}
         '''
@@ -1478,8 +1578,8 @@ service_info_list=[
         "conf":["reso","fps","encoder"]
     },
     {
-        "name":'face_alignment',
-        "value":'face_alignment_proc_delay',
+        "name":'gender_classification',
+        "value":'gender_classification_proc_delay',
         "conf":["reso","fps","encoder"]
     },
     {
@@ -1488,8 +1588,8 @@ service_info_list=[
         "conf":["reso","fps","encoder"]
     },
     {
-        "name":'face_alignment_trans',
-        "value":'face_alignment_trans_delay',
+        "name":'gender_classification_trans',
+        "value":'gender_classification_trans_delay',
         "conf":["reso","fps","encoder"]
     },
 ]
@@ -1512,7 +1612,7 @@ rsc_upper_bound={
 conf_names=["reso","fps","encoder"]
 
 #这里包含流水线里涉及的各个服务的名称
-serv_names=["face_detection","face_alignment"]   
+serv_names=["face_detection","gender_classification"]   
 
 #以下是发出query请求时的内容。注意video_id。当前文件需要配合query_manager_v2.py运行，后者使用的调度器会根据video_id的取值判断是否会运行。
 #建议将video_id设置为99，它对应的具体视频内容可以在camera_simulation里找到，可以自己定制。query_manager_v2.py的调度器发现query_id为99的时候，
@@ -1521,7 +1621,7 @@ serv_names=["face_detection","face_alignment"]
 query_body = {
         "node_addr": "172.27.151.145:5001",
         "video_id": 99,   
-        "pipeline": ["face_detection", "face_alignment"],#制定任务类型
+        "pipeline": ["face_detection", "gender_classification"],#制定任务类型
         "user_constraint": {
             "delay": 0.6,  #用户约束暂时设置为0.3
             "accuracy": 0.7
@@ -1540,6 +1640,7 @@ query_body = {
         }
     }  
 '''
+'''
 #这个query_body用于测试单位的“人进入会议室”，也就是只有一张脸的情况，工况不变，但是会触发调度器变化，因为ifd很小
 query_body = {
         "node_addr": "172.27.151.145:5001",
@@ -1550,6 +1651,7 @@ query_body = {
             "accuracy": 0.7
         }
     }  
+'''
 '''
 service_info_list=[
     {
@@ -1580,6 +1682,15 @@ query_body = {
         }
     }  
 '''
+#这个query_body用于测试单位的“人进入会议室”，也就是只有一张脸的情况，工况不变，但是会触发调度器变化，因为ifd很小
+query_body = {
+        "node_addr": "172.27.143.164:5001",
+        "video_id": 103,     
+        "pipeline":  ["face_detection", "gender_classification"],#制定任务类型
+        "user_constraint": {
+            "delay": 0.7, #用户约束暂时设置为0.3
+        }
+    }  
 
 
 if __name__ == "__main__":
@@ -1605,15 +1716,14 @@ if __name__ == "__main__":
     # 是否进行稀疏采样(贝叶斯优化)
     need_sparse_kb=0
     # 是否进行严格采样（遍历所有配置）
-    need_tight_kb=0
+    need_tight_kb=1
     # 是否根据某个csv文件绘制画像 
     need_to_draw=0
     # 是否需要基于初始采样结果建立一系列字典，也就是时延有关的知识库
     need_to_build=0
 
     #是否需要发起一次简单的查询并测试调度器的功能
-    need_to_test=1
-
+    need_to_test=0
 
     #获取内存资源限制列表的时候，需要两步，第一步是下降，第二部是采取，两种方法都可以随机，也都可以不随机
     dec_rand=0
@@ -1627,9 +1737,9 @@ if __name__ == "__main__":
               "bin_nums"+str(bin_nums)+"sample_bound"+str(sample_bound)+"n_trials"+str(n_trials)
               
 
-    kb_builder=KnowledgeBaseBuilder(expr_name="tight_build_headup_detect_people_in_mmeeting",
-                                    node_ip='172.27.151.145',
-                                    node_addr="172.27.151.145:5001",
+    kb_builder=KnowledgeBaseBuilder(expr_name="tight_build_gender_classify_cold_start03",
+                                    node_ip='172.27.143.164',
+                                    node_addr="172.27.143.164:5001",
                                     query_addr="114.212.81.11:5000",
                                     service_addr="114.212.81.11:5500",
                                     query_body=query_body,

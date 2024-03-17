@@ -590,6 +590,13 @@ class QueryManager():
         query = self.query_dict[query_id]
         assert isinstance(query, Query)
         return query.get_work_condition()
+    
+    def get_query_portrait_info(self, query_id):
+        assert query_id in self.query_dict
+
+        query = self.query_dict[query_id]
+        assert isinstance(query, Query)
+        return query.get_portrait_info()
 
 
 
@@ -706,6 +713,11 @@ def query_get_plan_cbk(query_id):
 @flask_cors.cross_origin()
 def query_get_work_condition_cbk(query_id):
     return flask.jsonify(query_manager.get_query_work_condition(query_id))
+
+@query_app.route("/query/get_portrait_info/<query_id>", methods=["GET"])
+@flask_cors.cross_origin()
+def query_get_portrait_info_cbk(query_id):
+    return flask.jsonify(query_manager.get_query_portrait_info(query_id))
 
 @query_app.route("/query/get_agg_info/<query_id>", methods=["GET"])
 @flask_cors.cross_origin()
@@ -941,7 +953,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
                     r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
                                 json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping,'resource_limit':resource_limit})
                 else:
-                    print("不值得调度")
+                    print("query_id:",query_id,"不值得调度")
         except Exception as e:
             root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
 
