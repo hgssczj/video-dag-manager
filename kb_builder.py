@@ -496,12 +496,14 @@ class KnowledgeBaseBuilder():
         system_status = r2.json()
         result = r3.json()
         portrait_info=r4.json()
+        '''
         print("system_status")
         print(system_status)
         print('result')
         print(result)
         print('portrait_info')
         print(portrait_info)
+        '''
         # system_status的典型结构
         '''
        {
@@ -807,6 +809,7 @@ class KnowledgeBaseBuilder():
         
         # (4) 查看当前运行时情境
         r4 = self.sess.get(url="http://{}/query/get_portrait_info/{}".format(self.query_addr, self.query_id))  
+        #print("r4",r4)
         if not r4.json():
             return {"status":2,"des":"fail to post one query request"}
         '''
@@ -844,6 +847,7 @@ class KnowledgeBaseBuilder():
         
         # (4) 查看当前运行时情境
         r4 = self.sess.get(url="http://{}/query/get_portrait_info/{}".format(self.query_addr, self.query_id))  
+        print("r4",r4)
         if not r4.json():
             return {"status":2,"des":"fail to post one query request"}
         '''
@@ -1684,7 +1688,7 @@ query_body = {
 '''
 #这个query_body用于测试单位的“人进入会议室”，也就是只有一张脸的情况，工况不变，但是会触发调度器变化，因为ifd很小
 query_body = {
-        "node_addr": "172.27.132.253:5001",
+        "node_addr": "172.27.143.164:3001",
         "video_id": 103,     
         "pipeline":  ["face_detection", "gender_classification"],#制定任务类型
         "user_constraint": {
@@ -1738,10 +1742,10 @@ if __name__ == "__main__":
               
 
     kb_builder=KnowledgeBaseBuilder(expr_name="tight_build_gender_classify_cold_start03",
-                                    node_ip='172.27.132.253',
-                                    node_addr="172.27.132.253:5001",
-                                    query_addr="114.212.81.11:5000",
-                                    service_addr="114.212.81.11:5500",
+                                    node_ip='172.27.143.164',
+                                    node_addr="172.27.143.164:3001",
+                                    query_addr="114.212.81.11:3000",
+                                    service_addr="114.212.81.11:3500",
                                     query_body=query_body,
                                     conf_names=conf_names,
                                     serv_names=serv_names,

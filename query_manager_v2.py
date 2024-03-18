@@ -596,7 +596,10 @@ class QueryManager():
 
         query = self.query_dict[query_id]
         assert isinstance(query, Query)
-        return query.get_portrait_info()
+        print("要返回的画像")
+        x=query.get_portrait_info()
+        return x
+        #return query.get_portrait_info()
 
 
 
@@ -665,9 +668,9 @@ def user_submit_query_cbk():
     # TODO：更新sidechan信息
     # cloud_ip = manager.get_cloud_addr().split(":")[0]
     cloud_ip = "127.0.0.1"
-    r_sidechan = query_manager.sess.post(url="http://{}:{}/user/update_node_addr".format(cloud_ip, 5100),
+    r_sidechan = query_manager.sess.post(url="http://{}:{}/user/update_node_addr".format(cloud_ip, 3100),
                                    json={"job_uid": job_uid,
-                                         "node_addr": node_addr.split(":")[0] + ":5101"})
+                                         "node_addr": node_addr.split(":")[0] + ":3101"})
 
     return flask.jsonify({"status": 0,
                           "msg": "submitted to (cloud) manager from api: /query/submit_query",
@@ -758,7 +761,7 @@ def node_join_cbk():
 
 
 
-def start_query_listener(serv_port=5000):
+def start_query_listener(serv_port=3000):
     query_app.run(host="0.0.0.0", port=serv_port)
 
 # 云端调度器主循环：为manager的所有任务决定调度策略，并主动post策略到对应节点，让节点代理执行
@@ -961,11 +964,11 @@ def cloud_scheduler_loop_kb(query_manager=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--query_port', dest='query_port',
-                        type=int, default=5000)
+                        type=int, default=3000)
     parser.add_argument('--serv_cloud_addr', dest='serv_cloud_addr',
-                        type=str, default='127.0.0.1:5500')
+                        type=str, default='127.0.0.1:3500')
     parser.add_argument('--video_cloud_port', dest='video_cloud_port',
-                        type=int, default=5100)
+                        type=int, default=3100)
     args = parser.parse_args()
 
     threading.Thread(target=start_query_listener,
