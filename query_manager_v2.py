@@ -223,7 +223,10 @@ class QueryManager():
 
         query = self.query_dict[query_id]
         assert isinstance(query, Query)
-        return query.get_portrait_info()
+        print("要返回的画像")
+        x=query.get_portrait_info()
+        return x
+        #return query.get_portrait_info()
 
 
 

@@ -496,12 +496,14 @@ class KnowledgeBaseBuilder():
         system_status = r2.json()
         result = r3.json()
         portrait_info=r4.json()
+        '''
         print("system_status")
         print(system_status)
         print('result')
         print(result)
         print('portrait_info')
         print(portrait_info)
+        '''
         # system_status的典型结构
         '''
        {
@@ -845,6 +847,7 @@ class KnowledgeBaseBuilder():
         
         # (4) 查看当前运行时情境
         r4 = self.sess.get(url="http://{}/query/get_portrait_info/{}".format(self.query_addr, self.query_id))  
+        print("r4",r4)
         if not r4.json():
             return {"status":2,"des":"fail to post one query request"}
         '''
