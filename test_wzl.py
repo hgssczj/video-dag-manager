@@ -47,3 +47,49 @@ class LoadTest():
 if __name__ == '__main__':
     a = LoadTest()
     a.predict()
+    resource_info = {
+        '114.212.81.11': 
+            {'device_state': 
+                {
+                    'cpu_ratio': 40.9, 
+                    'gpu_compute_utilization': 
+                        {
+                            '0': 0, 
+                            '1': 0, 
+                            '2': 0, 
+                            '3': 0
+                        }, 
+                        'gpu_mem_total':  
+                        {'0': 24.0, '1': 24.0, '2': 24.0, '3': 24.0}, 
+                        'gpu_mem_utilization': 
+                            {'0': 1.4111836751302085, '1': 1.2761433919270835, '2': 1.2761433919270835, '3': 1.2761433919270835}, 
+                        'mem_ratio': 14.9, 
+                        'mem_total': 251.56013107299805, 
+                        'n_cpu': 48, 
+                        'net_ratio(MBps)': 0.11047, 
+                        'swap_ratio': 0.0
+                }, 
+                'node_role': 'cloud', 
+                'service_state': {
+                    'face_detection': {
+                        'cpu_util_limit': 1.0, 'mem_util_limit': 1.0
+                    }, 
+                    'gender_classification': 
+                        {'cpu_util_limit': 1.0, 'mem_util_limit': 1.0
+                    }
+                }
+            }, 
+            
+        '172.27.132.253': 
+            {'device_state': {}, 
+            'node_role': 'edge', 
+            'service_state': {
+                'face_detection': {
+                    'cpu_util_limit': 1.0, 'mem_util_limit': 1.0
+                }, 
+            'gender_classification': {
+                'cpu_util_limit': 1.0, 'mem_util_limit': 1.0
+                }
+            }
+        }
+    }

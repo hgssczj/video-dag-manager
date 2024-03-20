@@ -71,9 +71,9 @@ model_op={
                 "node_ip": "114.212.81.11",
                 "node_role": "cloud"
             },
-            "172.27.143.164": {
+            "172.27.132.253": {
                 "model_id": 0,
-                "node_ip": "172.27.143.164",
+                "node_ip": "172.27.132.253",
                 "node_role": "host"  
             },
             "172.27.151.145": {
@@ -204,10 +204,10 @@ conf_and_serv_info={  #各种配置参数的可选值
     "fps":[30],
     "encoder":["JPEG"],
     
-    #"face_detection_ip":["172.27.143.164"],
-    #"gender_classification_ip":["172.27.143.164"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    "face_detection_ip":["114.212.81.11"],
-    "gender_classification_ip":["114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
+    "face_detection_ip":["172.27.132.253"],
+    "gender_classification_ip":["172.27.132.253"],   # 这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
+    # "face_detection_ip":["114.212.81.11"],
+    # "gender_classification_ip":["114.212.81.11"],   # 这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
    
     
     "face_detection_mem_util_limit":[1.0],
@@ -216,11 +216,11 @@ conf_and_serv_info={  #各种配置参数的可选值
     "gender_classification_cpu_util_limit":[1.0],
 
     
-    #"face_detection_trans_ip":["172.27.143.164"],
-    #"gender_classification_trans_ip":["172.27.143.164"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
+    "face_detection_trans_ip":["172.27.132.253"],
+    "gender_classification_trans_ip":["172.27.132.253"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
 
-    "face_detection_trans_ip":["114.212.81.11"],
-    "gender_classification_trans_ip":["114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
+    # "face_detection_trans_ip":["114.212.81.11"],
+    # "gender_classification_trans_ip":["114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
     
     
     "face_detection_trans_mem_util_limit":[1.0],
@@ -807,6 +807,7 @@ class KnowledgeBaseBuilder():
         
         # (4) 查看当前运行时情境
         r4 = self.sess.get(url="http://{}/query/get_portrait_info/{}".format(self.query_addr, self.query_id))  
+        print(r4)
         if not r4.json():
             return {"status":2,"des":"fail to post one query request"}
         '''
@@ -1684,7 +1685,7 @@ query_body = {
 '''
 #这个query_body用于测试单位的“人进入会议室”，也就是只有一张脸的情况，工况不变，但是会触发调度器变化，因为ifd很小
 query_body = {
-        "node_addr": "172.27.132.253:5001",
+        "node_addr": "172.27.132.253:4001",
         "video_id": 103,     
         "pipeline":  ["face_detection", "gender_classification"],#制定任务类型
         "user_constraint": {
@@ -1739,9 +1740,9 @@ if __name__ == "__main__":
 
     kb_builder=KnowledgeBaseBuilder(expr_name="tight_build_gender_classify_cold_start03",
                                     node_ip='172.27.132.253',
-                                    node_addr="172.27.132.253:5001",
-                                    query_addr="114.212.81.11:5000",
-                                    service_addr="114.212.81.11:5500",
+                                    node_addr="172.27.132.253:4001",
+                                    query_addr="114.212.81.11:4000",
+                                    service_addr="114.212.81.11:4500",
                                     query_body=query_body,
                                     conf_names=conf_names,
                                     serv_names=serv_names,

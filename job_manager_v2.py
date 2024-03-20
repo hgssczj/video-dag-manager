@@ -591,7 +591,7 @@ def job_sync_runtime_cbk(job_uid):
 
 
 
-def start_tracker_listener(serv_port=5001):
+def start_tracker_listener(serv_port=4001):
     tracker_app.run(host="0.0.0.0", port=serv_port)
     # app.run(port=serv_port)
     # app.run(host="*", port=serv_port)
@@ -599,13 +599,13 @@ def start_tracker_listener(serv_port=5001):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--query_addr', dest='query_addr',
-                        type=str, default='114.212.81.11:5000')
+                        type=str, default='114.212.81.11:4000')
     parser.add_argument('--tracker_port', dest='tracker_port',
-                        type=int, default=5001)
+                        type=int, default=4001)
     parser.add_argument('--serv_cloud_addr', dest='serv_cloud_addr',
-                        type=str, default='114.212.81.11:5500')
+                        type=str, default='114.212.81.11:4500')
     parser.add_argument('--video_side_port', dest='video_side_port',
-                        type=int, default=5101)
+                        type=int, default=4101)
     args = parser.parse_args()
 
     # 接受下发的query生成job、接收更新的调度策略
