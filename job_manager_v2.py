@@ -21,25 +21,7 @@ import logging_utils
 import common
 import json
 from camera_simulation import video_info_list
-
-resolution_wh = {
-    "360p": {
-        "w": 480,
-        "h": 360
-    },
-    "480p": {
-        "w": 640,
-        "h": 480
-    },
-    "720p": {
-        "w": 1280,
-        "h": 720
-    },
-    "1080p": {
-        "w": 1920,
-        "h": 1080
-    }
-}
+from common import resolution_wh
 
 # 视频流sidechan
 video_q = mp.Queue(50)

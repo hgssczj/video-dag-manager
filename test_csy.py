@@ -2,6 +2,7 @@
 
 from logging_utils import root_logger
 from query_manager_v2 import Query
+import json
 
 if __name__ == "__main__":
 
@@ -10,6 +11,50 @@ if __name__ == "__main__":
     video_id=1
     pipeline=['face_detection']
     user_constraint={}
+
+    conf={
+        'reso': '480p', 
+        'fps': 1, 
+        'encoder': 'JPEG'
+    }
+    flow_mapping={
+        'face_detection': 
+        {
+            'model_id': 0, 
+            'node_ip': '172.27.151.145', 
+            'node_role': 'host'
+        }, 
+        'face_alignment': 
+        {
+            'model_id': 0, 
+            'node_ip': '172.27.151.145',
+            'node_role': 'host'
+        }
+    }
+
+    resource_limit={
+        'face_detection': 
+        {
+            'cpu_util_limit': 1.0, 
+            'mem_util_limit': 1.0
+        }, 
+        'face_alignment': 
+        {
+            'cpu_util_limit': 1.0, 
+            'mem_util_limit': 1.0
+        }
+    }
+    plan_conf=dict()
+
+    plan_conf['conf']=conf
+    plan_conf['flow_mapping']=flow_mapping
+    plan_conf['resource_limit']=resource_limit
+
+    with open('plan_conf.json', 'r') as f:  
+            plan_conf = json.load(f)  
+            print(plan_conf)
+
+
 
 
     query0 = Query(query_id=query_id,

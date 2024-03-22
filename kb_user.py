@@ -125,8 +125,14 @@ class  KnowledgeBaseUser():
             # （3）根据conf_for_dict，从性能评估器中提取该服务的评估时延
             sub_evaluator=evaluator
             for i in range(0,len(conf_for_dict)-1):
-                sub_evaluator=sub_evaluator[conf_for_dict[i]]
+                if conf_for_dict[i] in sub_evaluator:
+                    sub_evaluator=sub_evaluator[conf_for_dict[i]]
+                else:
+                    print('配置不存在')
+                    return status,pred_delay_list,pred_delay_total
+            
             pred_delay=sub_evaluator[conf_for_dict[len(conf_for_dict)-1]]
+            
             #  (4) 如果pred_delay为0，意味着这一部分对应的性能估计结果不存在，该配置在知识库中没有找到合适的解。此时直接返回结果。
             if pred_delay==0:
                 return status,pred_delay_list,pred_delay_total

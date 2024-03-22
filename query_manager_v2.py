@@ -156,7 +156,8 @@ class Query():
                 for x_min, y_min, x_max, y_max in runtime_info[taskname]['bbox']:
                     # TODO：需要依据分辨率转化
                     obj_size += (x_max - x_min) * (y_max - y_min)
-                obj_size /= len(runtime_info[taskname]['bbox'])
+                if len(runtime_info[taskname]['bbox'])>0:
+                    obj_size /= len(runtime_info[taskname]['bbox'])
 
                 if len(self.runtime_pkg_list['obj_size']) > Query.CONTENT_ELE_MAXN:
                     del self.runtime_pkg_list['obj_size'][0]
@@ -166,7 +167,10 @@ class Query():
         # TODO：聚合情境感知参数的时间序列，给出预估值/统计值
         runtime_desc = dict()
         for k, v in self.runtime_pkg_list.items():
-            runtime_desc[k] = sum(v) * 1.0 / len(v)
+            if len(v)>0:
+                runtime_desc[k] = sum(v) * 1.0 / len(v)
+            else:
+                runtime_desc[k] = sum(v) * 1.0
 
         # 获取场景稳定性
         if 'obj_n' in self.runtime_pkg_list.keys():
@@ -231,9 +235,11 @@ class Query():
             portrait_info['available_resource'][ip_addr]['available_cpu'] = temp_available_cpu
             portrait_info['available_resource'][ip_addr]['available_mem'] = temp_available_mem
             if resource_info[ip_addr]['node_role'] == 'cloud':
-                self.server_total_mem = resource_info[ip_addr]['device_state']['mem_total'] * 1024 * 1024 * 1024
+                if 'mem_total' in resource_info[ip_addr]['device_state']:
+                    self.server_total_mem = resource_info[ip_addr]['device_state']['mem_total'] * 1024 * 1024 * 1024
             else:
-                self.edge_total_mem = resource_info[ip_addr]['device_state']['mem_total'] * 1024 * 1024 * 1024
+                if 'mem_total' in resource_info[ip_addr]['device_state']:
+                    self.edge_total_mem = resource_info[ip_addr]['device_state']['mem_total'] * 1024 * 1024 * 1024
         
         assert(self.server_total_mem is not None)
         assert(self.edge_total_mem is not None)
@@ -919,31 +925,34 @@ def cloud_scheduler_loop_kb(query_manager=None):
         try:
             # 获取资源情境
             r = query_manager.sess.get(
-                url="http://{}/get_resource_info".format(query_manager.service_cloud_addr))
-            resource_info = r.json()
+                url="http://{}/get_system_status".format(query_manager.service_cloud_addr))
+            system_status = r.json()
             # 为所有query生成调度策略
             query_dict = query_manager.query_dict.copy()
             for qid, query in query_dict.items():
                 assert isinstance(query, Query)
                 query_id = query.query_id
-                
+                work_condition=query.get_work_condition()
+                portrait_info=query.get_portrait_info()
                 if query.video_id<99:  #如果是大于等于99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
                     print("video_id",query.video_id)
                     node_addr = query.node_addr
                     user_constraint = query.user_constraint
                     assert node_addr
 
-                    runtime_info = query.get_runtime()
-                    print("展示当前运行时情境内容")
-                    print(runtime_info)
+                    #runtime_info = query.get_work_condition()
+
+                    print("展示当前工况")
+                    print(work_condition)
                     #修改：只有当runtimw_info不存在或者含有delay的时候才运行。
                     # best_conf, best_flow_mapping, best_resource_limit
-                    if not runtime_info or 'delay' in runtime_info :
+                    if not work_condition or 'delay' in work_condition :
                         conf, flow_mapping,resource_limit = scheduler_func.lat_first_kb_muledge.scheduler(
                             job_uid=query_id,
                             dag={"generator": "x", "flow": query.pipeline},
-                            resource_info=resource_info,
-                            runtime_info=runtime_info,
+                            system_status=system_status,
+                            work_condition=work_condition,
+                            portrait_info=portrait_info,
                             user_constraint=user_constraint
                         )
                     print("下面展示即将发送到边端的调度计划：")

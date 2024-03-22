@@ -63,7 +63,7 @@ resource_limit:
     }
 }
 '''
-
+#172.27.132.253
 # 以下是可能影响任务性能的可配置参数，用于指导模块化知识库的建立
 model_op={  
             "114.212.81.11":{
@@ -74,6 +74,11 @@ model_op={
             "172.27.143.164": {
                 "model_id": 0,
                 "node_ip": "172.27.143.164",
+                "node_role": "host"  
+            },
+            "172.27.132.253": {
+                "model_id": 0,
+                "node_ip": "172.27.132.253",
                 "node_role": "host"  
             },
             "172.27.151.145": {
@@ -200,35 +205,34 @@ conf_and_serv_info={  #各种配置参数的可选值
 '''
 #'''
 conf_and_serv_info={  #各种配置参数的可选值
-    "reso":["1080p"],
-    "fps":[30],
+    
+    "reso":["360p", "480p", "720p", "1080p"],
+    "fps":[1, 5, 10, 20, 30],
     "encoder":["JPEG"],
     
-    #"face_detection_ip":["172.27.143.164"],
-    #"gender_classification_ip":["172.27.143.164"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    "face_detection_ip":["114.212.81.11"],
-    "gender_classification_ip":["114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
+    "face_detection_ip":["172.27.143.164","114.212.81.11"],
+    "gender_classification_ip":["172.27.143.164","114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
+    #"face_detection_ip":["114.212.81.11"],
+    #"gender_classification_ip":["114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
    
-    
-    "face_detection_mem_util_limit":[1.0],
-    "face_detection_cpu_util_limit":[1.0],
-    "gender_classification_mem_util_limit":[1.0],
-    "gender_classification_cpu_util_limit":[1.0],
+    # 注意贝叶斯优化采样的时候，资源约束必须包含1.0，因为我默认放到云端的服务都采用1.0作为约束。
+    "face_detection_mem_util_limit":[1.0,0.015,0.014,0.013,0.012,0.011,0.010,0.009,0.008,0.007,0.006,0.005,0.004,0.003,0.002,0.001],
+    "face_detection_cpu_util_limit":[1.0,0.05,0.10,0.15,0.20,0.25],
+    "gender_classification_mem_util_limit":[1.0,0.008,0.007,0.006,0.005,0.004,0.003,0.002,0.001],
+    "gender_classification_cpu_util_limit":[1.0,0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60],
 
     
-    #"face_detection_trans_ip":["172.27.143.164"],
-    #"gender_classification_trans_ip":["172.27.143.164"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
+    "face_detection_trans_ip":["172.27.143.164","114.212.81.11"],
+    "gender_classification_trans_ip":["172.27.143.164","114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
 
-    "face_detection_trans_ip":["114.212.81.11"],
-    "gender_classification_trans_ip":["114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
+    #"face_detection_trans_ip":["114.212.81.11"],
+    #"gender_classification_trans_ip":["114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
     
     
-    "face_detection_trans_mem_util_limit":[1.0],
-    "face_detection_trans_cpu_util_limit":[1.0],
-    "gender_classification_trans_mem_util_limit":[1.0],
-    "gender_classification_trans_cpu_util_limit":[1.0],
-    
-
+    "face_detection_trans_mem_util_limit":[1.0,0.015,0.014,0.013,0.012,0.011,0.010,0.009,0.008,0.007,0.006,0.005,0.004,0.003,0.002,0.001],
+    "face_detection_trans_cpu_util_limit":[1.0,0.05,0.10,0.15,0.20,0.25],
+    "gender_classification_trans_mem_util_limit":[1.0,0.008,0.007,0.006,0.005,0.004,0.003,0.002,0.001],
+    "gender_classification_trans_cpu_util_limit":[1.0,0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60],
 
 }
 #'''
@@ -333,7 +337,7 @@ class KnowledgeBaseBuilder():
     def anylze_explore_result(self,filepath):  #分析记录下来的文件结果，也就是采样结果
         
         df = pd.read_csv(filepath)
-        df = df[df.all_delay<1]
+        #df = df[df.all_delay<1]
 
         x_list=[i for i in range(0,len(df))]
         soretd_value=sorted(df['all_delay'])
@@ -504,6 +508,8 @@ class KnowledgeBaseBuilder():
         print('portrait_info')
         print(portrait_info)
         '''
+        
+
         # system_status的典型结构
         '''
        {
@@ -670,8 +676,8 @@ class KnowledgeBaseBuilder():
             }
         }
         '''
-
-        edge_mem_ratio=system_status['host'][self.node_ip]['device_state']['mem_ratio']
+        if 'mem_ratio' in system_status['host'][self.node_ip]['device_state']:
+            self.edge_mem_ratio=system_status['host'][self.node_ip]['device_state']['mem_ratio']
 
 
         appended_result = result['appended_result'] #可以把得到的结果直接提取出需要的内容，列表什么的。
@@ -708,8 +714,9 @@ class KnowledgeBaseBuilder():
             # print(res)
             row['n_loop']=res['n_loop']
             row['frame_id']=res['frame_id']
-            row['all_delay']=res[ 'delay']
-            row['edge_mem_ratio']=edge_mem_ratio
+            #row['all_delay']=res[ 'delay']
+            row['all_delay']=0
+            row['edge_mem_ratio']=self.edge_mem_ratio
 
             for i in range(0,len(self.conf_names)):
                 conf_name=self.conf_names[i]   #得到配置名
@@ -730,6 +737,7 @@ class KnowledgeBaseBuilder():
                 row[serv_role_name]=res['ext_plan']['flow_mapping'][serv_name]['node_role']
                 row[serv_ip_name]=res['ext_plan']['flow_mapping'][serv_name]['node_ip']
                 row[serv_proc_delay_name]=res['ext_runtime']['plan_result']['process_delay'][serv_name]
+                row['all_delay']+=row[serv_proc_delay_name]
                 row[trans_ip_name]=row[serv_ip_name]
                 row[trans_delay_name]=res['ext_runtime']['plan_result']['delay'][serv_name]-row[serv_proc_delay_name]
 
@@ -768,6 +776,21 @@ class KnowledgeBaseBuilder():
                        
             n_loop=res['n_loop']
             if n_loop not in self.written_n_loop:  #以字典为参数，只有那些没有在字典里出现过的row才会被写入文件，
+                print('n_loop',n_loop)
+                print(' all_delay:',portrait_info['cur_latency'],'只考虑处理：',row['all_delay'])
+                print("face_detection处理时延:",row['face_detection_proc_delay'],' 传输时延:',row['face_detection_trans_delay'])
+                print("gender_classification处理时延:",row['gender_classification_proc_delay'],' 传输时延:',row['gender_classification_trans_delay'])
+                print('reso:',row['reso'],' fps:',row['fps'])
+                print('face_detection_ip:',row['face_detection_ip'],' gender_classification_ip:',row['gender_classification_ip'])
+                print('face_detection资源')
+                print('cpu限制',row['face_detection_cpu_util_limit'],'cpu使用',row['face_detection_cpu_util_use'])
+                print('mem限制',row['face_detection_mem_util_limit'],'mem使用',row['face_detection_mem_util_use'])
+                print('face_detection资源需求:',portrait_info['resource_portrait']['face_detection']['resource_demand'])
+                print('gender_classification资源')
+                print('cpu限制',row['gender_classification_cpu_util_limit'],'cpu使用',row['gender_classification_cpu_util_use'])
+                print('mem限制',row['gender_classification_mem_util_limit'],'mem使用',row['gender_classification_mem_util_use'])
+                print('gender_classification资源需求:',portrait_info['resource_portrait']['gender_classification']['resource_demand'])
+                print()
                 self.writer.writerow(row)
                 print("写入成功")
                 self.written_n_loop[n_loop] = 1
@@ -847,7 +870,7 @@ class KnowledgeBaseBuilder():
         
         # (4) 查看当前运行时情境
         r4 = self.sess.get(url="http://{}/query/get_portrait_info/{}".format(self.query_addr, self.query_id))  
-        print("r4",r4)
+        #print("r4",r4)
         if not r4.json():
             return {"status":2,"des":"fail to post one query request"}
         '''
@@ -878,7 +901,9 @@ class KnowledgeBaseBuilder():
                 # updatetd_result包含一系列形如{"row":row,"conf":res['ext_plan']['video_conf'],"flow_mapping":res['ext_plan']['flow_mapping']}
                 # 对于获取的结果，首先检查其conf和flow_mapping是否符合需要，仅在符合的情况下才增加采样点
                 for i in range(0,len(updatetd_result)):
-                    print(updatetd_result[i])
+                    #print(updatetd_result[i])
+                    row0=updatetd_result[i]['row']
+                    
                     if updatetd_result[i]['conf']==conf and updatetd_result[i]['flow_mapping']==flow_mapping and updatetd_result[i]['resource_limit']==resource_limit :
                         all_delay+=updatetd_result[i]["row"]["all_delay"]
                         print("该配置符合要求，可作为采样点之一")
@@ -909,7 +934,7 @@ class KnowledgeBaseBuilder():
             if(get_resopnse['status']==3):
                 updatetd_result=get_resopnse['updatetd_result']
                 for i in range(0,len(updatetd_result)):
-                    print(updatetd_result[i])
+                    #print(updatetd_result[i])
                     record_sum+=1
 
         self.fp.close()
@@ -1348,7 +1373,7 @@ class KnowledgeBaseBuilder():
     def draw_delay_and_cons(self,x_value1,y_value1,y_value2,title_name):
         plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
         plt.rcParams['axes.unicode_minus']=False #用来正常显示负号 #有中文出现的情况，需要u'内容'
-        plt.ylim(0,1)
+        #plt.ylim(0,1)
         plt.yticks(fontproperties='Times New Roman', )
         plt.xticks(fontproperties='Times New Roman', )
         plt.plot(x_value1,y_value1,label="实际时延")
@@ -1601,12 +1626,12 @@ service_info_list=[
 # 描述每一种服务所需的中资源阈值，它限制了贝叶斯优化的时候采取怎样的内存取值范围
 rsc_upper_bound={
     'face_detection':{
-        'cpu_limit':0.4,
-        'mem_limit':0.5,
+        'cpu_limit':0.25,
+        'mem_limit':0.015,
     },
-    'face_alignment':{
-        'cpu_limit':0.4,
-        'mem_limit':0.5,
+    'gender_classification':{
+        'cpu_limit':0.6,
+        'mem_limit':0.008,
     }
     
 }
@@ -1687,14 +1712,16 @@ query_body = {
     }  
 '''
 #这个query_body用于测试单位的“人进入会议室”，也就是只有一张脸的情况，工况不变，但是会触发调度器变化，因为ifd很小
+#'''
 query_body = {
-        "node_addr": "172.27.143.164:3001",
-        "video_id": 103,     
+        "node_addr": "172.27.132.253:3001",
+        "video_id": 4,     
         "pipeline":  ["face_detection", "gender_classification"],#制定任务类型
         "user_constraint": {
-            "delay": 0.7, #用户约束暂时设置为0.3
+            "delay": 0.5, #用户约束暂时设置为0.3
         }
     }  
+#'''
 
 
 if __name__ == "__main__":
@@ -1704,7 +1731,7 @@ if __name__ == "__main__":
     
     # 贝叶斯优化时的取值范围，在以下范围内使得采样点尽可能平均
     min_val=0.0
-    max_val=0.7
+    max_val=1.0
 
     # 在多大范围内取方差
     bin_nums=100
@@ -1720,9 +1747,9 @@ if __name__ == "__main__":
     # 是否进行稀疏采样(贝叶斯优化)
     need_sparse_kb=0
     # 是否进行严格采样（遍历所有配置）
-    need_tight_kb=1
+    need_tight_kb=0
     # 是否根据某个csv文件绘制画像 
-    need_to_draw=0
+    need_to_draw=1
     # 是否需要基于初始采样结果建立一系列字典，也就是时延有关的知识库
     need_to_build=0
 
@@ -1742,8 +1769,8 @@ if __name__ == "__main__":
               
 
     kb_builder=KnowledgeBaseBuilder(expr_name="tight_build_gender_classify_cold_start03",
-                                    node_ip='172.27.143.164',
-                                    node_addr="172.27.143.164:3001",
+                                    node_ip='172.27.132.253',
+                                    node_addr="172.27.132.253:3001",
                                     query_addr="114.212.81.11:3000",
                                     service_addr="114.212.81.11:3500",
                                     query_body=query_body,
@@ -1752,13 +1779,13 @@ if __name__ == "__main__":
                                     service_info_list=service_info_list,
                                     rsc_upper_bound=rsc_upper_bound)
     if need_to_test==1:
-        #kb_builder.send_query() 
-        #filepath=kb_builder.just_record(record_num=200)
-        filepath='kb_data/20240312_17_36_56_kb_builder_0.7_0.7_tight_build_headup_detect_people_in_mmeeting.csv'
+        kb_builder.send_query() 
+        filepath=kb_builder.just_record(record_num=1000)
+
         kb_builder.anylze_explore_result(filepath=filepath)
         kb_builder.draw_picture_from_sample(filepath=filepath)
 
-
+#172.27.132.253
     if need_sparse_kb==1:
 
         kb_builder.send_query() 
@@ -1801,7 +1828,7 @@ if __name__ == "__main__":
     # 建立基于遍历各类配置的知识库
     if need_tight_kb==1:
         kb_builder.send_query() 
-        kb_builder.sample_and_record(sample_bound=50) #表示对于所有配置组合每种组合采样sample_bound次。
+        kb_builder.sample_and_record(sample_bound=10) #表示对于所有配置组合每种组合采样sample_bound次。
     
     
     # 给单个采样得到的csv文件画像，filepath自由指定
@@ -1823,15 +1850,16 @@ if __name__ == "__main__":
     filepath='kb_data/20240305_23_13_53_kb_builder_0.2_0.7_tight_build_headup_detect_people_in_mmeeting.csv'
     
     if need_to_draw==1:
+        filepath='kb_data/20240319_13_43_18_kb_builder_0.7_tight_build_gender_classify_cold_start03.csv'
+        
         kb_builder.anylze_explore_result(filepath=filepath)
         kb_builder.draw_picture_from_sample(filepath=filepath)
     
 
     # 关于是否需要建立知识库：可以根据txt文件中的内容来根据采样结果建立知识库
     if need_to_build==1:
-        record_name='kb_data/0_20240305_15_42_51headup_detect_bayes1dec_rand0sel_rand0mem_num10min_val0.0max_val0.7bin_nums100sample_bound5n_trials20.txt'
-        record_name='kb_data/0_20240310_20_48_27headup_detect_bayes1dec_rand0sel_rand0mem_num2min_val0.0max_val0.7bin_nums100sample_bound5n_trials3.txt'
-        record_name='kb_data/0_20240310_21_01_31headup_detect_bayes1dec_rand0sel_rand0mem_num10min_val0.0max_val0.7bin_nums100sample_bound5n_trials20.txt'
+        record_name='kb_data/0_20240318_20_11_26headup_detect_bayes1dec_rand0sel_rand0mem_num10min_val0.0max_val1.0bin_nums100sample_bound5n_trials20.txt'
+
         with open(record_name, 'r') as file:
             # 逐行读取文件内容，将每行内容（即每个单词）打印出来
             # 简单来说，每一个内存组合都对应一个记录下来的采样文件，所以对于每一个文件都要建立知识库。

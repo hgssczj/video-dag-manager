@@ -23,21 +23,22 @@ service_info_dict={
         "value":'face_detection_proc_delay',
         "conf":["reso","fps","encoder"]
     },
-    'face_alignment':{
-        "name":'face_alignment',
-        "value":'face_alignment_proc_delay',
-        "conf":["reso","fps","encoder"]
-    },
+
     'face_detection_trans':{
         "name":'face_detection_trans',
         "value":'face_detection_trans_delay',
         "conf":["reso","fps","encoder"]
     },
-    'face_alignment_trans':{
-        "name":'face_alignment_trans',
-        "value":'face_alignment_trans_delay',
+    'gender_classification':{
+        "name":'gender_classification',
+        "value":'gender_classification_proc_delay',
         "conf":["reso","fps","encoder"]
-    }
+    },
+    'gender_classification_trans':{
+        "name":'gender_classification_trans',
+        "value":'gender_classification_trans_delay',
+        "conf":["reso","fps","encoder"]
+    },
 }
 
 
@@ -166,7 +167,7 @@ def get_plan_based_on_constraint(
                 # 此时需要进行重新分配。
                 print('mem不满足约束,要重新分配')
                 theoretical_share = round(rsc_constraint[device_ip]['mem'] / len(device_serv_names),2)
-                mem_share = round(int(theoretical_share / 0.05) * 0.05,2)
+                mem_share = round(int(theoretical_share / 0.001) * 0.001,3)
                 if mem_share==0:
                     move_to_cloud=1
                 else: #否则，是可分的,将该设备上所有服务的mem限制都改为此mem_share
@@ -206,10 +207,15 @@ def get_plan_based_on_constraint(
 def scheduler(
     job_uid=None,
     dag=None,
-    resource_info=None,
-    runtime_info=None,
+    system_status=None,
+    work_condition=None,
+    portrait_info=None,
     user_constraint=None,
 ):
+   
+
+
+    # 上面是实在没办法的测试
     # 现在根据scheduler的输入，要开始选择调度策略。
     assert job_uid, "should provide job_uid"
 
@@ -241,8 +247,75 @@ def scheduler(
     '''
     #（4）获取每一个设备的资源约束，以及每一个服务的资源上限
 
+ #####################################
+    # 测试部分——-负反馈测试器
+   
+    plan_conf={}
+    rsc_constraint={}
+    rsc_upper_bound={}
+    with open('plan_conf.json', 'r') as f:  
+        plan_conf = json.load(f) 
+    with open('rsc_constraint.json', 'r') as f:  
+        rsc_constraint = json.load(f) 
+    with open('rsc_upper_bound.json', 'r') as f:  
+        rsc_upper_bound = json.load(f)
+    
+    conf = plan_conf['conf']
+    flow_mapping = plan_conf['flow_mapping']
+    resource_limit = plan_conf['resource_limit']
+
+    if_test=plan_conf['if_test']
+
+    if if_test==1: #此时仅仅是读取文件中的配置并返还
+        return conf, flow_mapping, resource_limit
+    
+    elif if_test==2 and portrait_info['if_overtime']: # #如果test==2且超时了，执行负反馈策略
+
+        #此处假设可以通过调整资源来解决问题
+
+        return conf, flow_mapping, resource_limit
+    
+    elif if_test==3 and portrait_info['if_overtime']: # 如果超时了，使用不依赖画像的查表法
+
+        rsc_upper_bound={
+            "face_detection": {"cpu_limit": 1.0, "mem_limit": 1.0}, 
+            "gender_classification": {"cpu_limit": 1.0, "mem_limit": 1.0}
+        }
+         
+        ans_found, conf, flow_mapping, resource_limit=get_plan_based_on_constraint(
+                                                        conf_names=conf_names,
+                                                        serv_names=serv_names,
+                                                        service_info_list=service_info_list,
+                                                        rsc_constraint=rsc_constraint,
+                                                        user_constraint=user_constraint,
+                                                        rsc_upper_bound=rsc_upper_bound,
+                                                    )
+        if ans_found==1:#如果确实找到了
+            prev_conf[job_uid]=conf
+            prev_flow_mapping[job_uid]=flow_mapping
+            prev_resource_limit[job_uid]=prev_resource_limit
+            return conf, flow_mapping, resource_limit
+        else:
+            print("冷启动查询失败")
+            return None #后续这里应该改成别的，比如默认配置什么的
+
+
+    else:
+        print('未知状况，默认返回配置文件内容')
+        return conf, flow_mapping, resource_limit
+
+
+
+
+
+    ####################################
+
+
+
+
+
     # 一、初始情况下选择使用冷启动策略
-    if not bool(runtime_info) or not bool(user_constraint):
+    if not bool(work_condition) or not bool(user_constraint):
         root_logger.info("to get COLD start executation plan")
 
         rsc_constraint={}
