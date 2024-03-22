@@ -181,7 +181,7 @@ class KnowledgeBaseBuilder():
     # 用途：为一个服务建立一个由键值对构成的空白字典（空白知识库），以json文件形式保存
     # 方法：从conf_list中按顺序提取涉及的各个配置名称，并构建嵌套字典，初始值全部是0，
     # 返回值：无，但会在当前目录保存一个json文件
-    def evaluator_init(self,conf_list,eval_name):  
+    def evaluator_init(self,eval_name):  
         evaluator=dict()
         with open(KB_DATA_PATH+'/'+eval_name+".json", 'w') as f:  
             json.dump(evaluator, f,indent=4) 
@@ -644,7 +644,7 @@ class KnowledgeBaseBuilder():
         
         # (4) 查看当前运行时情境
         r4 = self.sess.get(url="http://{}/query/get_portrait_info/{}".format(self.query_addr, self.query_id))  
-        print(r4)
+        #print(r4)
         if not r4.json():
             return {"status":2,"des":"fail to post one query request"}
         '''
@@ -881,13 +881,11 @@ class KnowledgeBaseBuilder():
                 }
                 '''
                 cpu_select=[]
-                for cpu_limit in conf_and_serv_info[serv_cpu_limit]:
-                    if cpu_limit <= self.rsc_upper_bound[serv_name]['cpu_limit']:
-                        cpu_select.append(cpu_limit)
+                cpu_select=[x for x in conf_and_serv_info[serv_cpu_limit] if x <= self.rsc_upper_bound[serv_name]['cpu_limit']]
+
                 mem_select=[]
-                for mem_limit in conf_and_serv_info[serv_mem_limit]:
-                    if mem_limit <= self.rsc_upper_bound[serv_name]['mem_limit']:
-                        mem_select.append(mem_limit)
+                mem_select=[x for x in conf_and_serv_info[serv_mem_limit] if x <= self.rsc_upper_bound[serv_name]['mem_limit']]
+
                 
                 resource_limit[serv_name]["cpu_util_limit"]=trial.suggest_categorical(serv_cpu_limit,cpu_select)
                 resource_limit[serv_name]["mem_util_limit"]=trial.suggest_categorical(serv_mem_limit,mem_select)
@@ -966,52 +964,41 @@ class KnowledgeBaseBuilder():
             service_conf.append(service_info['name']+'_cpu_util_limit')
             # 然后再添加资源约束，也就是mem限制 mem_util_limit
             service_conf.append(service_info['name']+'_mem_util_limit')
-            conf_list=[]
-            for conf_name in service_conf: #conf_and_serv_info中包含了service_conf中所有配置的可能取值
-                conf_list.append(conf_and_serv_info[conf_name]) 
-                   
+            #service_conf形如['reso', 'fps', 'encoder', 'face_detection_ip', 'face_detection_cpu_util_limit', 'face_detection_mem_util_limit']
+           
+
             # 基于得到的conf_list来构建该服务的性能评估器，记为evaluator
-            self.evaluator_init(conf_list=conf_list,eval_name=service_info["name"])
+            self.evaluator_init(eval_name=service_info["name"])
             evaluator=self.evaluator_load(eval_name=service_info["name"])
 
-            conf_kind=0
-            conf_combine=itertools.product(*conf_list)  #基于conf_list，所得conf_combine包含所有配置参数的组合
-            for conf_for_file in conf_combine: #遍历每一种配置组合
-                conf_for_dict=list(str(item) for item in conf_for_file)
-                # print(conf_for_dict)
-                # conf_for_dict形如['480p', '30', 'JPEG', '172.27.143.164', '0.5']。
-                # conf_for_file形如('480p', 30, 'JPEG', '172.27.143.164', 0.5)，是元组且保留整数类型，用于从df中提取数据
-                condition_all=True  #用于检索字典所需的条件
-                for i in range(0,len(conf_for_dict)):
-                    condition=df[service_conf[i]]==conf_for_file[i]    #相应配置名称对应的配置参数等于当前配置组合里的配置
-                    '''
-                    if conf_for_file==('360p', 1, 'JPEG', '114.212.81.11', 1.0):
-                        print("存在此配置")
-                        print(conf_for_file[i])
-                        print(df[service_conf[i]])
-                        print(condition)
-                    '''
-                    condition_all=condition_all&condition
-                # 联立所有条件从df中获取对应内容,conf_df里包含满足所有条件的列构成的df
-                conf_df=df[condition_all]
-                if(len(conf_df)>0): #如果满足条件的内容不为空，可以开始用其中的数值来初始化字典
-                    # print("存在满足条件的字典")
-                    conf_kind+=1
-                    avg_value=conf_df[service_info['value']].mean()  #获取均值
-                    # print(conf_df[['d_ip','a_ip','fps','reso',service_info['value']]])
-                    dict_key=''
-                    for i in range(0,len(service_conf)):
-                        dict_key+=service_conf[i]+'='+conf_for_dict[i]+' '
-                    evaluator[dict_key]=avg_value
+            min_index=df.index.min()
+            max_index=df.index.max()
+            conf_kind=0 #记录总配置数
+            for index in range(min_index,max_index+1):
+                #遍历每一个配置
+                values_list=df.loc[index,service_conf].tolist()
+                #values_list形如['990p', 24, 'JPEG', '114.212.81.11', 1.0, 1.0]
+                dict_key=''
+                for i in range(0,len(service_conf)):
+                    dict_key+=service_conf[i]+'='+str(values_list[i])+' '
+                #得到当前行对应的一个配置
+                
+                if dict_key not in evaluator:
+                    #如果该配置尚未被记录，需要求avg_delay
+                    condition_all=True  #用于检索字典所需的条件
+                    for i in range(0,len(values_list)):
+                        condition=df[service_conf[i]]==values_list[i]    #相应配置名称对应的配置参数等于当前配置组合里的配置
+                        condition_all=condition_all&condition
+                    
+                    # 联立所有条件从df中获取对应内容,conf_df里包含满足所有条件的列构成的df
+                    conf_df=df[condition_all]
+                    if(len(conf_df)>0): #如果满足条件的内容不为空，可以开始用其中的数值来初始化字典
+                        conf_kind+=1
+                        avg_value=conf_df[service_info['value']].mean()  #获取均值
+                        evaluator[dict_key]=avg_value
 
-            #完成对evaluator的处理
+            #完成对该服务的evaluator的处理
             self.evaluator_dump(evaluator=evaluator,eval_name=service_info['name'])
-            '''
-            print("问题：")
-            print(df['encoder'])
-            print(df['encoder']=='JPEG')
-            print(df['encoder']==conf_for_file[2])
-            '''
             print("该服务",service_info['name'],"涉及配置组合总数",conf_kind)
 
     # update_evaluator_from_samples：
@@ -1032,52 +1019,41 @@ class KnowledgeBaseBuilder():
             service_conf.append(service_info['name']+'_cpu_util_limit')
             # 然后再添加资源约束，也就是mem限制 mem_util_limit
             service_conf.append(service_info['name']+'_mem_util_limit')
-            conf_list=[]
-            for conf_name in service_conf: #conf_and_serv_info中包含了service_conf中所有配置的可能取值
-                conf_list.append(conf_and_serv_info[conf_name]) 
-                   
-            # 直接读取已经初始化完毕的字典
+            #service_conf形如['reso', 'fps', 'encoder', 'face_detection_ip', 'face_detection_cpu_util_limit', 'face_detection_mem_util_limit']
+           
+
+            # 不初始化，直接加载
             evaluator=self.evaluator_load(eval_name=service_info["name"])
 
-            conf_kind=0
-            conf_combine=itertools.product(*conf_list)  #基于conf_list，所得conf_combine包含所有配置参数的组合
-            for conf_for_file in conf_combine: #遍历每一种配置组合
-                conf_for_dict=list(str(item) for item in conf_for_file)
-                # print(conf_for_dict)
-                # conf_for_dict形如['480p', '30', 'JPEG', '172.27.143.164', '0.5']。
-                # conf_for_file形如('480p', 30, 'JPEG', '172.27.143.164', 0.5)，是元组且保留整数类型，用于从df中提取数据
-                condition_all=True  #用于检索字典所需的条件
-                for i in range(0,len(conf_for_dict)):
-                    condition=df[service_conf[i]]==conf_for_file[i]    #相应配置名称对应的配置参数等于当前配置组合里的配置
-                    '''
-                    if conf_for_file==('360p', 1, 'JPEG', '114.212.81.11', 1.0):
-                        print("存在此配置")
-                        print(conf_for_file[i])
-                        print(df[service_conf[i]])
-                        print(condition)
-                    '''
-                    condition_all=condition_all&condition
-                # 联立所有条件从df中获取对应内容,conf_df里包含满足所有条件的列构成的df
-                conf_df=df[condition_all]
-                if(len(conf_df)>0): #如果满足条件的内容不为空，可以开始用其中的数值来初始化字典
-                    # print("存在满足条件的字典")
-                    conf_kind+=1
-                    avg_value=conf_df[service_info['value']].mean()  #获取均值
-                    # print(conf_df[['d_ip','a_ip','fps','reso',service_info['value']]])
-                    dict_key=''
-                    for i in range(0,len(service_conf)):
-                        dict_key+=service_conf[i]+'='+conf_for_dict[i]+' '
-                    evaluator[dict_key]=avg_value
-            #完成对evaluator的处理
+            min_index=df.index.min()
+            max_index=df.index.max()
+            conf_kind=0 #记录总配置数
+            for index in range(min_index,max_index+1):
+                #遍历每一个配置
+                values_list=df.loc[index,service_conf].tolist()
+                #values_list形如['990p', 24, 'JPEG', '114.212.81.11', 1.0, 1.0]
+                dict_key=''
+                for i in range(0,len(service_conf)):
+                    dict_key+=service_conf[i]+'='+str(values_list[i])+' '
+                #得到当前行对应的一个配置
+                
+                if dict_key not in evaluator:
+                    #如果该配置尚未被记录，需要求avg_delay
+                    condition_all=True  #用于检索字典所需的条件
+                    for i in range(0,len(values_list)):
+                        condition=df[service_conf[i]]==values_list[i]    #相应配置名称对应的配置参数等于当前配置组合里的配置
+                        condition_all=condition_all&condition
+                    
+                    # 联立所有条件从df中获取对应内容,conf_df里包含满足所有条件的列构成的df
+                    conf_df=df[condition_all]
+                    if(len(conf_df)>0): #如果满足条件的内容不为空，可以开始用其中的数值来初始化字典
+                        conf_kind+=1
+                        avg_value=conf_df[service_info['value']].mean()  #获取均值
+                        evaluator[dict_key]=avg_value
+
+            #完成对该服务的evaluator的处理
             self.evaluator_dump(evaluator=evaluator,eval_name=service_info['name'])
-            '''
-            print("问题：")
-            print(df['encoder'])
-            print(df['encoder']=='JPEG')
-            print(df['encoder']==conf_for_file[2])
-            '''
             print("该服务",service_info['name'],"涉及配置组合总数",conf_kind)
-    
 
 
     # create_conf_info_from_samples：
@@ -1438,18 +1414,6 @@ service_info_list=[
     },
 ]
 
-# 描述每一种服务所需的中资源阈值，它限制了贝叶斯优化的时候采取怎样的内存取值范围
-rsc_upper_bound={
-    'face_detection':{
-        'cpu_limit':0.25,
-        'mem_limit':0.015,
-    },
-    'gender_classification':{
-        'cpu_limit':0.6,
-        'mem_limit':0.008,
-    }
-    
-}
 
 
 # 下图的conf_names表示流水线上所有服务的conf的总和。
@@ -1474,9 +1438,46 @@ query_body = {
 
 if __name__ == "__main__":
 
-    # 内存限制的取值范围 稍微限制一下有助于缩小取值范围
-    mem_range=[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40]
-    
+    from RuntimePortrait import RuntimePortrait
+
+    myportrait=RuntimePortrait(pipeline=serv_names)
+    #从画像里收集服务在边缘端的资源上限
+    # 描述每一种服务所需的中资源阈值，它限制了贝叶斯优化的时候采取怎样的内存取值范围
+    '''
+    rsc_upper_bound={
+        'face_detection':{
+            'cpu_limit':0.25,
+            'mem_limit':0.015,
+        },
+        'gender_classification':{
+            'cpu_limit':0.6,
+            'mem_limit':0.008,
+        }
+        
+    }
+    help_cold_start返回值
+    {
+        'cpu': {  // CPU资源
+            'cloud': 0.1,  // 云端的最大资源阈值
+            'edge': 0.5  // 边端的最大资源阈值
+        },
+        'mem': {  // 内存资源
+            'cloud': 0.1,
+            'edge': 0.5
+        }
+    }
+    '''
+    rsc_upper_bound={}
+    for serv_name in serv_names:
+        serv_rsc_cons=myportrait.help_cold_start(service=serv_name)
+        rsc_upper_bound[serv_name]={}
+        rsc_upper_bound[serv_name]['cpu_limit']=serv_rsc_cons['cpu']['edge']
+        rsc_upper_bound[serv_name]['mem_limit']=serv_rsc_cons['mem']['edge']
+    print("画像提供的资源上限")
+    print(rsc_upper_bound)
+   
+
+
     # 贝叶斯优化时的取值范围，在以下范围内使得采样点尽可能平均
     min_val=0.0
     max_val=1.0
@@ -1508,7 +1509,7 @@ if __name__ == "__main__":
     dec_rand=0
     sel_rand=0 
 
-    task_name="headup_detect"
+    task_name="gender_classify"
 
     record_name=KB_DATA_PATH+'/'+'0_'+datetime.datetime.now().strftime('%Y%m%d_%H_%M_%S')+task_name+"_"+"bayes"+str(need_sparse_kb)+\
               "dec_rand"+str(dec_rand)+"sel_rand"+str(sel_rand)+"mem_num"+str(comb_num)+\
@@ -1516,7 +1517,7 @@ if __name__ == "__main__":
               "bin_nums"+str(bin_nums)+"sample_bound"+str(sample_bound)+"n_trials"+str(n_trials)
               
 
-    kb_builder=KnowledgeBaseBuilder(expr_name="tight_build_gender_classify_cold_start03",
+    kb_builder=KnowledgeBaseBuilder(expr_name="tight_build_gender_classify_cold_start04",
                                     node_ip='172.27.143.164',
                                     node_addr="172.27.143.164:3001",
                                     query_addr="114.212.81.11:3000",
@@ -1532,13 +1533,13 @@ if __name__ == "__main__":
 
         kb_builder.anylze_explore_result(filepath=filepath)
         kb_builder.draw_picture_from_sample(filepath=filepath)
+    
+    
 
-#172.27.132.253
+    #建立基于贝叶斯优化的稀疏知识库
     if need_sparse_kb==1:
 
         kb_builder.send_query() 
-
-        print("开算")
         if dec_rand==1:
             mem_comb_list_dec=kb_builder.get_comb_list_dec_rand()  #获取随机下降结果
         else:
@@ -1577,36 +1578,12 @@ if __name__ == "__main__":
     if need_tight_kb==1:
         kb_builder.send_query() 
         kb_builder.sample_and_record(sample_bound=10) #表示对于所有配置组合每种组合采样sample_bound次。
-    
-    
-    # 给单个采样得到的csv文件画像，filepath自由指定
-    filepath='20240220_20_45_45_knowledgebase_builder_sparse_0.6_0.7_tight_build_headup_detect_people_in_mmeeting.csv'
-    filepath='kb_data/20240305_15_42_51_kb_builder_0.6_0.7_tight_build_headup_detect_people_in_mmeeting.csv'
-    filepath='kb_data/20240305_15_45_02_kb_builder_0.6_0.7_tight_build_headup_detect_people_in_mmeeting.csv'
-    filepath='kb_data/20240305_16_04_08_kb_builder_0.6_0.7_tight_build_headup_detect_people_in_mmeeting.csv'
-    filepath='kb_data/20240305_21_59_32_kb_builder_0.6_0.7_tight_build_headup_detect_people_in_mmeeting.csv'
 
-    # 基于配置4，0.2约束下
-    filepath='kb_data/20240305_22_16_38_kb_builder_0.2_0.7_tight_build_headup_detect_people_in_mmeeting.csv'
-    # 基于配置1，0.2约束下
-    filepath='kb_data/20240305_22_22_48_kb_builder_0.2_0.7_tight_build_headup_detect_people_in_mmeeting.csv'
-    # 基于配置1，0.15与0.25区分配置下
-    filepath='kb_data/20240305_22_31_05_kb_builder_0.2_0.7_tight_build_headup_detect_people_in_mmeeting.csv'
-     # 基于配置1，0.3，0.1约束下
-    filepath='kb_data/20240305_22_41_59_kb_builder_0.2_0.7_tight_build_headup_detect_people_in_mmeeting.csv'
-    # 基于360p，5fps约束下
-    filepath='kb_data/20240305_23_13_53_kb_builder_0.2_0.7_tight_build_headup_detect_people_in_mmeeting.csv'
-    
-    if need_to_draw==1:
-        filepath='kb_data/20240319_13_43_18_kb_builder_0.7_tight_build_gender_classify_cold_start03.csv'
-        
-        kb_builder.anylze_explore_result(filepath=filepath)
-        kb_builder.draw_picture_from_sample(filepath=filepath)
     
 
     # 关于是否需要建立知识库：可以根据txt文件中的内容来根据采样结果建立知识库
     if need_to_build==1:
-        record_name='kb_data/0_20240318_20_11_26headup_detect_bayes1dec_rand0sel_rand0mem_num10min_val0.0max_val1.0bin_nums100sample_bound5n_trials20.txt'
+        record_name='kb_data/0_20240322_21_01_40gender_classify_bayes1dec_rand0sel_rand0mem_num10min_val0.0max_val1.0bin_nums100sample_bound5n_trials20.txt'
 
         with open(record_name, 'r') as file:
             # 逐行读取文件内容，将每行内容（即每个单词）打印出来
@@ -1638,6 +1615,14 @@ if __name__ == "__main__":
                     kb_builder.update_conf_info_from_samples(filepath=filepath)
                 i+=1
         print("完成所选配置范围的确定")
+
+        # 是否需要绘画展示文件中的数据结果
+    
+    # 关于是否需要绘制图像
+    if need_to_draw==1:
+        filepath='kb_data/20240319_13_43_18_kb_builder_0.7_tight_build_gender_classify_cold_start03.csv'
+        kb_builder.anylze_explore_result(filepath=filepath)
+        kb_builder.draw_picture_from_sample(filepath=filepath)
 
     exit()
 

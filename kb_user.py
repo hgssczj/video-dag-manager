@@ -5,7 +5,8 @@ import optuna
 import itertools
 plt.rcParams['font.sans-serif'] = ['SimHei'] # 运行配置参数中的字体（font）为黑体（SimHei）
 
-from common import KB_DATA_PATH,MAX_NUMBER,model_op,conf_and_serv_info
+from common import KB_DATA_PATH,MAX_NUMBER,model_op,conf_and_serv_info,service_info_dict
+from AccuracyPrediction import AccuracyPrediction
 
 #试图以类的方式将整个独立建立知识库的过程模块化
 
@@ -16,13 +17,14 @@ class  KnowledgeBaseUser():
     
     #冷启动计划者，初始化时需要conf_names,serv_names,service_info_list,user_constraint一共四个量
     #在初始化过程中，会根据这些参数，制造conf_list，serv_ip_list，serv_cpu_list以及serv_meme_list
-    def __init__(self,conf_names,serv_names,service_info_list,user_constraint,rsc_constraint,rsc_upper_bound):
+    def __init__(self,conf_names,serv_names,service_info_list,user_constraint,rsc_constraint,rsc_upper_bound,work_condition):
         self.conf_names=conf_names
         self.serv_names=serv_names
         self.service_info_list=service_info_list
         self.user_constraint=user_constraint
         self.rsc_constraint=rsc_constraint
         self.rsc_upper_bound=rsc_upper_bound
+        self.work_condition=work_condition
 
         
         self.conf_list=[]
@@ -139,8 +141,18 @@ class  KnowledgeBaseUser():
             if pred_delay==0:
                 return status,pred_delay_list,pred_delay_total
             
-            # （5）将预测的时延添加到列表中
+            #(5)对预测出时延根据工况进行修改
+            #注意，此处获得的pred_delay_list和pred_delay_total里的时延都是单一工况下的，因此需要结合工况进行调整
+            obj_n=self.work_condition['obj_n']
+            if service_info_dict[service_info['name']]["vary_with_obj_n"]==True:
+                pred_delay=pred_delay*obj_n
+
+            # （6）将预测的时延添加到列表中
             pred_delay_list.append(pred_delay)
+
+
+
+
         # 计算总时延
         for pred_delay in pred_delay_list:
             pred_delay_total+=pred_delay
@@ -357,13 +369,27 @@ class  KnowledgeBaseUser():
                 'mem_limit':0.5,
             }
         }
-
         '''
 
         
         mul_objects=[]
-        # 这是一个多目标优化问题，所以既要满足时延约束，又要满足精度约束。以下是获取时延约束的情况，要让最后的结果尽可能小。首先加入时延优化目标：
+        # 这是一个多目标优化问题，所以既要满足时延约束，又要满足资源约束。以下是获取时延约束的情况，要让最后的结果尽可能小。首先加入时延优化目标：
+        # 以下返回的结果已经经过了工况处理，按照线性化乘以了obj_n。在不考虑传输时延的时候，结果是比较准确不会波动的。
         status,pred_delay_list,pred_delay_total = self.get_pred_delay(conf=conf,flow_mapping=flow_mapping,resource_limit=resource_limit)
+
+        #对于conf,flow_mapping=flow_mapping,resource_limit=resource_limit，还要求精度
+        # 首先判断当前服务是都有精度
+        task_accuracy=1.0
+        acc_pre=AccuracyPrediction()
+        for serv_name in serv_names:
+            if service_info_dict[serv_name]["can_seek_accuracy"]:
+                task_accuracy*=acc_pre.predict(service_name=serv_name)
+
+        mul_objects.append(1.0-task_accuracy)
+            
+        
+        
+
         
         if status==0:  #返回0说明相应配置压根不存在，此时返回MAX_NUMBER。贝叶斯优化的目标是让返回值尽可能小，这种MAX_NUMBER的情况自然会被尽量避免
             mul_objects.append(MAX_NUMBER)
@@ -401,6 +427,8 @@ class  KnowledgeBaseUser():
             else: 
                 mul_objects.append(0.5*cpu_util)
                 mul_objects.append(0.5*mem_util)
+                
+                
 
         # 返回的总优化目标数量应该有：1+2*ips个
         return mul_objects
@@ -448,7 +476,7 @@ class  KnowledgeBaseUser():
     # 返回值：params_in_delay_cons,params_out_delay_cons,分别是在约束内的解和不在约束内的解
     def get_coldstart_plan_bayes(self,n_trials):
         # 开始多目标优化
-        study = optuna.create_study(directions=['minimize' for _ in range(1+2*len(rsc_constraint.keys()))])  
+        study = optuna.create_study(directions=['minimize' for _ in range(2+2*len(rsc_constraint.keys()))])  
         study.optimize(self.objective,n_trials=n_trials)
 
         ans_params=[]
@@ -635,6 +663,13 @@ rsc_upper_bound={
     }
 }
 
+work_condition={
+    "obj_n": 1,
+    "obj_stable": True,
+    "obj_size": 300,
+    "delay": 0.2  #这玩意包含了传输时延，我不想看
+}
+
 if __name__ == "__main__":
 
               
@@ -643,28 +678,15 @@ if __name__ == "__main__":
                                   service_info_list=service_info_list,
                                   user_constraint=user_constraint,
                                   rsc_constraint=rsc_constraint,
-                                  rsc_upper_bound=rsc_upper_bound
+                                  rsc_upper_bound=rsc_upper_bound,
+                                  work_condition=work_condition
                                   )
-    
-
-    
     
     need_cold_start=1
     if need_cold_start==1:
         # 首先基于文件进行初始化:尝试在不同（或者相同）的约束之下，基于不同的n_trials，来看看基于不同方法检索到的最优配置是怎样的。
-        cons_delay_list=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
-        n_trials_list=[100,200,300,400,500,600,700,800,900,1000]
+
         cons_delay_list=[0.3]
-        n_trials_list=[100,100,100,100,100,100,100,100,100,100,
-                       112,112,112,112,112,112,112,112,112,
-                       125,125,125,125,125,125,125,125,
-                       143,143,143,143,143,143,143,
-                       167,167,167,167,167,167,
-                       200,200,200,200,200,
-                       250,250,250,250,
-                       334,334,334,
-                       500,500,
-                       1000]
         n_trials_list=[100]
         record_cons_delay=[]
         

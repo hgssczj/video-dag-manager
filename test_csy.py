@@ -6,6 +6,7 @@ from kb_builder import KnowledgeBaseBuilder
 import json
 
 from scheduler_func import lat_first_kb_muledge
+from common import conf_and_serv_info
 
 if __name__ == "__main__":
 
@@ -19,6 +20,8 @@ if __name__ == "__main__":
     dag["flow"]= ["face_detection", "face_alignment"]
     user_constraint={}
     user_constraint["delay"]= 0.8
+
+    print(conf_and_serv_info)
 
 
 

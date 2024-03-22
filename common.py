@@ -98,43 +98,61 @@ service_info_dict={
     'face_detection':{
         "name":'face_detection',
         "value":'face_detection_proc_delay',
-        "conf":["reso","fps","encoder"]
+        "conf":["reso","fps","encoder"],
+        "vary_with_obj_n":False,
+        "can_seek_accuracy":True
     },
     'gender_classification':{
         "name":'gender_classification',
         "value":'gender_classification_proc_delay',
-        "conf":["reso","fps","encoder"]
-    },
+        "conf":["reso","fps","encoder"],
+        "vary_with_obj_n":True,
+        "can_seek_accuracy":False
+    }
 }
+
+
+reso_range=list(resolution_wh.keys())
+
+fps_range=fps_list
+
+encoder_range=['JPEG']
+
+ip_range=["114.212.81.11","172.27.143.164"]
+
+mem_range=[0.001,0.002,0.003,0.004,0.005,0.006,0.007,0.008,0.009,0.01,
+           0.011,0.012,0.013,0.014,0.015,0.016,0.017,0.018,0.019,0.02,
+           0.021,0.022,0.023,0.024,0.025,0.026,0.027,0.028,0.029,0.03,
+           0.031,0.032,0.033,0.034,0.035,0.036,0.037,0.038,0.039,0.04]
+
+cpu_range=[0.05,0.10,0.15,0.20,
+           0.25,0.30,0.35,0.40,
+           0.45,0.50,0.55,0.60,
+           0.65,0.70,0.75,0.80,
+           0.85,0.90,0.95,1.00]
+
+
 
 conf_and_serv_info={  #各种配置参数的可选值
     
-    "reso":["360p", "480p", "720p", "1080p"],
-    "fps":[1, 5, 10, 20, 30],
-    "encoder":["JPEG"],
+    "reso":reso_range,
+    "fps":fps_range,
+    "encoder":encoder_range,
     
-    #"face_detection_ip":["172.27.143.164"],
-    #"gender_classification_ip":["172.27.143.164"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    "face_detection_ip":["114.212.81.11"],
-    "gender_classification_ip":["114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-   
-    # 注意贝叶斯优化采样的时候，资源约束必须包含1.0，因为我默认放到云端的服务都采用1.0作为约束。
-    "face_detection_mem_util_limit":[1.0,0.015,0.014,0.013,0.012,0.011,0.010,0.009,0.008,0.007,0.006,0.005,0.004,0.003,0.002,0.001],
-    "face_detection_cpu_util_limit":[1.0,0.05,0.10,0.15,0.20,0.25],
-    "gender_classification_mem_util_limit":[1.0,0.008,0.007,0.006,0.005,0.004,0.003,0.002,0.001],
-    "gender_classification_cpu_util_limit":[1.0,0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60],
+    "face_detection_ip":ip_range,
+    "gender_classification_ip":ip_range,   
 
-    
-    #"face_detection_trans_ip":["172.27.143.164"],
-    #"gender_classification_trans_ip":["172.27.143.164"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    "face_detection_trans_ip":["114.212.81.11"],
-    "gender_classification_trans_ip":["114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    
-    
-    "face_detection_trans_mem_util_limit":[1.0,0.015,0.014,0.013,0.012,0.011,0.010,0.009,0.008,0.007,0.006,0.005,0.004,0.003,0.002,0.001],
-    "face_detection_trans_cpu_util_limit":[1.0,0.05,0.10,0.15,0.20,0.25],
-    "gender_classification_trans_mem_util_limit":[1.0,0.008,0.007,0.006,0.005,0.004,0.003,0.002,0.001],
-    "gender_classification_trans_cpu_util_limit":[1.0,0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60],
+    "face_detection_mem_util_limit":mem_range,
+    "face_detection_cpu_util_limit":cpu_range,
+    "gender_classification_mem_util_limit":mem_range,
+    "gender_classification_cpu_util_limit":cpu_range,
+
+    "face_detection_trans_ip":ip_range,
+    "gender_classification_trans_ip":ip_range,   
+
+    "face_detection_trans_mem_util_limit":mem_range,
+    "face_detection_trans_cpu_util_limit":cpu_range,
+    "gender_classification_trans_mem_util_limit":mem_range,
+    "gender_classification_trans_cpu_util_limit":cpu_range,
 
 }
-#'''
