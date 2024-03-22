@@ -2,86 +2,32 @@
 
 from logging_utils import root_logger
 from query_manager_v2 import Query
+from kb_builder import KnowledgeBaseBuilder
 import json
+
+from scheduler_func import lat_first_kb_muledge
 
 if __name__ == "__main__":
 
-    query_id='1'
-    node_addr=''
-    video_id=1
-    pipeline=['face_detection']
+    # 要解决贝叶斯优化耗时太长的问题，就要尽可能缩小配置的已有取值范围。也就是说，在用贝叶斯优化搜索知识库进而冷启动的时候，需要自己指定一个conf_serv_info
+    # 而且，在利用新的文件更新字典的时候，也需要更新conf_serv_info。
+    # 为了方便起见，
+
+ 
+    job_uid=1
+    dag={}
+    dag["flow"]= ["face_detection", "face_alignment"]
     user_constraint={}
-
-    conf={
-        'reso': '480p', 
-        'fps': 1, 
-        'encoder': 'JPEG'
-    }
-    flow_mapping={
-        'face_detection': 
-        {
-            'model_id': 0, 
-            'node_ip': '172.27.151.145', 
-            'node_role': 'host'
-        }, 
-        'face_alignment': 
-        {
-            'model_id': 0, 
-            'node_ip': '172.27.151.145',
-            'node_role': 'host'
-        }
-    }
-
-    resource_limit={
-        'face_detection': 
-        {
-            'cpu_util_limit': 1.0, 
-            'mem_util_limit': 1.0
-        }, 
-        'face_alignment': 
-        {
-            'cpu_util_limit': 1.0, 
-            'mem_util_limit': 1.0
-        }
-    }
-    plan_conf=dict()
-
-    plan_conf['conf']=conf
-    plan_conf['flow_mapping']=flow_mapping
-    plan_conf['resource_limit']=resource_limit
-
-    with open('plan_conf.json', 'r') as f:  
-            plan_conf = json.load(f)  
-            print(plan_conf)
+    user_constraint["delay"]= 0.8
 
 
 
-
-    query0 = Query(query_id=query_id,
-                node_addr=node_addr,
-                video_id=video_id,
-                pipeline=pipeline,
-                user_constraint=user_constraint)
-    
-    #不能这样测试，必须得实际运行
-
-    ans1=query0.predict_resource_threshold(
-            task_info={
-                # 配置相关字段
-                'service_name': 'face_detection', # 服务名
-                'fps': 15,  # 帧率，取值范围见common.py中变量fps_list
-                'reso': 2,  # 分辨率，整数，表示分辨率的字符串到整数的映射见common.py中变量reso_2_index_dict
-                # 工况相关字段
-                'obj_num': 3  # 目标数量
-            }
+    '''
+    lat_first_kb_muledge.scheduler(
+            job_uid=1,
+            dag=dag,
+            resource_info=None,
+            runtime_info=None,
+            user_constraint=user_constraint,
         )
-    print(ans1)
-
-    ans2=query0.help_cold_start(
-        service='face_detection'
-    )
-    print(ans2)
-
-
-
-    print("test")
+    '''

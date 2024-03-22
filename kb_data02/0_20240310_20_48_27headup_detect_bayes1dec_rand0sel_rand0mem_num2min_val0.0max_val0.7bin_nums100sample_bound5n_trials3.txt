@@ -1,2 +1,0 @@
-kb_data/20240310_20_48_27_kb_builder_0.2_0.7_tight_build_headup_detect_people_in_mmeeting.csv
-kb_data/20240310_20_49_55_kb_builder_0.2_0.7_tight_build_headup_detect_people_in_mmeeting.csv

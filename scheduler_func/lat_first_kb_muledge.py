@@ -1,12 +1,11 @@
 import sys  
 import itertools
-from kb_user import KnowledgeBaseUser,kb_plan_path,kb_data_path
+from kb_user import KnowledgeBaseUser
 from logging_utils import root_logger
 
-
+from common import model_op,service_info_dict
 import json
 
-import copy
 
 prev_conf = dict()
 prev_flow_mapping = dict()
@@ -14,32 +13,8 @@ prev_resource_limit = dict()
 prev_runtime_info = dict()
 
 
-from kb_user import model_op,conf_and_serv_info,kb_data_path,kb_plan_path
-
 # servcie_info_list应该根据流水线的需要,从service_info_dict中挑选，随时组建
-service_info_dict={
-    'face_detection':{
-        "name":'face_detection',
-        "value":'face_detection_proc_delay',
-        "conf":["reso","fps","encoder"]
-    },
 
-    'face_detection_trans':{
-        "name":'face_detection_trans',
-        "value":'face_detection_trans_delay',
-        "conf":["reso","fps","encoder"]
-    },
-    'gender_classification':{
-        "name":'gender_classification',
-        "value":'gender_classification_proc_delay',
-        "conf":["reso","fps","encoder"]
-    },
-    'gender_classification_trans':{
-        "name":'gender_classification_trans',
-        "value":'gender_classification_trans_delay',
-        "conf":["reso","fps","encoder"]
-    },
-}
 
 
 # 该函数的作用是在给定的约束下寻求最合适的一个解，该解本身未必能够满足约束
@@ -211,26 +186,25 @@ def scheduler(
     work_condition=None,
     portrait_info=None,
     user_constraint=None,
+    last_plan_result=None
 ):
-   
 
 
-    # 上面是实在没办法的测试
-    # 现在根据scheduler的输入，要开始选择调度策略。
     assert job_uid, "should provide job_uid"
 
-    global prev_conf, prev_flow_mapping,prev_resource_limit
-    global conf_and_serv_info,service_info_dict
-
     # 调度器首先要根据dag来得到关于服务的各个信息
-    # （1）构建serv_names:根据dag获取serv_names，涉及的各个服务名
-    serv_names=dag['flow']
+    #（1）构建serv_names:根据dag获取serv_names，涉及的各个服务名
     #（2）构建service_info_list：根据serv_names，加上“_trans”构建传输阶段，从service_info_dict提取信息构建service_info_list
+    # (3) 构建conf_names：根据service_info_list里每一个服务的配置参数，得到conf_names，保存所有影响任务的配置参数（不含ip）
+    #（4）获取每一个设备的资源约束，以及每一个服务的资源上限
+    serv_names=dag['flow']
+    
     service_info_list=[]  #建立service_info_list，需要处理阶段，也需要传输阶段
     for serv_name in serv_names:
         service_info_list.append(service_info_dict[serv_name])
-        service_info_list.append(service_info_dict[serv_name+"_trans"])
-    # (3) 构建conf_names：根据service_info_list里每一个服务的配置参数，得到conf_names，保存所有影响任务的配置参数（不含ip）
+        # 不考虑传输时延了
+        # service_info_list.append(service_info_dict[serv_name+"_trans"])
+    
     conf=dict()
     for service_info in service_info_list:
         service_conf_names = service_info['conf']
@@ -238,33 +212,25 @@ def scheduler(
             if service_conf_name not in conf:
                 conf[service_conf_name]=1
     conf_names=list(conf.keys())  #conf_names里保存所有配置参数的名字
-    '''
-    # conf_names=["reso","fps","encoder"]
-    # serv_names=["face_detection", "face_alignment"]
-    print("初始冷启动,获取任务信息：")
-    print("conf_names:",conf_names)
-    print("serv_names",serv_names)
-    '''
-    #（4）获取每一个设备的资源约束，以及每一个服务的资源上限
+
+    
 
  #####################################
-    # 测试部分——-负反馈测试器
+    # 测试部分——-负反馈测试器，利用静态数据测试实时变化
+    print("展示最新调度计划和执行结果")
+    print(last_plan_result)
    
-    plan_conf={}
-    rsc_constraint={}
-    rsc_upper_bound={}
-    with open('plan_conf.json', 'r') as f:  
-        plan_conf = json.load(f) 
-    with open('rsc_constraint.json', 'r') as f:  
-        rsc_constraint = json.load(f) 
-    with open('rsc_upper_bound.json', 'r') as f:  
-        rsc_upper_bound = json.load(f)
-    
-    conf = plan_conf['conf']
-    flow_mapping = plan_conf['flow_mapping']
-    resource_limit = plan_conf['resource_limit']
+    static_data={}
 
-    if_test=plan_conf['if_test']
+    with open('static_data.json', 'r') as f:  
+        static_data = json.load(f) 
+
+    
+    conf = static_data['conf']
+    flow_mapping = static_data['flow_mapping']
+    resource_limit = static_data['resource_limit']
+
+    if_test=static_data['if_test']
 
     if if_test==1: #此时仅仅是读取文件中的配置并返还
         return conf, flow_mapping, resource_limit
@@ -277,10 +243,8 @@ def scheduler(
     
     elif if_test==3 and portrait_info['if_overtime']: # 如果超时了，使用不依赖画像的查表法
 
-        rsc_upper_bound={
-            "face_detection": {"cpu_limit": 1.0, "mem_limit": 1.0}, 
-            "gender_classification": {"cpu_limit": 1.0, "mem_limit": 1.0}
-        }
+        rsc_upper_bound=static_data['rsc_upper_bound']
+        rsc_constraint=static_data['rsc_constraint']
          
         ans_found, conf, flow_mapping, resource_limit=get_plan_based_on_constraint(
                                                         conf_names=conf_names,

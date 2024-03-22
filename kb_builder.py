@@ -17,11 +17,9 @@ plt.rcParams['font.sans-serif'] = ['SimHei'] # 运行配置参数中的字体（
 
 #试图以类的方式将整个独立建立知识库的过程模块化
 
-NO_BAYES_GOAL=0 #按照遍历配置组合的方式来建立知识库
-BEST_ALL_DELAY=1 #以最小化总时延为目标，基于贝叶斯优化建立知识库（密集，而不集中）
-BEST_STD_DELAY=2 #以最小化不同配置间时延的差别为目标，基于贝叶斯优化建立知识库（稀疏，而均匀）
 
-kb_data_path="kb_data"
+
+from common import KB_DATA_PATH,NO_BAYES_GOAL,BEST_ALL_DELAY,BEST_STD_DELAY,model_op,conf_and_serv_info
 
 #'''
 
@@ -63,179 +61,8 @@ resource_limit:
     }
 }
 '''
-#172.27.132.253
-# 以下是可能影响任务性能的可配置参数，用于指导模块化知识库的建立
-model_op={  
-            "114.212.81.11":{
-                "model_id": 0,
-                "node_ip": "114.212.81.11",
-                "node_role": "cloud"
-            },
-            "172.27.143.164": {
-                "model_id": 0,
-                "node_ip": "172.27.143.164",
-                "node_role": "host"  
-            },
-            "172.27.132.253": {
-                "model_id": 0,
-                "node_ip": "172.27.132.253",
-                "node_role": "host"  
-            },
-            "172.27.151.145": {
-                "model_id": 0,
-                "node_ip": "172.27.151.145",
-                "node_role": "host"  
-            },
 
-        }
 
-# conf_and_serv_info表示每一种配置的取值范围。
-'''
-conf_and_serv_info={  #各种配置参数的可选值
-    "reso":["360p", "480p", "720p", "1080p"],
-    "fps":[1, 5, 10, 20, 30],
-    "encoder":["JPEG"],
-    
-    "face_alignment_ip":["114.212.81.11","172.27.143.164","172.27.151.145"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    "face_detection_ip":["114.212.81.11","172.27.143.164","172.27.151.145"],
-    "face_alignment_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_alignment_cpu_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_detection_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_detection_cpu_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-
-    "face_alignment_trans_ip":["114.212.81.11","172.27.143.164","172.27.151.145"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    "face_detection_trans_ip":["114.212.81.11","172.27.143.164","172.27.151.145"],
-    "face_alignment_trans_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_alignment_trans_cpu_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_detection_trans_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_detection_trans_cpu_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-
-}
-'''
-'''
-# 以下是缩小范围版，节省知识库大小
-conf_and_serv_info={  #各种配置参数的可选值
-    "reso":["360p","480p","720p","1080p"],
-    "fps":[1, 5, 10, 20, 30],
-    "encoder":["JPEG"],
-    
-    "face_alignment_ip":["114.212.81.11","172.27.151.145"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    "face_detection_ip":["114.212.81.11","172.27.151.145"],
-    "car_detection_ip":["114.212.81.11","172.27.151.145"],
-    "face_alignment_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_alignment_cpu_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_detection_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_detection_cpu_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "car_detection_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "car_detection_cpu_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-
-    "face_alignment_trans_ip":["114.212.81.11","172.27.151.145"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    "face_detection_trans_ip":["114.212.81.11","172.27.151.145"],
-    "car_detection_trans_ip":["114.212.81.11","172.27.151.145"],
-    "face_alignment_trans_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_alignment_trans_cpu_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_detection_trans_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_detection_trans_cpu_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "car_detection_trans_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "car_detection_trans_cpu_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-
-}
-'''
-#'''
-#"172.27.151.145"
-'''
-conf_and_serv_info={  #各种配置参数的可选值
-    "reso":["360p", "480p", "720p", "1080p"],
-    "fps":[1, 5, 10, 20, 30],
-    "encoder":["JPEG"],
-    
-    "face_alignment_ip":["114.212.81.11","172.27.151.145"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    "face_detection_ip":["114.212.81.11","172.27.151.145"],
-    "car_detection_ip":["114.212.81.11","172.27.151.145"],
-    "face_alignment_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_alignment_cpu_util_limit":[1.0],
-    "face_detection_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_detection_cpu_util_limit":[1.0],
-    "car_detection_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "car_detection_cpu_util_limit":[1.0],
-
-    "face_alignment_trans_ip":["114.212.81.11","172.27.151.145"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    "face_detection_trans_ip":["114.212.81.11","172.27.151.145"],
-    "car_detection_trans_ip":["114.212.81.11","172.27.151.145"],
-    "face_alignment_trans_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_alignment_trans_cpu_util_limit":[1.0],
-    "face_detection_trans_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "face_detection_trans_cpu_util_limit":[1.0],
-    "car_detection_trans_mem_util_limit":[0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.95,1.00],
-    "car_detection_trans_cpu_util_limit":[1.0],
-
-}
-# 对于给定的conf_and_serv_info,在这个范围内进行知识库建立（遍历配置组合或者贝叶斯优化）
-'''
-'''
-conf_and_serv_info={  #各种配置参数的可选值
-    "reso":["360p"],
-    "fps":[10],
-    "encoder":["JPEG"],
-    
-    "face_alignment_ip":["172.27.151.145"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    "face_detection_ip":["172.27.151.145"],
-    "car_detection_ip":["172.27.151.145"],
-    "face_alignment_mem_util_limit":[0.3],
-    "face_alignment_cpu_util_limit":[0.35],
-    "face_detection_mem_util_limit":[0.5],
-    "face_detection_cpu_util_limit":[0.1],
-    "car_detection_mem_util_limit":[1.00],
-    "car_detection_cpu_util_limit":[1.0],
-
-    "face_alignment_trans_ip":["172.27.151.145"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    "face_detection_trans_ip":["172.27.151.145"],
-    "car_detection_trans_ip":["172.27.151.145"],
-    "face_alignment_trans_mem_util_limit":[0.3],
-    "face_alignment_trans_cpu_util_limit":[0.35],
-    "face_detection_trans_mem_util_limit":[0.5],
-    "face_detection_trans_cpu_util_limit":[0.1],
-    "car_detection_trans_mem_util_limit":[1.00],
-    "car_detection_trans_cpu_util_limit":[1.0],
-
-}
-'''
-'''
-["face_detection", "gender_classification"],
-'''
-#'''
-conf_and_serv_info={  #各种配置参数的可选值
-    
-    "reso":["360p", "480p", "720p", "1080p"],
-    "fps":[1, 5, 10, 20, 30],
-    "encoder":["JPEG"],
-    
-    "face_detection_ip":["172.27.143.164","114.212.81.11"],
-    "gender_classification_ip":["172.27.143.164","114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    #"face_detection_ip":["114.212.81.11"],
-    #"gender_classification_ip":["114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-   
-    # 注意贝叶斯优化采样的时候，资源约束必须包含1.0，因为我默认放到云端的服务都采用1.0作为约束。
-    "face_detection_mem_util_limit":[1.0,0.015,0.014,0.013,0.012,0.011,0.010,0.009,0.008,0.007,0.006,0.005,0.004,0.003,0.002,0.001],
-    "face_detection_cpu_util_limit":[1.0,0.05,0.10,0.15,0.20,0.25],
-    "gender_classification_mem_util_limit":[1.0,0.008,0.007,0.006,0.005,0.004,0.003,0.002,0.001],
-    "gender_classification_cpu_util_limit":[1.0,0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60],
-
-    
-    "face_detection_trans_ip":["172.27.143.164","114.212.81.11"],
-    "gender_classification_trans_ip":["172.27.143.164","114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-
-    #"face_detection_trans_ip":["114.212.81.11"],
-    #"gender_classification_trans_ip":["114.212.81.11"],   #这个未来一定要修改成各个模型，比如model1，model2等;或者各个ip
-    
-    
-    "face_detection_trans_mem_util_limit":[1.0,0.015,0.014,0.013,0.012,0.011,0.010,0.009,0.008,0.007,0.006,0.005,0.004,0.003,0.002,0.001],
-    "face_detection_trans_cpu_util_limit":[1.0,0.05,0.10,0.15,0.20,0.25],
-    "gender_classification_trans_mem_util_limit":[1.0,0.008,0.007,0.006,0.005,0.004,0.003,0.002,0.001],
-    "gender_classification_trans_cpu_util_limit":[1.0,0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60],
-
-}
-#'''
 
 
 
@@ -355,45 +182,30 @@ class KnowledgeBaseBuilder():
     # 方法：从conf_list中按顺序提取涉及的各个配置名称，并构建嵌套字典，初始值全部是0，
     # 返回值：无，但会在当前目录保存一个json文件
     def evaluator_init(self,conf_list,eval_name):  
-        #conf_num是建立评估器需要的配置旋钮的总数，conf_list里包含了一系列list，其中每一个都是某一种配置的可选组合
-        models_dicts=[]
-        conf_num=len(conf_list)
-        for i in range(0,conf_num):
-            temp=dict()
-            models_dicts.append(temp)
-        for key in conf_list[conf_num-1]:
-             models_dicts[conf_num-1][key]=0
-        for i in range(1,conf_num):
-            for key in conf_list[conf_num-i-1]:
-                models_dicts[conf_num-i-1][key]=models_dicts[conf_num-i]
-        
-        evaluator=models_dicts[0]  #获取最终的评估器
-        # print(evaluator)
-        # 建立初始化性能评估器并写入文件
-        
-        f=open(kb_data_path+'/'+eval_name+".json","w")
-        json.dump(evaluator,f,indent=1)
+        evaluator=dict()
+        with open(KB_DATA_PATH+'/'+eval_name+".json", 'w') as f:  
+            json.dump(evaluator, f,indent=4) 
         f.close()
+
         print("完成对评估器",eval_name,"的空白json文件初始化")
-    
     
     # evaluator_load：
     # 用途：读取某个json文件里保存的字典
     # 方法：根据eval_name从当前目录下打开相应json文件并返回
     # 返回值：从文件里读取的字典
     def evaluator_load(self,eval_name):
-        f=open(kb_data_path+'/'+eval_name+".json")
-        evaluator=json.load(f)
+        with open(KB_DATA_PATH+'/'+eval_name+".json", 'r') as f:  
+            evaluator = json.load(f)  
         f.close()
         return evaluator  #返回加载得到的字典
-    
+ 
     # evaluator_dump：
     # 用途：将字典内容重新写入文件
     # 方法：将参数里的字典写入参数里指定的eval_name文件中
     # 返回值：无
     def evaluator_dump(self,evaluator,eval_name):  #将字典重新写入文件
-        f=open(kb_data_path+'/'+eval_name+".json","w")
-        json.dump(evaluator,f,indent=1)
+        with open(KB_DATA_PATH+'/'+eval_name+".json", 'w') as f:  
+            json.dump(evaluator, f,indent=4) 
         f.close()
 
     # send_query：
@@ -418,7 +230,7 @@ class KnowledgeBaseBuilder():
     # 返回值：该csv文件名，同时在当前目录下生成一个csv文件
     def init_record_file(self):
         
-        filename = kb_data_path+'/'+datetime.datetime.now().strftime('%Y%m%d_%H_%M_%S') + \
+        filename = KB_DATA_PATH+'/'+datetime.datetime.now().strftime('%Y%m%d_%H_%M_%S') + \
             '_' + os.path.basename(__file__).split('.')[0] + \
             '_' + str(self.query_body['user_constraint']['delay']) + \
             '_' + self.expr_name + \
@@ -832,7 +644,7 @@ class KnowledgeBaseBuilder():
         
         # (4) 查看当前运行时情境
         r4 = self.sess.get(url="http://{}/query/get_portrait_info/{}".format(self.query_addr, self.query_id))  
-        #print("r4",r4)
+        print(r4)
         if not r4.json():
             return {"status":2,"des":"fail to post one query request"}
         '''
@@ -1141,6 +953,7 @@ class KnowledgeBaseBuilder():
     # 用途：根据记录的日志文件建立字典，每一个配置对应一个平均值
     # 方法：首先为每一个服务用evaluator_init建立一个字典，然后读取filepath参数指定的文件填充这些字典
     # 返回值：无，但是会得到各个服务阶段的字典
+
     def create_evaluator_from_samples(self,filepath):
         df = pd.read_csv(filepath)
         # 首先，完成对每一个服务的性能评估器的初始化,并提取其字典，加入到性能评估器列表中
@@ -1186,10 +999,11 @@ class KnowledgeBaseBuilder():
                     conf_kind+=1
                     avg_value=conf_df[service_info['value']].mean()  #获取均值
                     # print(conf_df[['d_ip','a_ip','fps','reso',service_info['value']]])
-                    sub_evaluator=evaluator
-                    for i in range(0,len(conf_for_dict)-1):
-                        sub_evaluator=sub_evaluator[conf_for_dict[i]]
-                    sub_evaluator[conf_for_dict[len(conf_for_dict)-1]]=avg_value
+                    dict_key=''
+                    for i in range(0,len(service_conf)):
+                        dict_key+=service_conf[i]+'='+conf_for_dict[i]+' '
+                    evaluator[dict_key]=avg_value
+
             #完成对evaluator的处理
             self.evaluator_dump(evaluator=evaluator,eval_name=service_info['name'])
             '''
@@ -1199,12 +1013,13 @@ class KnowledgeBaseBuilder():
             print(df['encoder']==conf_for_file[2])
             '''
             print("该服务",service_info['name'],"涉及配置组合总数",conf_kind)
-    
 
     # update_evaluator_from_samples：
     # 用途：根据记录的日志文件更新字典，每一个配置对应一个平均值
     # 方法：然后读取filepath参数指定的文件，更新已经存在的字典，不会重新建立
     # 返回值：无，但是会得到被更新的字典
+
+    
     def update_evaluator_from_samples(self,filepath):
         df = pd.read_csv(filepath)
         # 首先，完成对每一个服务的性能评估器的初始化,并提取其字典，加入到性能评估器列表中
@@ -1249,10 +1064,10 @@ class KnowledgeBaseBuilder():
                     conf_kind+=1
                     avg_value=conf_df[service_info['value']].mean()  #获取均值
                     # print(conf_df[['d_ip','a_ip','fps','reso',service_info['value']]])
-                    sub_evaluator=evaluator
-                    for i in range(0,len(conf_for_dict)-1):
-                        sub_evaluator=sub_evaluator[conf_for_dict[i]]
-                    sub_evaluator[conf_for_dict[len(conf_for_dict)-1]]=avg_value
+                    dict_key=''
+                    for i in range(0,len(service_conf)):
+                        dict_key+=service_conf[i]+'='+conf_for_dict[i]+' '
+                    evaluator[dict_key]=avg_value
             #完成对evaluator的处理
             self.evaluator_dump(evaluator=evaluator,eval_name=service_info['name'])
             '''
@@ -1288,7 +1103,7 @@ class KnowledgeBaseBuilder():
                 conf_info[conf_name]=list(set(df[conf_name].to_list()))
             
             #现在字典里存储着有关该服务每一个配置在当前文件夹中的所有取值，将其存入
-            with open(kb_data_path+'/'+ service_info['name']+'_conf_info'+'.json', 'w') as f:  
+            with open(KB_DATA_PATH+'/'+ service_info['name']+'_conf_info'+'.json', 'w') as f:  
                 json.dump(conf_info, f)
     
     # update_conf_info_from_samples：
@@ -1310,7 +1125,7 @@ class KnowledgeBaseBuilder():
 
             conf_info=dict()
 
-            with open(kb_data_path+'/'+ service_info['name']+'_conf_info'+'.json', 'r') as f:  
+            with open(KB_DATA_PATH+'/'+ service_info['name']+'_conf_info'+'.json', 'r') as f:  
                 old_conf_info = json.load(f)  
                 #print(old_conf_info)
 
@@ -1320,7 +1135,7 @@ class KnowledgeBaseBuilder():
                     conf_info[conf_name]=list(set(temp_list))
             
             #现在字典里存储着有关该服务每一个配置在当前文件夹中的所有取值，将其存入
-            with open(kb_data_path+'/'+ service_info['name']+'_conf_info'+'.json', 'w') as f:  
+            with open(KB_DATA_PATH+'/'+ service_info['name']+'_conf_info'+'.json', 'w') as f:  
                 json.dump(conf_info, f) 
 
 
@@ -1643,78 +1458,11 @@ conf_names=["reso","fps","encoder"]
 #这里包含流水线里涉及的各个服务的名称
 serv_names=["face_detection","gender_classification"]   
 
-#以下是发出query请求时的内容。注意video_id。当前文件需要配合query_manager_v2.py运行，后者使用的调度器会根据video_id的取值判断是否会运行。
-#建议将video_id设置为99，它对应的具体视频内容可以在camera_simulation里找到，可以自己定制。query_manager_v2.py的调度器发现query_id为99的时候，
-#不会进行调度动作。因此，知识库建立者可以自由使用update_plan接口操控任务的调度方案，不会受到云端调度器的影响了。
-'''
-query_body = {
-        "node_addr": "172.27.151.145:5001",
-        "video_id": 99,   
-        "pipeline": ["face_detection", "gender_classification"],#制定任务类型
-        "user_constraint": {
-            "delay": 0.6,  #用户约束暂时设置为0.3
-            "accuracy": 0.7
-        }
-    }  
-'''
-'''
-#这个query_body用于测试单位的“人进入会议室”，也就是只有一张脸的情况，工况不变，不触发调度器变化
-query_body = {
-        "node_addr": "172.27.151.145:5001",
-        "video_id": 99,     
-        "pipeline": ["face_detection", "face_alignment"],#制定任务类型
-        "user_constraint": {
-            "delay": 0.7,  #用户约束暂时设置为0.3
-            "accuracy": 0.7
-        }
-    }  
-'''
-'''
-#这个query_body用于测试单位的“人进入会议室”，也就是只有一张脸的情况，工况不变，但是会触发调度器变化，因为ifd很小
-query_body = {
-        "node_addr": "172.27.151.145:5001",
-        "video_id": 4,     
-        "pipeline": ["face_detection", "face_alignment"],#制定任务类型
-        "user_constraint": {
-            "delay": 0.7,  #用户约束暂时设置为0.3
-            "accuracy": 0.7
-        }
-    }  
-'''
-'''
-service_info_list=[
-    {
-        "name":'car_detection',
-        "value":'car_detection_proc_delay',
-        "conf":["reso","fps","encoder"]
-    },
-    {
-        "name":'car_detection_trans',
-        "value":'car_detection_trans_delay',
-        "conf":["reso","fps","encoder"]
-    },
-]
 
-# 下图的conf_names表示流水线上所有服务的conf的总和。
-conf_names=["reso","fps","encoder"]
-
-#这里包含流水线里涉及的各个服务的名称
-serv_names=["car_detection"]   
-# 进行车辆检测
-query_body = {
-        "node_addr": "172.27.151.145:5001",
-        "video_id": 101,   
-        "pipeline": ["car_detection"],#制定任务类型
-        "user_constraint": {
-            "delay": 0.1,  #用户约束暂时设置为0.3
-            "accuracy": 0.7
-        }
-    }  
-'''
 #这个query_body用于测试单位的“人进入会议室”，也就是只有一张脸的情况，工况不变，但是会触发调度器变化，因为ifd很小
 #'''
 query_body = {
-        "node_addr": "172.27.132.253:3001",
+        "node_addr": "172.27.143.164:3001",
         "video_id": 4,     
         "pipeline":  ["face_detection", "gender_classification"],#制定任务类型
         "user_constraint": {
@@ -1749,9 +1497,9 @@ if __name__ == "__main__":
     # 是否进行严格采样（遍历所有配置）
     need_tight_kb=0
     # 是否根据某个csv文件绘制画像 
-    need_to_draw=1
+    need_to_draw=0
     # 是否需要基于初始采样结果建立一系列字典，也就是时延有关的知识库
-    need_to_build=0
+    need_to_build=1
 
     #是否需要发起一次简单的查询并测试调度器的功能
     need_to_test=0
@@ -1762,15 +1510,15 @@ if __name__ == "__main__":
 
     task_name="headup_detect"
 
-    record_name=kb_data_path+'/'+'0_'+datetime.datetime.now().strftime('%Y%m%d_%H_%M_%S')+task_name+"_"+"bayes"+str(need_sparse_kb)+\
+    record_name=KB_DATA_PATH+'/'+'0_'+datetime.datetime.now().strftime('%Y%m%d_%H_%M_%S')+task_name+"_"+"bayes"+str(need_sparse_kb)+\
               "dec_rand"+str(dec_rand)+"sel_rand"+str(sel_rand)+"mem_num"+str(comb_num)+\
               "min_val"+str(min_val)+"max_val"+str(max_val)+\
               "bin_nums"+str(bin_nums)+"sample_bound"+str(sample_bound)+"n_trials"+str(n_trials)
               
 
     kb_builder=KnowledgeBaseBuilder(expr_name="tight_build_gender_classify_cold_start03",
-                                    node_ip='172.27.132.253',
-                                    node_addr="172.27.132.253:3001",
+                                    node_ip='172.27.143.164',
+                                    node_addr="172.27.143.164:3001",
                                     query_addr="114.212.81.11:3000",
                                     service_addr="114.212.81.11:3500",
                                     query_body=query_body,
@@ -1891,69 +1639,6 @@ if __name__ == "__main__":
                 i+=1
         print("完成所选配置范围的确定")
 
-
-
     exit()
 
     
-
-'''
-result：
-{
-'count_result': {'total': 24, 'up': 20}, 
-'delay': 0.16154261735769418, 
-'execute_flag': True, 
-'ext_plan': {
-            'flow_mapping': 
-                {   
-                    'face_alignment': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'}, 
-                    'face_detection': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'} 
-                }, 
-            'video_conf':   {'encoder': 'JPEG', 'fps': 1, 'reso': '360p'}
-            }, 
-
-'ext_runtime': {
-                    'delay': 0.16154261735769418, 
-                    'obj_n': 24.0, 
-                    'obj_size': 219.36678242330404, 
-                    'obj_stable': 1, 
-                    'plan_result': 
-                        {
-                            'delay': {'face_alignment': 0.09300840817964993, 'face_detection': 0.06853420917804424}, 
-                            'process_delay': {'face_alignment': 0.08888898446009709, 'face_detection': 0.060828484021700345}
-                        }
-                }, 
-'frame_id': 25.0, 
-'n_loop': 1, 
-'proc_resource_info_list': [{'cpu_util_limit': 1.0, 'cpu_util_use': 0.060020833333333336, 'latency': 2.3111135959625244, 'pid': 505503}]
-}
-
-resource_info：
-{'cloud': {
-    '114.212.81.11': {
-        'cpu_ratio': 33.5, 
-        'gpu_compute_utilization': {'0': 0, '1': 0, '2': 0, '3': 0}, 
-        'gpu_mem_total': {'0': 24.0, '1': 24.0, '2': 24.0, '3': 24.0}, 
-        'gpu_mem_utilization': {'0': 12.830352783203125, '1': 1.2865702311197915, '2': 1.2865702311197915, '3': 1.2865702311197915}, 
-        'mem_ratio': 10.5, 
-        'mem_total': 251.56013107299805, 
-        'n_cpu': 48, 
-        'net_ratio(MBps)': 0.42016, 
-        'swap_ratio': 0.0}
-        }, 
-'host': {
-    '172.27.133.85': {
-        'cpu_ratio': 0.0, 
-        'gpu_compute_utilization': {'0': 0.0}, 
-        'gpu_mem_total': {'0': 3.9}, 
-        'gpu_mem_utilization': {'0': 29.561654115334534}, 
-        'mem_ratio': 79.1, 
-        'mem_total': 7.675579071044922, 
-        'n_cpu': 4, 
-        'net_ratio(MBps)': 14.03965, 
-        'swap_ratio': 0.0}
-        }
-}
-
-
-'''

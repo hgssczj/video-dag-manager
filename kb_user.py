@@ -5,14 +5,9 @@ import optuna
 import itertools
 plt.rcParams['font.sans-serif'] = ['SimHei'] # 运行配置参数中的字体（font）为黑体（SimHei）
 
+from common import KB_DATA_PATH,MAX_NUMBER,model_op,conf_and_serv_info
+
 #试图以类的方式将整个独立建立知识库的过程模块化
-
-MAX_NUMBER=999999
-
-
-from kb_builder import model_op, conf_and_serv_info,kb_data_path
-
-kb_plan_path='kb_plan'
 
           
 # KnowledgeBaseUser可以基于建立好的知识库，提供冷启动所需的一系列策略
@@ -94,7 +89,7 @@ class  KnowledgeBaseUser():
         # 对于service_info_list里的service_info依次评估性能
         for service_info in self.service_info_list:
             # （1）加载服务对应的性能评估器
-            f=open(kb_data_path+'/'+service_info['name']+".json")  
+            f=open(KB_DATA_PATH+'/'+service_info['name']+".json")  
             evaluator=json.load(f)
             f.close()
             # （2）获取service_info里对应的服务配置参数，从参数conf中获取该服务配置旋钮的需要的各个值，加上ip选择
@@ -117,21 +112,28 @@ class  KnowledgeBaseUser():
                 
             cpu_for_dict=resource_limit[ip_for_dict_name]["cpu_util_limit"]
             mem_for_dict=resource_limit[ip_for_dict_name]["mem_util_limit"]
+            
             conf_for_dict.append(str(ip_for_dict))  
             conf_for_dict.append(str(cpu_for_dict)) 
             conf_for_dict.append(str(mem_for_dict)) 
+
+            service_conf.append(service_info['name']+'_ip')
+            service_conf.append(service_info['name']+'_cpu_util_limit')
+            service_conf.append(service_info['name']+'_mem_util_limit')
             # 形如["360p"，"1","JPEG","114.212.81.11","0.1"."0.1"]
 
             # （3）根据conf_for_dict，从性能评估器中提取该服务的评估时延
-            sub_evaluator=evaluator
-            for i in range(0,len(conf_for_dict)-1):
-                if conf_for_dict[i] in sub_evaluator:
-                    sub_evaluator=sub_evaluator[conf_for_dict[i]]
-                else:
-                    print('配置不存在')
-                    return status,pred_delay_list,pred_delay_total
+     
+            dict_key=''
+            for i in range(0,len(service_conf)):
+                dict_key+=service_conf[i]+'='+conf_for_dict[i]+' '
+
             
-            pred_delay=sub_evaluator[conf_for_dict[len(conf_for_dict)-1]]
+            if dict_key not in evaluator:
+                print('配置不存在',dict_key)
+                return status,pred_delay_list,pred_delay_total
+            
+            pred_delay=evaluator[dict_key]
             
             #  (4) 如果pred_delay为0，意味着这一部分对应的性能估计结果不存在，该配置在知识库中没有找到合适的解。此时直接返回结果。
             if pred_delay==0:
@@ -264,7 +266,7 @@ class  KnowledgeBaseUser():
 
         #但是注意，每一种服务都有自己的专门取值范围
         for serv_name in self.serv_names:
-            with open(kb_data_path+'/'+ serv_name+'_conf_info'+'.json', 'r') as f:  
+            with open(KB_DATA_PATH+'/'+ serv_name+'_conf_info'+'.json', 'r') as f:  
                 conf_info = json.load(f)  
                 serv_ip=serv_name+"_ip"
                 flow_mapping[serv_name]=model_op[trial.suggest_categorical(serv_ip,conf_info[serv_ip])]
@@ -294,7 +296,7 @@ class  KnowledgeBaseUser():
         #但是注意，每一种服务都有自己的专门取值范围
         cloud_ip='' #记录云端ip,判断流水线是否已经开始进入云端
         for serv_name in self.serv_names:
-            with open(kb_data_path+'/'+ serv_name+'_conf_info'+'.json', 'r') as f:  
+            with open(KB_DATA_PATH+'/'+ serv_name+'_conf_info'+'.json', 'r') as f:  
                 conf_info = json.load(f)  
                 serv_ip=serv_name+"_ip"
                 if bool(cloud_ip): #如果已经记录了云端ip，说明流水线已经迁移到云端了，此时后续阶段只能选择云端
@@ -443,7 +445,7 @@ class  KnowledgeBaseUser():
     # get_coldstart_plan_bayes：
     # 用途：基于贝叶斯优化，调用多目标优化的贝叶斯模型，得到一系列帕累托最优解
     # 方法：通过贝叶斯优化，在有限轮数内选择一个最优的结果
-    # 返回值：最好的conf, flow_mapping, resource_limit
+    # 返回值：params_in_delay_cons,params_out_delay_cons,分别是在约束内的解和不在约束内的解
     def get_coldstart_plan_bayes(self,n_trials):
         # 开始多目标优化
         study = optuna.create_study(directions=['minimize' for _ in range(1+2*len(rsc_constraint.keys()))])  
@@ -581,14 +583,6 @@ class  KnowledgeBaseUser():
     
  
 
-# 尝试进行探索
-
-# 使用KnowledgeBaseBuilder需要提供以下参数：
-# service_info_list描述了构成流水线的所有阶段的服务。下图表示face_detection和face_alignment构成的流水线
-# 由于同时需要为数据处理时延和数据传输时延建模，因此还有face_detection_trans和face_alignment_trans。一共4个需要关注的服务。
-# 每一个服务都有自己的value，用于从采样得到的csv文件里提取相应的时延；conf表示影响该服务性能的配置，
-# 但是conf没有包括设备ip、cpu和mem资源约束，因为这是默认的。一个服务默认使用conf里的配置参数加上Ip和资源约束构建字典。
-#'''
 service_info_list=[
     {
         "name":'face_detection',
@@ -596,75 +590,18 @@ service_info_list=[
         "conf":["reso","fps","encoder"]
     },
     {
-        "name":'face_alignment',
-        "value":'face_alignment_proc_delay',
-        "conf":["reso","fps","encoder"]
-    },
-    {
-        "name":'face_detection_trans',
-        "value":'face_detection_trans_delay',
-        "conf":["reso","fps","encoder"]
-    },
-    {
-        "name":'face_alignment_trans',
-        "value":'face_alignment_trans_delay',
+        "name":'gender_classification',
+        "value":'gender_classification_proc_delay',
         "conf":["reso","fps","encoder"]
     },
 ]
 
 
-
-
-
-#以下是发出query请求时的内容。注意video_id。当前文件需要配合query_manager_v2.py运行，后者使用的调度器会根据video_id的取值判断是否会运行。
-#建议将video_id设置为99，它对应的具体视频内容可以在camera_simulation里找到，可以自己定制。query_manager_v2.py的调度器发现query_id为99的时候，
-#不会进行调度动作。因此，知识库建立者可以自由使用update_plan接口操控任务的调度方案，不会受到云端调度器的影响了。
-'''
-query_body = {
-        "node_addr": "172.27.151.145:5001",
-        "video_id": 99,   
-        "pipeline": ["face_detection", "face_alignment"],#制定任务类型
-        "user_constraint": {
-            "delay": 0.6,  #用户约束暂时设置为0.3
-            "accuracy": 0.7
-        }
-    }  
-
-service_info_list=[
-    {
-        "name":'car_detection',
-        "value":'car_detection_proc_delay',
-        "conf":["reso","fps","encoder"]
-    },
-    {
-        "name":'car_detection_trans',
-        "value":'car_detection_trans_delay',
-        "conf":["reso","fps","encoder"]
-    },
-]
-
 # 下图的conf_names表示流水线上所有服务的conf的总和。
 conf_names=["reso","fps","encoder"]
 
 #这里包含流水线里涉及的各个服务的名称
-serv_names=["car_detection"]   
-# 进行车辆检测
-query_body = {
-        "node_addr": "172.27.151.145:5001",
-        "video_id": 101,   
-        "pipeline": ["car_detection"],#制定任务类型
-        "user_constraint": {
-            "delay": 0.1,  #用户约束暂时设置为0.3
-            "accuracy": 0.7
-        }
-    }  
-'''
-
-# 下图的conf_names表示流水线上所有服务的conf的总和。
-conf_names=["reso","fps","encoder"]
-
-#这里包含流水线里涉及的各个服务的名称
-serv_names=["face_detection","face_alignment"]   
+serv_names=["face_detection","gender_classification"]   
 
 
 user_constraint={
@@ -678,23 +615,23 @@ rsc_constraint={
         "mem":1.0
     },
     "172.27.143.164": {
-        "cpu": 0.6,
-        "mem": 0.7
+        "cpu": 1.0,
+        "mem": 1.0
     },
     "172.27.151.145": {
-        "cpu": 0.5,
-        "mem": 0.8 
+        "cpu": 1.0,
+        "mem": 1.0 
     },
 }
 # 描述每一种服务所需的中资源阈值，它限制了贝叶斯优化的时候采取怎样的内存取值范围
 rsc_upper_bound={
     'face_detection':{
-        'cpu_limit':0.4,
-        'mem_limit':0.5,
+        'cpu_limit':1.0,
+        'mem_limit':1.0,
     },
-    'face_alignment':{
-        'cpu_limit':0.4,
-        'mem_limit':0.5,
+    'gender_classification':{
+        'cpu_limit':1.0,
+        'mem_limit':1.0,
     }
 }
 
@@ -709,12 +646,15 @@ if __name__ == "__main__":
                                   rsc_upper_bound=rsc_upper_bound
                                   )
     
-    need_cold_start=0
+
+    
+    
+    need_cold_start=1
     if need_cold_start==1:
         # 首先基于文件进行初始化:尝试在不同（或者相同）的约束之下，基于不同的n_trials，来看看基于不同方法检索到的最优配置是怎样的。
         cons_delay_list=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
         n_trials_list=[100,200,300,400,500,600,700,800,900,1000]
-        cons_delay_list=[0.4]
+        cons_delay_list=[0.3]
         n_trials_list=[100,100,100,100,100,100,100,100,100,100,
                        112,112,112,112,112,112,112,112,112,
                        125,125,125,125,125,125,125,125,
@@ -725,7 +665,7 @@ if __name__ == "__main__":
                        334,334,334,
                        500,500,
                        1000]
-        n_trials_list=[10]
+        n_trials_list=[100]
         record_cons_delay=[]
         
         record_n_trials=[]
@@ -746,118 +686,16 @@ if __name__ == "__main__":
             '''
 
             for n_trials in n_trials_list:
-                conf, flow_mapping, resource_limit = cold_starter.get_coldstart_plan_bayes(n_trials=n_trials)
-                status,pred_delay_list,pred_delay_total=cold_starter.get_pred_delay(conf=conf,
-                                                                    flow_mapping=flow_mapping,
-                                                                    resource_limit=resource_limit)
+                params_in_delay_cons,params_out_delay_cons = cold_starter.get_coldstart_plan_bayes(n_trials=n_trials)
+                print('满足约束解',len(params_in_delay_cons))
+                for item in params_in_delay_cons:
+                    print(item)
 
-                record_cons_delay.append(cons_delay)
-                record_n_trials.append(n_trials)
-                record_status.append(status)
-                record_pred_delay.append(pred_delay_total)
-                # record_best_status.append(status0)
-                # record_best_delay.append(pred_delay_total0)
-        
-        #现在要把cold_plan_list整个写入文件（查询到的若干计划）：
-        with open(kb_plan_path+'/'+datetime.datetime.now().strftime('%Y%m%d_%H_%M_%S')+'cold_plan_list.txt', 'w') as file:
-            file.writelines(str(['cons','n_trials','rotate_status','bayes_status','rotate_pred_delay','bayes_pred_delay'])+'\n')
-            file.writelines(str(record_cons_delay)+'\n')
-            file.writelines(str(record_n_trials)+'\n')
-            file.writelines(str(record_best_status)+'\n')
-            file.writelines(str(record_status)+'\n')
-            file.writelines(str(record_best_delay)+'\n')
-            file.writelines(str(record_pred_delay)+'\n')
-            
+                print('不满足约束解',len(params_out_delay_cons))
+                for item in params_out_delay_cons:
+                    print(item)
+               
            
-        
-        file.close()
 
-    need_anylze_plan=0
-    if need_anylze_plan==1:
-        plan_file_name='20240127_19_51_37cold_plan_list.txt'
-        plan_file_name='20240127_16_53_18cold_plan_list.txt'
-        file = open(plan_file_name, "r")
-        lines = file.readlines()
-        file.close()
-        print(lines)
-        read_res_list=[]
-        num=0
-
-
-        for line in lines:
-            
-            # plan_item=list(line)
-            new_line=line[:-1]
-            #print(type(new_line))
-            #print(new_line)
-            new_line=new_line.replace("'",'')
-            new_line=new_line.replace(',','')
-            new_line=new_line.replace('[','')
-            new_line=new_line.replace(']','')
-            #print(type(new_line))
-            #print(new_line)
-
-            new_line=new_line.split(' ')
-            #print(type(new_line))
-            #print(new_line)
-
-            if num>0: #第二行开始才是数字
-                number_list=[float(item) for item in new_line]
-                #print(type(number_list))
-                #print(number_list)
-                read_res_list.append(number_list)
-
-            num+=1
-
-        for read_res in read_res_list:
-            print(read_res)
-        
-        cons_delay_list=read_res_list[0]
-        n_trials_list=read_res_list[1]
-        rotate_status_list=read_res_list[2]
-        bayes_status_list=read_res_list[3]
-        rotate_pred_delay=read_res_list[4]
-        bayes_pred_delay=read_res_list[5]
-
-        # 现在要将它们绘制到一幅图里。
-        x_value=[]
-        for i in range(0,len(n_trials_list)):
-            x_value.append(i)
-       
-
-        # 现在的问题是如何在横轴上显示各个n_trials_list
-        print(n_trials_list)
-
-        
-        # 现在需要绘制cons_delay_list
-        fig=plt.figure()
-        ax1=fig.add_subplot()
-        ax1.plot(x_value,cons_delay_list,label="任务时延约束")
-        
-        ax1.plot(x_value,rotate_pred_delay,label="遍历查找冷所得启动时延")
-        ax1.plot(x_value,bayes_pred_delay,label="贝叶斯查找所得冷启动时延")
-        
-        ax1.set_ylim(0,1.2)
-        ax1.set_ylabel('时延$\mathrm{(s)}$',fontsize=15)
-        ax1.set_xlabel('实验次数',fontsize=15)
-        plt.yticks(fontsize=14)
-        #plt.xticks([0,10,19,27,34,40,45,49,52,54],fontsize=14)
-        plt.xticks(fontsize=14)
-
-        #for x_line in [0,10,19,27,34,40,45,49,52,54]:
-        #    plt.axvline(x=x_line, color='red')
-
-        ax1.legend(loc='upper left',frameon=True,fontsize=14) #可以显示图例，标注label
-        #plt.savefig('z_mypicture/infer_1.png', dpi=600)    # dpi     分辨率
-
-        ax2=ax1.twinx()
-        ax2.plot(x_value,n_trials_list,linestyle='--',label='贝叶斯优化采样次数')
-        ax2.set_ylabel('贝叶斯优化采样次数n_trials',fontsize=15)
-        ax2.set_ylim(0,10000)
-        ax2.legend(loc='upper right',frameon=True,fontsize=14) #可以显示图例，标注label
-        plt.yticks([100,500,1000,1500],fontsize=14)
-        # plt.xticks(fontsize=14)
-         # plt.yticks(fontsize=14)
-        plt.show()
 
     exit()

@@ -1,1 +1,0 @@
-{"face_detection": {"cpu_limit": 0.3, "mem_limit": 0.3}, "face_alignment": {"cpu_limit": 0.3, "mem_limit": 0.3}}

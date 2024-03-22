@@ -1,0 +1,24 @@
+{
+    "conf": {"reso": "360p", "fps": 30, "encoder": "JPEG"}, 
+    "flow_mapping": 
+        {
+        "face_detection": {"model_id": 0, "node_ip": "172.27.143.164", "node_role": "host"}, 
+        "gender_classification": {"model_id": 0, "node_ip": "172.27.143.164", "node_role": "host"}
+        }, 
+    "resource_limit": 
+        {
+        "face_detection": {"cpu_util_limit": 0.25, "mem_util_limit": 1.0}, 
+        "gender_classification": {"cpu_util_limit": 0.75, "mem_util_limit": 1.0}
+        },
+    "rsc_upper_bound":
+        {
+            "face_detection": {"cpu_limit": 1.0, "mem_limit": 1.0}, 
+            "gender_classification": {"cpu_limit": 1.0, "mem_limit": 1.0}
+        },
+    "rsc_constraint":{
+            "114.212.81.11": {"cpu": 1.0, "mem": 1.0}, 
+            "172.27.143.164": {"cpu": 0.1, "mem": 0.1}, 
+            "172.27.151.145":{"cpu": 0.1, "mem": 0.2}
+        },
+    "if_test":1
+}

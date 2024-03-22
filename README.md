@@ -342,13 +342,13 @@ flow_mapping = {
 }
 ```
 
-## 7 运行时情境函数（参见`job_manager_v2.py`中worker_loop函数，以及`query_manager_v2.py`中`Query`类的成员函数`get_portrait_info`、`predict_resource_threshold`、`help_cold_start`等）
+## 7 运行时情境函数（参见`job_manager_v2.py`中worker_loop函数，以及`query_manager_v2.py`中`Query`类的成员runtime_portrait、RuntimePortrait类的成员函数`get_portrait_info`、`predict_resource_threshold`、`help_cold_start`等）
 
 感知流程：
 
-（1）更新运行时情境：边缘端的`Job`实例在执行完一个完整的任务后会将本轮执行过程中的运行时情境信息上传到云（边缘端本地不保存任何情境信息和中间结果，请求云端的`/query/sync_runtime`接口）；云端在拿到一次任务执行的运行时情境信息之后会对其进行处理，包括整理工况情境以便前端展示，以及后续进行运行时情境画像，为调度器提供参考。
+（1）更新运行时情境：边缘端的`Job`实例在执行完一个完整的任务后会将本轮执行过程中的运行时情境信息上传到云（边缘端本地不保存任何情境信息和中间结果，请求云端的`/query/sync_runtime`接口）；云端在拿到一次任务执行的运行时情境信息之后调用runtime_portrait成员的函数对其进行处理，包括整理工况情境以便前端展示，以及后续进行运行时情境画像，为调度器提供参考。
 
-（2）获取运行时情境：若前端想要获取工况情境用于前端展示，则需要通过RESTful接口`/query/get_work_condition/<query_id>`进行访问，具体的返回结果格式见前面所述；若调度器想要获取运行时情境画像参数，则可以通过直接调用`Query`类对象的成员函数的方式获取相关信息，具体的函数以及使用方式见下。
+（2）获取运行时情境：若前端想要获取工况情境用于前端展示，则需要通过RESTful接口`/query/get_work_condition/<query_id>`进行访问，具体的返回结果格式见前面所述；若调度器想要获取运行时情境画像参数，则可以通过直接调用`Query`、`RuntimePortrait`类对象的成员函数的方式获取相关信息，具体的函数以及使用方式见下。
 
 ##### 1. get_portrait_info():
 * 输入参数：无

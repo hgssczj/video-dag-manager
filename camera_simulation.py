@@ -29,6 +29,7 @@ video_info_list = [
 ]
 
 
+
 def get_video_frame(video_src):
     assert video_src
     video_cap = cv2.VideoCapture(video_src)

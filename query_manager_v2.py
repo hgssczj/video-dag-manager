@@ -23,6 +23,7 @@ import common
 import json
 from PortraitModel import PortraitModel
 import torch
+from RuntimePortrait import RuntimePortrait
 
 class Query():
     CONTENT_ELE_MAXN = 50
@@ -41,58 +42,13 @@ class Query():
         assert isinstance(self.pipeline, list)
         # 查询指令结果
         self.result = None
-        # 以下两个内容用于存储边端同步来的运行时情境
-        self.runtime_pkg_list = dict()  # 此变量用于存储工况情境参数，key为工况类型'obj_n'、'obj_size'等；value为列表类型
-        self.current_work_condition = dict()  # 此变量用于存储当前工况，key为工况类型'obj_n'、'obj_size'等
-        self.work_condition_list = []  # 此变量用于存储历史工况，每一个元素为一个dict，字典的key为工况类型'obj_n'、'obj_size'等
-        self.runtime_info_list = []  # 此变量用于存储完整的历史运行时情境信息，便于建立画像使用
+        
         # 历史记录
         self.plan_list = []
         
-        # 加载与当前pipeline对应的运行时情境画像模型
-        self.portrait_model_dict = dict()  # 此变量用于保存pipeline中各个服务的画像预估模型
-        
-        assert(len(self.pipeline) >= 1)
-        for service in self.pipeline:
-            self.portrait_model_dict[service] = dict()
-            
-            # CPU利用率预估模型
-            self.portrait_model_dict[service]['cpu'] = dict()
-            cpu_edge_model_file = "models/" + service + "_cpu_edge.pth"
-            cpu_server_model_file = "models/" + service + "_cpu_server.pth"
-            cpu_edge_model = PortraitModel()
-            cpu_edge_model.load_state_dict(torch.load(cpu_edge_model_file))
-            self.portrait_model_dict[service]['cpu']['edge'] = cpu_edge_model
-            cpu_server_model = PortraitModel()
-            cpu_server_model.load_state_dict(torch.load(cpu_server_model_file))
-            self.portrait_model_dict[service]['cpu']['server'] = cpu_server_model
-            
-            # 内存使用量预估模型
-            self.portrait_model_dict[service]['mem'] = dict()
-            mem_edge_model_file = "models/" + service + "_mem_edge.pth"
-            mem_server_model_file = "models/" + service + "_mem_server.pth"
-            mem_edge_model = PortraitModel()
-            mem_edge_model.load_state_dict(torch.load(mem_edge_model_file))
-            self.portrait_model_dict[service]['mem']['edge'] = mem_edge_model
-            mem_server_model = PortraitModel()
-            mem_server_model.load_state_dict(torch.load(mem_server_model_file))
-            self.portrait_model_dict[service]['mem']['server'] = mem_server_model
+        # 运行时情境画像模块
+        self.runtime_portrait = RuntimePortrait(pipeline)
 
-        # 获取当前系统资源，为画像提供计算依据
-        self.server_total_mem = None
-        self.edge_total_mem = None
-        
-        r = query_manager.sess.get(url="http://{}/get_cluster_info".format(query_manager.service_cloud_addr))
-        resource_info = r.json()
-        
-        for ip_addr in resource_info:
-            if resource_info[ip_addr]['node_role'] == 'cloud':
-                self.server_total_mem = resource_info[ip_addr]['device_state']['mem_total'] * 1024 * 1024 * 1024
-            else:
-                self.edge_total_mem = resource_info[ip_addr]['device_state']['mem_total'] * 1024 * 1024 * 1024
-        
-        assert(self.server_total_mem is not None)
-        assert(self.edge_total_mem is not None)
     # ---------------------------------------
     # ---- 属性 ----
     def set_plan(self, video_conf, flow_mapping, resource_limit):
@@ -116,349 +72,14 @@ class Query():
         }
     
     def update_runtime(self, runtime_info):
-        # 更新云端的运行时情境信息
-        
-        # 1.更新工况信息，便于前端展示(绘制折线图等)
-        self.update_work_condition(runtime_info)
-        
-        # 2.保存完整的运行时情境参数，为调度器查表提供参考
-        self.runtime_info_list.append(runtime_info)
-        # 避免保存过多的内容导致爆内存
-        if len(self.runtime_info_list) > Query.CONTENT_ELE_MAXN:
-            del self.runtime_info_list[0]
-
-    def update_work_condition(self, runtime_info):
-        # 更新工况信息，便于前端展示(绘制折线图等)
-        for taskname in runtime_info:
-            if taskname == 'end_pipe':
-                if 'delay' not in self.runtime_pkg_list:
-                    self.runtime_pkg_list['delay'] = list()
-
-                if len(self.runtime_pkg_list['delay']) > Query.CONTENT_ELE_MAXN:
-                    del self.runtime_pkg_list['delay'][0]
-                self.runtime_pkg_list['delay'].append(runtime_info[taskname]['delay'])
-
-            # 对face_detection的结果，提取运行时情境
-            # TODO：目标数量、目标大小、目标速度
-            if taskname == 'face_detection':
-                # 定义运行时情境字段
-                if 'obj_n' not in self.runtime_pkg_list:
-                    self.runtime_pkg_list['obj_n'] = list()
-                if 'obj_size' not in self.runtime_pkg_list:
-                    self.runtime_pkg_list['obj_size'] = list()
-
-                # 更新各字段序列（防止爆内存）
-                if len(self.runtime_pkg_list['obj_n']) > Query.CONTENT_ELE_MAXN:
-                    del self.runtime_pkg_list['obj_n'][0]
-                self.runtime_pkg_list['obj_n'].append(len(runtime_info[taskname]['faces']))
-
-                obj_size = 0
-                for x_min, y_min, x_max, y_max in runtime_info[taskname]['bbox']:
-                    # TODO：需要依据分辨率转化
-                    obj_size += (x_max - x_min) * (y_max - y_min)
-                if len(runtime_info[taskname]['bbox'])>0:
-                    obj_size /= len(runtime_info[taskname]['bbox'])
-
-                if len(self.runtime_pkg_list['obj_size']) > Query.CONTENT_ELE_MAXN:
-                    del self.runtime_pkg_list['obj_size'][0]
-                self.runtime_pkg_list['obj_size'].append(obj_size)
-
-    def aggregate_work_condition(self):
-        # TODO：聚合情境感知参数的时间序列，给出预估值/统计值
-        runtime_desc = dict()
-        for k, v in self.runtime_pkg_list.items():
-            if len(v)>0:
-                runtime_desc[k] = sum(v) * 1.0 / len(v)
-            else:
-                runtime_desc[k] = sum(v) * 1.0
-
-        # 获取场景稳定性
-        if 'obj_n' in self.runtime_pkg_list.keys():
-            runtime_desc['obj_stable'] = True if np.std(self.runtime_pkg_list['obj_n']) < 0.3 else False
-
-        # 每次调用agg后清空
-        self.runtime_pkg_list = dict()
-        
-        return runtime_desc
-
-    def set_work_condition(self, new_work_condition):
-        while len(self.work_condition_list) >= QueryManager.LIST_BUFFER_SIZE_PER_QUERY:
-            print("len(self.work_condition_list)={}".format(len(self.work_condition_list)))
-            del self.work_condition_list[0]
-        self.work_condition_list.append(self.current_work_condition)
-        self.current_work_condition = new_work_condition
+        self.runtime_portrait.update_runtime(runtime_info)
     
     def get_work_condition(self):
-        new_work_condition = self.aggregate_work_condition()
-        assert isinstance(new_work_condition, dict)
-        if new_work_condition:  # 若new_work_condition非空，则更新current_work_condition；否则保持current_work_condition
-            self.set_work_condition(new_work_condition)
-        return self.current_work_condition
+        return self.runtime_portrait.get_work_condition()
 
     def get_portrait_info(self):
-        portrait_info = dict()
-        
-        if len(self.runtime_info_list) == 0:  # 若self.runtime_info_list为空，则说明目前云端没有存储任何运行结果，无法给出画像的信息
-            return portrait_info
-        
-        cur_runtime_info = self.runtime_info_list[-1]  # 以最近的运行时情境为依据获取画像信息
-        assert(isinstance(cur_runtime_info, dict))
-        
-        ###### 1. 判断时延是否满足约束
-        assert('end_pipe' in cur_runtime_info)
-        cur_latency = cur_runtime_info['end_pipe']['delay']
-        assert('user_constraint' in cur_runtime_info)
-        cur_user_latency_constraint = cur_runtime_info['user_constraint']['delay']
-        if_overtime = True if cur_latency > cur_user_latency_constraint else False
-        
-        portrait_info['cur_latency'] = cur_latency
-        portrait_info['user_constraint'] = cur_runtime_info['user_constraint']
-        portrait_info['if_overtime'] = if_overtime
-        
-        
-        ###### 2. 获取当前系统中每个设备上本query可以使用的资源量
-        r = query_manager.sess.get(url="http://{}/get_cluster_info".format(query_manager.service_cloud_addr))
-        resource_info = r.json()
-        portrait_info['available_resource'] = dict()
-        
-        for ip_addr in resource_info:
-            portrait_info['available_resource'][ip_addr] = dict()
-            temp_available_cpu = 1.0
-            temp_available_mem = 1.0
-            temp_node_service_state = resource_info[ip_addr]["service_state"]
-            for service in temp_node_service_state:
-                if service not in self.pipeline:
-                    temp_available_cpu -= temp_node_service_state[service]["cpu_util_limit"]
-                    temp_available_mem -= temp_node_service_state[service]["mem_util_limit"]
-
-            portrait_info['available_resource'][ip_addr]['node_role'] = resource_info[ip_addr]['node_role']
-            portrait_info['available_resource'][ip_addr]['available_cpu'] = temp_available_cpu
-            portrait_info['available_resource'][ip_addr]['available_mem'] = temp_available_mem
-            if resource_info[ip_addr]['node_role'] == 'cloud':
-                if 'mem_total' in resource_info[ip_addr]['device_state']:
-                    self.server_total_mem = resource_info[ip_addr]['device_state']['mem_total'] * 1024 * 1024 * 1024
-            else:
-                if 'mem_total' in resource_info[ip_addr]['device_state']:
-                    self.edge_total_mem = resource_info[ip_addr]['device_state']['mem_total'] * 1024 * 1024 * 1024
-        
-        assert(self.server_total_mem is not None)
-        assert(self.edge_total_mem is not None)
-        
-        ###### 3. 获取当前query中各个服务的资源画像
-        portrait_info['resource_portrait'] = dict()
-        for service in self.pipeline:
-            # 获取当前服务的执行节点
-            portrait_info['resource_portrait'][service] = dict()
-            portrait_info['resource_portrait'][service]['node_ip'] = cur_runtime_info[service]['proc_resource_info']['node_ip']
-            portrait_info['resource_portrait'][service]['node_role'] = cur_runtime_info[service]['proc_resource_info']['node_role']
-            
-            # 获取当前服务的资源限制和实际资源使用量
-            temp_cpu_limit = cur_runtime_info[service]['proc_resource_info']['cpu_util_limit']
-            temp_cpu_use = cur_runtime_info[service]['proc_resource_info']['cpu_util_use']
-            temp_mem_limit = cur_runtime_info[service]['proc_resource_info']['mem_util_limit']
-            temp_mem_use = cur_runtime_info[service]['proc_resource_info']['mem_util_use']
-            portrait_info['resource_portrait'][service]['cpu_util_limit'] = temp_cpu_limit
-            portrait_info['resource_portrait'][service]['cpu_util_use'] = temp_cpu_use
-            portrait_info['resource_portrait'][service]['mem_util_limit'] = temp_mem_limit
-            portrait_info['resource_portrait'][service]['mem_util_use'] = temp_mem_use
-            
-            # 获取当前服务的配置
-            temp_task_conf = cur_runtime_info[service]['task_conf']
-            temp_fps = temp_task_conf['fps']
-            temp_reso = temp_task_conf['reso']
-            temp_reso = common.reso_2_index_dict[temp_reso]  # 将分辨率由字符串映射为整数
-            
-            # 获取当前服务的工况
-            if service == 'face_detection':
-                temp_obj_num = len(cur_runtime_info[service]['faces'])
-            elif service == 'gender_classification':
-                temp_obj_num = len(cur_runtime_info[service]['gender_result'])
-            
-            # 使用模型预测当前的中资源阈值
-            temp_task_info = {
-                'service_name': service,
-                'fps': temp_fps,
-                'reso': temp_reso,
-                'obj_num': temp_obj_num
-            }
-            
-            temp_resource_demand = self.predict_resource_threshold(temp_task_info)
-            
-            # 保存服务的资源需求量
-            portrait_info['resource_portrait'][service]['resource_demand'] = temp_resource_demand
-            
-            # 给出 强中弱 分类（0--弱；1--中；2--强），以及bmi指标
-            server_cpu_lower_bound = temp_resource_demand['cpu']['cloud']['lower_bound']
-            server_cpu_upper_bound = temp_resource_demand['cpu']['cloud']['upper_bound']
-            server_mem_lower_bound = temp_resource_demand['mem']['cloud']['lower_bound']
-            server_mem_upper_bound = temp_resource_demand['mem']['cloud']['upper_bound']
-            edge_cpu_lower_bound = temp_resource_demand['cpu']['edge']['lower_bound']
-            edge_cpu_upper_bound = temp_resource_demand['cpu']['edge']['upper_bound']
-            edge_mem_lower_bound = temp_resource_demand['mem']['edge']['lower_bound']
-            edge_mem_upper_bound = temp_resource_demand['mem']['edge']['upper_bound']
-            
-            if portrait_info['resource_portrait'][service]['node_role'] == 'cloud':
-                if temp_cpu_limit < server_cpu_lower_bound:
-                    portrait_info['resource_portrait'][service]['cpu_portrait'] = 0
-                elif temp_cpu_limit > server_cpu_upper_bound:
-                    portrait_info['resource_portrait'][service]['cpu_portrait'] = 2
-                else:
-                    portrait_info['resource_portrait'][service]['cpu_portrait'] = 1
-                portrait_info['resource_portrait'][service]['cpu_bmi'] = (temp_cpu_limit - server_cpu_lower_bound) / server_cpu_lower_bound
-                portrait_info['resource_portrait'][service]['cpu_bmi_lower_bound'] = 0
-                portrait_info['resource_portrait'][service]['cpu_bmi_upper_bound'] = (server_cpu_upper_bound - server_cpu_lower_bound) / server_cpu_lower_bound
+        return self.runtime_portrait.get_portrait_info()
                 
-                if temp_mem_limit < server_mem_lower_bound:
-                    portrait_info['resource_portrait'][service]['mem_portrait'] = 0
-                elif temp_mem_limit > server_mem_upper_bound:
-                    portrait_info['resource_portrait'][service]['mem_portrait'] = 2
-                else:
-                    portrait_info['resource_portrait'][service]['mem_portrait'] = 1
-                portrait_info['resource_portrait'][service]['mem_bmi'] = (temp_mem_limit - server_mem_lower_bound) / server_mem_lower_bound
-                portrait_info['resource_portrait'][service]['mem_bmi_lower_bound'] = 0
-                portrait_info['resource_portrait'][service]['mem_bmi_upper_bound'] = (server_mem_upper_bound - server_mem_lower_bound) / server_mem_lower_bound
-                
-            else:
-                if temp_cpu_limit < edge_cpu_lower_bound:
-                    portrait_info['resource_portrait'][service]['cpu_portrait'] = 0
-                elif temp_cpu_limit > edge_cpu_upper_bound:
-                    portrait_info['resource_portrait'][service]['cpu_portrait'] = 2
-                else:
-                    portrait_info['resource_portrait'][service]['cpu_portrait'] = 1
-                portrait_info['resource_portrait'][service]['cpu_bmi'] = (temp_cpu_limit - edge_cpu_lower_bound) / edge_cpu_lower_bound
-                portrait_info['resource_portrait'][service]['cpu_bmi_lower_bound'] = 0
-                portrait_info['resource_portrait'][service]['cpu_bmi_upper_bound'] = (edge_cpu_upper_bound - edge_cpu_lower_bound) / edge_cpu_lower_bound
-                
-                if temp_mem_limit < edge_mem_lower_bound:
-                    portrait_info['resource_portrait'][service]['mem_portrait'] = 0
-                elif temp_mem_limit > edge_mem_upper_bound:
-                    portrait_info['resource_portrait'][service]['mem_portrait'] = 2
-                else:
-                    portrait_info['resource_portrait'][service]['mem_portrait'] = 1
-                portrait_info['resource_portrait'][service]['mem_bmi'] = (temp_mem_limit - edge_mem_lower_bound) / edge_mem_lower_bound
-                portrait_info['resource_portrait'][service]['mem_bmi_lower_bound'] = 0
-                portrait_info['resource_portrait'][service]['mem_bmi_upper_bound'] = (edge_mem_upper_bound - edge_mem_lower_bound) / edge_mem_lower_bound
-                
-                
-        return portrait_info
-    
-    def predict_resource_threshold(self, task_info):
-        # 预测某个服务在当前配置、当前工况下的资源阈值
-        service = task_info['service_name']
-        temp_fps = task_info['fps']
-        temp_reso = task_info['reso']
-        temp_obj_num = task_info['obj_num']
-        
-        # 使用模型预测当前的中资源阈值
-        X_data = np.array([temp_fps, temp_reso, temp_obj_num])
-        X_data = X_data.astype(np.float32)
-        X_data_tensor = torch.tensor(X_data)
-        
-        with torch.no_grad():
-            edge_cpu_threshold = self.portrait_model_dict[service]['cpu']['edge'](X_data_tensor)
-            edge_cpu_threshold = edge_cpu_threshold.numpy()[0]
-            if edge_cpu_threshold <= 0:
-                edge_cpu_threshold = 1e-4
-            if service == 'face_detection':
-                edge_cpu_threshold = min(1.0, edge_cpu_threshold * 1.01)
-            elif service == 'gender_classification':
-                edge_cpu_threshold = min(1.0, edge_cpu_threshold * 1.02)
-            edge_cpu_upper_bound = min(1.0, edge_cpu_threshold * 1.02)
-            edge_cpu_lower_bound = min(1.0, edge_cpu_threshold)
-            
-        with torch.no_grad():
-            server_cpu_threshold = self.portrait_model_dict[service]['cpu']['server'](X_data_tensor)
-            server_cpu_threshold = server_cpu_threshold.numpy()[0]
-            if server_cpu_threshold <= 0:
-                server_cpu_threshold = 1e-4
-            if service == 'face_detection':
-                server_cpu_threshold = min(1.0, server_cpu_threshold * 1.05)
-            elif service == 'gender_classification':
-                server_cpu_threshold = min(1.0, server_cpu_threshold * 1.02)
-            server_cpu_upper_bound = min(1.0, server_cpu_threshold * 1.02)
-            server_cpu_lower_bound = min(1.0, server_cpu_threshold)
-            
-        with torch.no_grad():
-            edge_mem_threshold = self.portrait_model_dict[service]['mem']['edge'](X_data_tensor)
-            edge_mem_threshold = edge_mem_threshold.numpy()[0]
-            if service == 'face_detection':
-                edge_mem_threshold = edge_mem_threshold * 1.1
-            elif service == 'gender_classification':
-                edge_mem_threshold = edge_mem_threshold * 1.02
-            edge_mem_threshold /= self.edge_total_mem  # 将内存使用总量转为比例
-            edge_mem_upper_bound = min(1.0, edge_mem_threshold * 1.02)
-            edge_mem_lower_bound = min(1.0, edge_mem_threshold)
-            
-        with torch.no_grad():
-            server_mem_threshold = self.portrait_model_dict[service]['mem']['server'](X_data_tensor)
-            server_mem_threshold = server_mem_threshold.numpy()[0]
-            if service == 'face_detection':
-                server_mem_threshold = server_mem_threshold * 1.1
-            elif service == 'gender_classification':
-                server_mem_threshold = server_mem_threshold * 1.02
-            server_mem_threshold /= self.server_total_mem  # 将内存使用总量转为比例
-            server_mem_upper_bound = min(1.0, server_mem_threshold * 1.02)
-            server_mem_lower_bound = min(1.0, server_mem_threshold)
-            
-        return {
-                'cpu': {
-                    'cloud': {
-                        'upper_bound': server_cpu_upper_bound,
-                        'lower_bound': server_cpu_lower_bound
-                    },
-                    'edge': {
-                        'upper_bound': edge_cpu_upper_bound,
-                        'lower_bound': edge_cpu_lower_bound
-                    }
-                },
-                'mem': {
-                    'cloud': {
-                        'upper_bound': server_mem_upper_bound,
-                        'lower_bound': server_mem_lower_bound
-                    },
-                    'edge': {
-                        'upper_bound': edge_mem_upper_bound,
-                        'lower_bound': edge_mem_lower_bound
-                    }
-                }
-            }
-        
-    def help_cold_start(self, service):
-        # 预估一个服务在单位工况、所有配置下的最大中资源阈值，提供给调度器进行冷启动
-        resource_threshold =  {
-                                'cpu': {  
-                                    'cloud': 0,  
-                                    'edge': 0  
-                                },
-                                'mem': {
-                                    'cloud': 0,
-                                    'edge': 0
-                                }
-                            }
-        # 遍历所有可能的配置
-        for fps in common.fps_list:
-            for reso in common.reso_2_index_dict:
-                temp_service_info = {
-                    'service_name': service,
-                    'fps': fps,
-                    'reso': common.reso_2_index_dict[reso],
-                    'obj_num': 1
-                }
-                
-                temp_resource_demand = self.predict_resource_threshold(temp_service_info)
-                server_cpu_upper_bound = temp_resource_demand['cpu']['cloud']['upper_bound']
-                server_mem_upper_bound = temp_resource_demand['mem']['cloud']['upper_bound']
-                edge_cpu_upper_bound = temp_resource_demand['cpu']['edge']['upper_bound']
-                edge_mem_upper_bound = temp_resource_demand['mem']['edge']['upper_bound']
-                
-                resource_threshold['cpu']['cloud'] = max(server_cpu_upper_bound, resource_threshold['cpu']['cloud'])
-                resource_threshold['cpu']['edge'] = max(edge_cpu_upper_bound, resource_threshold['cpu']['edge'])
-                resource_threshold['mem']['cloud'] = max(server_mem_upper_bound, resource_threshold['mem']['cloud'])
-                resource_threshold['mem']['edge'] = max(edge_mem_upper_bound, resource_threshold['mem']['edge'])
-        
-        return resource_threshold
-                
-
     def set_user_constraint(self, user_constraint):
         self.user_constraint = user_constraint
         assert isinstance(user_constraint, dict)
@@ -761,155 +382,9 @@ def node_join_cbk():
     return flask.jsonify({"status": 0, "msg": "joined one video to query_manager", "node_addr": node_addr})
 
 
-
-
-
-
-
-
 def start_query_listener(serv_port=3000):
     query_app.run(host="0.0.0.0", port=serv_port)
 
-# 云端调度器主循环：为manager的所有任务决定调度策略，并主动post策略到对应节点，让节点代理执行
-# 不等待执行结果，节点代理执行完毕后post /job/update_plan接口提交结果
-'''
-def cloud_scheduler_loop(query_manager=None):
-    assert query_manager
-    assert isinstance(query_manager, QueryManager)
-
-    # import scheduler_func.demo_scheduler
-    # import scheduler_func.pid_scheduler
-    # import scheduler_func.pid_mogai_scheduler
-    # import scheduler_func.pid_content_aware_scheduler
-    # import scheduler_func.lat_first_pid
-    import scheduler_func.lat_first_pid_muledge
-
-
-    while True:
-        # 每5s调度一次
-        time.sleep(3)
-
-        root_logger.info("start new schedule ...")
-        try:
-            # 获取资源情境
-            r = query_manager.sess.get(
-                url="http://{}/get_resource_info".format(query_manager.service_cloud_addr))
-            resource_info = r.json()
-            
-            # 访问已注册的所有job实例，获取实例中保存的结果，生成调度策略
-            query_dict = query_manager.query_dict.copy()
-            for qid, query in query_dict.items():
-                assert isinstance(query, Query)
-
-                query_id = query.query_id
-                node_addr = query.node_addr
-                user_constraint = query.user_constraint
-                assert node_addr
-
-                # 获取当前query的运行时情境（query_id == job_uid
-                # r = query_manager.sess.get(
-                #     url="http://{}/job/get_runtime/{}".format(node_addr, query_id)
-                # )
-                # runtime_info = r.json()
-                # 这里直接使用get_runtime来获取内容，也就是说，不需要向边缘端发出请求来直接获取边缘端情境了。
-                runtime_info = query.get_runtime()
-                root_logger.info("In cloud_scheduler_loop, runtime_info is {}".format(runtime_info))
-
-                #修改：只有当runtimw_info不存在或者含有delay的时候才运行。
-                if not runtime_info or 'delay' in runtime_info :
-                    # conf, flow_mapping = scheduler_func.pid_mogai_scheduler.scheduler(
-                    # conf, flow_mapping = scheduler_func.pid_content_aware_scheduler.scheduler(
-                    # conf, flow_mapping = scheduler_func.lat_first_pid.scheduler(
-                    conf, flow_mapping = scheduler_func.lat_first_pid_muledge.scheduler(
-                        # flow=job.get_dag_flow(),
-                        job_uid=query_id,
-                        dag={"generator": "x", "flow": query.pipeline},
-                        resource_info=resource_info,
-                        runtime_info=runtime_info,
-                        # last_plan_res=last_plan_result,
-                        user_constraint=user_constraint
-                    )
-                print("下面展示即将发送到边端的调度计划")
-                print(type(query_id),query_id)
-                print(type(conf),conf)
-                print(type(flow_mapping),flow_mapping)
-
-                resource_limit={
-                    "face_detection": {
-                        "cpu_util_limit": 1,
-                        "mem_util_limit": 1,
-                    },
-                    "face_alignment": {
-                        "cpu_util_limit": 1,
-                        "mem_util_limit": 1,
-                    }
-                }
-
-                # 主动post策略到对应节点（即更新对应视频流query pipeline的执行策略），让节点代理执行，不等待执行结果
-                r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
-                            json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping,"resource_limit":resource_limit})
-        except Exception as e:
-            root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
-'''
-# 云端调度器主循环：读取json文件的配置并直接使用，不进行自主调度
-def cloud_scheduler_loop_static(query_manager=None):
-    assert query_manager
-    assert isinstance(query_manager, QueryManager)
-    while True:
-        # 每5s调度一次
-        time.sleep(3)
-        root_logger.info("start new schedule ...")
-        try:
-            # 访问已注册的所有job实例，获取实例中保存的结果，生成调度策略
-            query_dict = query_manager.query_dict.copy()
-            for qid, query in query_dict.items():
-                assert isinstance(query, Query)
-                query_id = query.query_id
-                if query.video_id!=99:  #如果是99，意味着在进行视频测试，此时云端调度器不工作
-                    node_addr = query.node_addr
-                    user_constraint = query.user_constraint
-                    assert node_addr
-                    conf={
-                        "reso": "360p",
-                        "fps": 1,
-                        "encoder": "JPEG"
-                    }
-                    flow_mapping={
-                        "face_detection": {
-                            "model_id": 0,
-                            "node_ip": "114.212.81.11",
-                            "node_role": "cloud"
-                        },
-                        "face_alignment": {
-                            "model_id": 0,
-                            "node_ip": "114.212.81.11",
-                            "node_role": "cloud"
-                        }
-                    }
-                    resource_limit={
-                        "face_detection": {
-                            "cpu_util_limit": 1,
-                            "mem_util_limit": 1,
-                        },
-                        "face_alignment": {
-                            "cpu_util_limit": 1,
-                            "mem_util_limit": 1,
-                        }
-                    }
-                    with open('csy_test_data.json') as f:
-                        csy_test_data = json.load(f)
-                        conf=csy_test_data['video_conf']
-                        flow_mapping=csy_test_data['flow_mapping']
-                    print("下面展示即将发送到边端的调度计划，无自主调度，读取文件而已：")
-                    print(type(query_id),query_id)
-                    print(type(conf),conf)
-                    print(type(flow_mapping),flow_mapping)
-                    # 主动post策略到对应节点（即更新对应视频流query pipeline的执行策略），让节点代理执行，不等待执行结果
-                    r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
-                                json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping,'resource_limit':resource_limit})
-                
-        except Exception as e:
-            root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
 
 # 云端调度器主循环：基于知识库进行调度器
 def cloud_scheduler_loop_kb(query_manager=None):
@@ -934,6 +409,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
                 query_id = query.query_id
                 work_condition=query.get_work_condition()
                 portrait_info=query.get_portrait_info()
+                last_plan_result=query.get_last_plan_result()
                 if query.video_id<99:  #如果是大于等于99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
                     print("video_id",query.video_id)
                     node_addr = query.node_addr
@@ -953,7 +429,8 @@ def cloud_scheduler_loop_kb(query_manager=None):
                             system_status=system_status,
                             work_condition=work_condition,
                             portrait_info=portrait_info,
-                            user_constraint=user_constraint
+                            user_constraint=user_constraint,
+                            last_plan_result=last_plan_result
                         )
                     print("下面展示即将发送到边端的调度计划：")
                     print(type(query_id),query_id)
