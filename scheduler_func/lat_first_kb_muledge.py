@@ -25,6 +25,7 @@ def get_plan_based_on_constraint(
     rsc_constraint=None,
     user_constraint=None,
     rsc_upper_bound=None,
+    work_condition=None
 ):
     #(1)建立冷启动器
     cold_starter=KnowledgeBaseUser( conf_names=conf_names,
@@ -32,7 +33,8 @@ def get_plan_based_on_constraint(
                                     service_info_list=service_info_list,
                                     user_constraint=user_constraint,
                                     rsc_constraint=rsc_constraint,
-                                    rsc_upper_bound=rsc_upper_bound
+                                    rsc_upper_bound=rsc_upper_bound,
+                                    work_condition=work_condition
                                     )
 
     # (2)依次尝试不同的n_trail，并用params_in_delay_cons_total和params_out_delay_cons_total两个列表，
@@ -253,6 +255,7 @@ def scheduler(
                                                         rsc_constraint=rsc_constraint,
                                                         user_constraint=user_constraint,
                                                         rsc_upper_bound=rsc_upper_bound,
+                                                        work_condition=work_condition
                                                     )
         if ans_found==1:#如果确实找到了
             prev_conf[job_uid]=conf
@@ -296,6 +299,7 @@ def scheduler(
                                                         rsc_constraint=rsc_constraint,
                                                         user_constraint=user_constraint,
                                                         rsc_upper_bound=rsc_upper_bound,
+                                                        work_condition=work_condition
                                                     )
 
 

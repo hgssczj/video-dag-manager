@@ -383,13 +383,12 @@ class  KnowledgeBaseUser():
         acc_pre=AccuracyPrediction()
         for serv_name in serv_names:
             if service_info_dict[serv_name]["can_seek_accuracy"]:
-                task_accuracy*=acc_pre.predict(service_name=serv_name)
+                task_accuracy*=acc_pre.predict(service_name=serv_name,service_conf={
+                    'fps':conf['fps'],
+                    'reso':conf['reso']
+                })
 
         mul_objects.append(1.0-task_accuracy)
-            
-        
-        
-
         
         if status==0:  #返回0说明相应配置压根不存在，此时返回MAX_NUMBER。贝叶斯优化的目标是让返回值尽可能小，这种MAX_NUMBER的情况自然会被尽量避免
             mul_objects.append(MAX_NUMBER)
@@ -540,6 +539,16 @@ class  KnowledgeBaseUser():
             status,pred_delay_list,pred_delay_total=self.get_pred_delay(conf=conf,
                                                                     flow_mapping=flow_mapping,
                                                                     resource_limit=resource_limit)
+            task_accuracy=1.0
+            acc_pre=AccuracyPrediction()
+            for serv_name in serv_names:
+                if service_info_dict[serv_name]["can_seek_accuracy"]:
+                    task_accuracy*=acc_pre.predict(service_name=serv_name,service_conf={
+                        'fps':conf['fps'],
+                        'reso':conf['reso']
+                    })
+            # 求出精度
+                    
             if status!=0: #如果status不为0，才说明这个配置是有效的，否则是无效的
                 # 首先附加时延
 
@@ -569,29 +578,30 @@ class  KnowledgeBaseUser():
                 deg_violate=0 #违反资源约束的程度
                 #print("分析资源使用情况")
                 for device_ip in self.rsc_constraint.keys():
-                        # 只针对非云设备计算违反资源约束程度
-                        if model_op[device_ip]['node_role']!='cloud':
-                            cpu_util=0
-                            mem_util=0
-                            for serv_name in resource_limit.keys():
-                                if flow_mapping[serv_name]['node_ip']==device_ip:
-                                    # 必须用round保留小数点，因为python对待浮点数不精确，0.35加上0.05会得到0.39999……
-                                    cpu_util=round(cpu_util+resource_limit[serv_name]['cpu_util_limit'],2)
-                                    mem_util=round(mem_util+resource_limit[serv_name]['mem_util_limit'],2)
-                            cpu_util_ratio=float(cpu_util)/float(self.rsc_constraint[device_ip]['cpu'])
-                            mem_util_ratio=float(mem_util)/float(self.rsc_constraint[device_ip]['mem'])
-                            #print("展示一下该设备下资源使用率情况")
-                            #print(cpu_util,self.rsc_constraint[device_ip]['cpu'])
-                            #print(mem_util,self.rsc_constraint[device_ip]['mem'])
-                            if cpu_util_ratio>1:
-                                deg_violate+=cpu_util_ratio
-                            if mem_util_ratio>1:
-                                deg_violate+=mem_util_ratio
+                    # 只针对非云设备计算违反资源约束程度
+                    if model_op[device_ip]['node_role']!='cloud':
+                        cpu_util=0
+                        mem_util=0
+                        for serv_name in resource_limit.keys():
+                            if flow_mapping[serv_name]['node_ip']==device_ip:
+                                # 必须用round保留小数点，因为python对待浮点数不精确，0.35加上0.05会得到0.39999……
+                                cpu_util=round(cpu_util+resource_limit[serv_name]['cpu_util_limit'],2)
+                                mem_util=round(mem_util+resource_limit[serv_name]['mem_util_limit'],2)
+                        cpu_util_ratio=float(cpu_util)/float(self.rsc_constraint[device_ip]['cpu'])
+                        mem_util_ratio=float(mem_util)/float(self.rsc_constraint[device_ip]['mem'])
+                        #print("展示一下该设备下资源使用率情况")
+                        #print(cpu_util,self.rsc_constraint[device_ip]['cpu'])
+                        #print(mem_util,self.rsc_constraint[device_ip]['mem'])
+                        if cpu_util_ratio>1:
+                            deg_violate+=cpu_util_ratio
+                        if mem_util_ratio>1:
+                            deg_violate+=mem_util_ratio
                     
                 ans_dict['pred_delay_list']=pred_delay_list
                 ans_dict['pred_delay_total']=pred_delay_total
                 ans_dict['num_cloud']=num_cloud
                 ans_dict['deg_violate']=deg_violate
+                ans_dict['task_accuracy']=task_accuracy
 
 
                 # 根据配置是否满足时延约束，将其分为两类
@@ -654,12 +664,12 @@ rsc_constraint={
 # 描述每一种服务所需的中资源阈值，它限制了贝叶斯优化的时候采取怎样的内存取值范围
 rsc_upper_bound={
     'face_detection':{
-        'cpu_limit':1.0,
-        'mem_limit':1.0,
+        'cpu_limit':0.2,
+        'mem_limit':0.2,
     },
     'gender_classification':{
-        'cpu_limit':1.0,
-        'mem_limit':1.0,
+        'cpu_limit':0.3,
+        'mem_limit':0.3,
     }
 }
 
@@ -698,7 +708,7 @@ if __name__ == "__main__":
         record_best_delay=[]
 
         for cons_delay in cons_delay_list:
-            cold_starter.user_constraint["delay"]=cons_delay  #设置一个cons_delay时延
+            
             # 首先，记录一下通过遍历能拿到的最优解
             '''
             conf, flow_mapping, resource_limit = cold_starter.get_coldstart_plan_rotate()
