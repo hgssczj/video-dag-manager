@@ -223,7 +223,7 @@ class QueryManager():
 
         query = self.query_dict[query_id]
         assert isinstance(query, Query)
-        print("要返回的画像")
+        #print("要返回的画像")
         x=query.get_portrait_info()
         return x
         #return query.get_portrait_info()
@@ -409,7 +409,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
                 query_id = query.query_id
                 work_condition=query.get_work_condition()
                 portrait_info=query.get_portrait_info()
-                last_plan_result=query.get_last_plan_result()
+                appended_result_list=query.get_appended_result_list()
                 if query.video_id<99:  #如果是大于等于99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
                     print("video_id",query.video_id)
                     node_addr = query.node_addr
@@ -430,7 +430,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
                             work_condition=work_condition,
                             portrait_info=portrait_info,
                             user_constraint=user_constraint,
-                            last_plan_result=last_plan_result
+                            appended_result_list=appended_result_list
                         )
                     print("下面展示即将发送到边端的调度计划：")
                     print(type(query_id),query_id)
@@ -442,7 +442,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
                     r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
                                 json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping,'resource_limit':resource_limit})
                 else:
-                    print("query_id:",query_id,"不值得调度")
+                    print("query.video_id:",query.video_id,"不值得调度")
         except Exception as e:
             root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
 

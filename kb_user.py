@@ -17,13 +17,14 @@ class  KnowledgeBaseUser():
     
     #冷启动计划者，初始化时需要conf_names,serv_names,service_info_list,user_constraint一共四个量
     #在初始化过程中，会根据这些参数，制造conf_list，serv_ip_list，serv_cpu_list以及serv_meme_list
-    def __init__(self,conf_names,serv_names,service_info_list,user_constraint,rsc_constraint,rsc_upper_bound,work_condition):
+    def __init__(self,conf_names,serv_names,service_info_list,user_constraint,rsc_constraint,rsc_upper_bound,rsc_down_bound,work_condition):
         self.conf_names=conf_names
         self.serv_names=serv_names
         self.service_info_list=service_info_list
         self.user_constraint=user_constraint
         self.rsc_constraint=rsc_constraint
         self.rsc_upper_bound=rsc_upper_bound
+        self.rsc_down_bound=rsc_down_bound
         self.work_condition=work_condition
 
         
@@ -143,7 +144,9 @@ class  KnowledgeBaseUser():
             
             #(5)对预测出时延根据工况进行修改
             #注意，此处获得的pred_delay_list和pred_delay_total里的时延都是单一工况下的，因此需要结合工况进行调整
-            obj_n=self.work_condition['obj_n']
+            obj_n=1
+            if 'obj_n' in self.work_condition:
+                obj_n=self.work_condition['obj_n']
             if service_info_dict[service_info['name']]["vary_with_obj_n"]==True:
                 pred_delay=pred_delay*obj_n
 
@@ -266,35 +269,7 @@ class  KnowledgeBaseUser():
             # print("约束不算特别严格，选择最优策略")
             return best_conf, best_flow_mapping, best_resource_limit
 
-    #该objective只能优化时延，不能优化资源约束，也不能限制资源约束
-    def objective_old(self,trial):
-        conf={}
-        flow_mapping={}
-        resource_limit={}
-
-        for conf_name in self.conf_names:   #conf_names含有流水线上所有任务需要的配置参数的总和，但是不包括其所在的ip
-            # conf_list会包含各类配置参数取值范围,例如分辨率、帧率等
-            conf[conf_name]=trial.suggest_categorical(conf_name,conf_and_serv_info[conf_name])
-
-        #但是注意，每一种服务都有自己的专门取值范围
-        for serv_name in self.serv_names:
-            with open(KB_DATA_PATH+'/'+ serv_name+'_conf_info'+'.json', 'r') as f:  
-                conf_info = json.load(f)  
-                serv_ip=serv_name+"_ip"
-                flow_mapping[serv_name]=model_op[trial.suggest_categorical(serv_ip,conf_info[serv_ip])]
-                serv_cpu_limit=serv_name+"_cpu_util_limit"
-                serv_mem_limit=serv_name+"_mem_util_limit"
-                resource_limit[serv_name]={}
-                if flow_mapping[serv_name]["node_role"] =="cloud":  #对于云端没必要研究资源约束下的情况
-                    resource_limit[serv_name]["cpu_util_limit"]=1.0
-                    resource_limit[serv_name]["mem_util_limit"]=1.0
-                else:
-                    resource_limit[serv_name]["cpu_util_limit"]=trial.suggest_categorical(serv_cpu_limit,conf_info[serv_cpu_limit])
-                    resource_limit[serv_name]["mem_util_limit"]=trial.suggest_categorical(serv_mem_limit,conf_info[serv_mem_limit])
-            
-
-        status,pred_delay_list,pred_delay_total = self.get_pred_delay(conf=conf,flow_mapping=flow_mapping,resource_limit=resource_limit)
-
+   
     #该objective是一个动态多目标优化过程，能够求出帕累托最优解
     def objective(self,trial):
         conf={}
@@ -314,7 +289,7 @@ class  KnowledgeBaseUser():
                 if bool(cloud_ip): #如果已经记录了云端ip，说明流水线已经迁移到云端了，此时后续阶段只能选择云端
                     flow_mapping[serv_name]=model_op[cloud_ip]
                 else:
-                    flow_mapping[serv_name]=model_op[trial.suggest_categorical(serv_ip,conf_info[serv_ip])]
+                    flow_mapping[serv_name]=model_op[trial.suggest_categorical(serv_ip,conf_and_serv_info[serv_ip])]
                 serv_cpu_limit=serv_name+"_cpu_util_limit"
                 serv_mem_limit=serv_name+"_mem_util_limit"
                 resource_limit[serv_name]={}
@@ -326,10 +301,14 @@ class  KnowledgeBaseUser():
                     # 二者取最小的，用于限制从conf_info中获取的可取值范围，从而限制查找值。
                 else:
                     device_ip=flow_mapping[serv_name]["node_ip"]
-                    cpu_limit=min(self.rsc_constraint[device_ip]['cpu'],self.rsc_upper_bound[serv_name]['cpu_limit'])
-                    mem_limit=min(self.rsc_constraint[device_ip]['mem'],self.rsc_upper_bound[serv_name]['mem_limit'])
-                    cpu_choice_range=[item for item in conf_info[serv_cpu_limit] if item <= cpu_limit]
-                    mem_choice_range=[item for item in conf_info[serv_mem_limit] if item <= mem_limit]
+                    cpu_upper_limit=min(self.rsc_constraint[device_ip]['cpu'],self.rsc_upper_bound[serv_name]['cpu_limit'])
+                    cpu_down_limit=max(0.0,self.rsc_down_bound[serv_name]['cpu_limit'])
+                    mem_upper_limit=min(self.rsc_constraint[device_ip]['mem'],self.rsc_upper_bound[serv_name]['mem_limit'])
+                    mem_down_limit=max(0.0,self.rsc_down_bound[serv_name]['mem_limit'])
+
+
+                    cpu_choice_range=[item for item in conf_info[serv_cpu_limit] if item <= cpu_upper_limit and item >=cpu_down_limit ]
+                    mem_choice_range=[item for item in conf_info[serv_mem_limit] if item <= mem_upper_limit and item >=mem_down_limit]
                     # 要防止资源约束导致取值范围为空的情况
                     if len(cpu_choice_range)==0:
                         cpu_choice_range=[item for item in conf_info[serv_cpu_limit]]
@@ -388,7 +367,7 @@ class  KnowledgeBaseUser():
                     'reso':conf['reso']
                 })
 
-        mul_objects.append(1.0-task_accuracy)
+        #mul_objects.append(0.1*(1.0-task_accuracy))
         
         if status==0:  #返回0说明相应配置压根不存在，此时返回MAX_NUMBER。贝叶斯优化的目标是让返回值尽可能小，这种MAX_NUMBER的情况自然会被尽量避免
             mul_objects.append(MAX_NUMBER)
@@ -469,13 +448,13 @@ class  KnowledgeBaseUser():
 
             
 
-    # get_coldstart_plan_bayes：
+    # get_plan_in_cons：
     # 用途：基于贝叶斯优化，调用多目标优化的贝叶斯模型，得到一系列帕累托最优解
     # 方法：通过贝叶斯优化，在有限轮数内选择一个最优的结果
-    # 返回值：params_in_delay_cons,params_out_delay_cons,分别是在约束内的解和不在约束内的解
-    def get_coldstart_plan_bayes(self,n_trials):
+    # 返回值：满足时延和资源约束的解；满足时延约束不满足资源约束的解；不满足时延约束的解
+    def get_plan_in_cons(self,n_trials):
         # 开始多目标优化
-        study = optuna.create_study(directions=['minimize' for _ in range(2+2*len(rsc_constraint.keys()))])  
+        study = optuna.create_study(directions=['minimize' for _ in range(1+2*len(self.rsc_constraint.keys()))])  
         study.optimize(self.objective,n_trials=n_trials)
 
         ans_params=[]
@@ -527,7 +506,8 @@ class  KnowledgeBaseUser():
         ans_params_set=list(set(ans_params))
         print("帕累托最优解总数（含重复）",len(ans_params_set))
         # 保存满足时延约束的解
-        params_in_delay_cons=[]
+        params_in_delay_in_rsc_cons=[]
+        params_in_delay_out_rsc_cons=[]
         params_out_delay_cons=[]
         for param in ans_params_set:
             ans_dict=json.loads(param)
@@ -602,11 +582,17 @@ class  KnowledgeBaseUser():
                 ans_dict['num_cloud']=num_cloud
                 ans_dict['deg_violate']=deg_violate
                 ans_dict['task_accuracy']=task_accuracy
-
+                '''
+                params_in_delay_in_rsc_cons=[]
+                params_in_delay_out_rsc_cons=[]
+                params_out_delay_cons=[]
+                '''
 
                 # 根据配置是否满足时延约束，将其分为两类
-                if pred_delay_total < self.user_constraint["delay"]:
-                    params_in_delay_cons.append(ans_dict)
+                if pred_delay_total < self.user_constraint["delay"] and ans_dict['deg_violate']==0:
+                    params_in_delay_in_rsc_cons.append(ans_dict)
+                elif pred_delay_total < self.user_constraint["delay"] and ans_dict['deg_violate']>0:
+                    params_in_delay_out_rsc_cons.append(ans_dict)
                 else:
                     params_out_delay_cons.append(ans_dict)
                 '''
@@ -616,9 +602,8 @@ class  KnowledgeBaseUser():
                 print(status,pred_delay_list,pred_delay_total)
                 print(status)
                 '''
-
-        return params_in_delay_cons,params_out_delay_cons
-    
+        print("时延约束为",self.user_constraint["delay"])
+        return params_in_delay_in_rsc_cons,params_in_delay_out_rsc_cons,params_out_delay_cons
  
 
 service_info_list=[
@@ -643,34 +628,8 @@ serv_names=["face_detection","gender_classification"]
 
 
 user_constraint={
-    "delay": 0.1,  #用户约束暂时设置为0.3
+    "delay": 1.0,  #用户约束暂时设置为0.3
     "accuracy": 0.7
-}
-
-rsc_constraint={
-    "114.212.81.11":{
-        "cpu": 1.0,
-        "mem":1.0
-    },
-    "172.27.143.164": {
-        "cpu": 1.0,
-        "mem": 1.0
-    },
-    "172.27.151.145": {
-        "cpu": 1.0,
-        "mem": 1.0 
-    },
-}
-# 描述每一种服务所需的中资源阈值，它限制了贝叶斯优化的时候采取怎样的内存取值范围
-rsc_upper_bound={
-    'face_detection':{
-        'cpu_limit':0.2,
-        'mem_limit':0.2,
-    },
-    'gender_classification':{
-        'cpu_limit':0.3,
-        'mem_limit':0.3,
-    }
 }
 
 work_condition={
@@ -680,7 +639,46 @@ work_condition={
     "delay": 0.2  #这玩意包含了传输时延，我不想看
 }
 
+
+
 if __name__ == "__main__":
+
+
+    from RuntimePortrait import RuntimePortrait
+    myportrait=RuntimePortrait(pipeline=serv_names)
+    rsc_upper_bound={}
+    for serv_name in serv_names:
+        serv_rsc_cons=myportrait.help_cold_start(service=serv_name)
+        rsc_upper_bound[serv_name]={}
+        rsc_upper_bound[serv_name]['cpu_limit']=serv_rsc_cons['cpu']['edge']
+        rsc_upper_bound[serv_name]['mem_limit']=serv_rsc_cons['mem']['edge']
+    print("画像提供的资源上限")
+    print(rsc_upper_bound)
+
+    with open('static_data.json', 'r') as f:  
+        static_data = json.load(f)
+    
+    rsc_constraint=static_data['rsc_constraint']
+
+    #设置资源阈值的上限
+    '''
+    rsc_upper_bound={
+        "face_detection": {"cpu_limit": 0.25, "mem_limit": 0.012}, 
+        "gender_classification": {"cpu_limit": 0.1, "mem_limit": 0.008}
+    }
+    '''
+    #设置资源阈值的下限
+    rsc_down_bound={
+        "face_detection": {"cpu_limit": 0.1, "mem_limit": 0.0002}, 
+        "gender_classification": {"cpu_limit": 0.1, "mem_limit": 0.001}
+    }
+
+
+    conf_and_serv_info['reso']=['360p']
+    conf_and_serv_info['fps']=[5]
+    for serv_name in serv_names:
+        conf_and_serv_info[serv_name+'_ip']=['172.27.143.164']
+
 
               
     cold_starter=KnowledgeBaseUser(conf_names=conf_names,
@@ -689,44 +687,46 @@ if __name__ == "__main__":
                                   user_constraint=user_constraint,
                                   rsc_constraint=rsc_constraint,
                                   rsc_upper_bound=rsc_upper_bound,
+                                  rsc_down_bound=rsc_down_bound,
                                   work_condition=work_condition
                                   )
-    
-    need_cold_start=1
-    if need_cold_start==1:
-        # 首先基于文件进行初始化:尝试在不同（或者相同）的约束之下，基于不同的n_trials，来看看基于不同方法检索到的最优配置是怎样的。
+    need_pred_delay=1
+    if need_pred_delay==1:
+        conf={"reso": "360p", "fps": 30, "encoder": "JPEG"},
+        flow_mapping={
+            "face_detection": {"model_id": 0, "node_ip": "172.27.143.164", "node_role": "host"}, 
+            "gender_classification": {"model_id": 0, "node_ip": "172.27.143.164", "node_role": "host"}
+            }
+        resource_limit={
+            "face_detection": {"cpu_util_limit": 0.25, "mem_util_limit": 1.0}, 
+            "gender_classification": {"cpu_util_limit": 0.75, "mem_util_limit": 1.0}
+            }
+        cold_starter.get_pred_delay(conf=conf,
+                                    flow_mapping=flow_mapping,
+                                    resource_limit=resource_limit)
 
-        cons_delay_list=[0.3]
-        n_trials_list=[100]
-        record_cons_delay=[]
-        
-        record_n_trials=[]
-        record_status=[]
-        record_pred_delay=[]
-
-        record_best_status=[]
-        record_best_delay=[]
+    need_bayes_search=0
+    if need_bayes_search==1:
+        cons_delay_list=[1.0]
+        n_trials_list=[300]
 
         for cons_delay in cons_delay_list:
+            cold_starter.user_constraint['delay']=cons_delay
             
-            # 首先，记录一下通过遍历能拿到的最优解
-            '''
-            conf, flow_mapping, resource_limit = cold_starter.get_coldstart_plan_rotate()
-            status0,pred_delay_list0,pred_delay_total0=cold_starter.get_pred_delay(conf=conf,
-                                                                flow_mapping=flow_mapping,
-                                                                resource_limit=resource_limit)
-            '''
-
             for n_trials in n_trials_list:
-                params_in_delay_cons,params_out_delay_cons = cold_starter.get_coldstart_plan_bayes(n_trials=n_trials)
-                print('满足约束解',len(params_in_delay_cons))
-                for item in params_in_delay_cons:
+                params_in_delay_in_rsc_cons,params_in_delay_out_rsc_cons,params_out_delay_cons = cold_starter.get_plan_in_cons(n_trials=n_trials)
+                print('满足全部约束解',len(params_in_delay_in_rsc_cons))
+                for item in params_in_delay_in_rsc_cons:
                     print(item)
 
-                print('不满足约束解',len(params_out_delay_cons))
+                print('满足时延，不满足资源约束解',len(params_in_delay_out_rsc_cons))
+                for item in params_in_delay_out_rsc_cons:
+                    print(item)
+                
+                print('不满足时延约束解',len(params_out_delay_cons))
                 for item in params_out_delay_cons:
                     print(item)
-               
+            
            
 
 

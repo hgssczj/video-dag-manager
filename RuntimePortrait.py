@@ -170,7 +170,7 @@ class RuntimePortrait():
             portrait_info['available_resource'][ip_addr]['node_role'] = resource_info[ip_addr]['node_role']
             portrait_info['available_resource'][ip_addr]['available_cpu'] = temp_available_cpu
             portrait_info['available_resource'][ip_addr]['available_mem'] = temp_available_mem
-            print("In Query get_portrait_info(), resource_info:{}".format(resource_info))
+            #print("In Query get_portrait_info(), resource_info:{}".format(resource_info))
             if resource_info[ip_addr]['node_role'] == 'cloud':
                 self.server_total_mem = resource_info[ip_addr]['device_state']['mem_total'] * 1024 * 1024 * 1024
             else:

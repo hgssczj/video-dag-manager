@@ -1,0 +1,1 @@
+{"reso": ["1080p", "720p", "360p", "480p"], "fps": [1, 5, 10, 20, 30], "encoder": ["JPEG"], "face_detection_ip": ["114.212.81.11"], "face_detection_cpu_util_limit": [1.0], "face_detection_mem_util_limit": [1.0]}

@@ -1430,7 +1430,7 @@ query_body = {
         "video_id": 4,     
         "pipeline":  ["face_detection", "gender_classification"],#制定任务类型
         "user_constraint": {
-            "delay": 0.5, #用户约束暂时设置为0.3
+            "delay": 0.3, #用户约束暂时设置为0.3
         }
     }  
 #'''
@@ -1500,10 +1500,10 @@ if __name__ == "__main__":
     # 是否根据某个csv文件绘制画像 
     need_to_draw=0
     # 是否需要基于初始采样结果建立一系列字典，也就是时延有关的知识库
-    need_to_build=1
+    need_to_build=0
 
     #是否需要发起一次简单的查询并测试调度器的功能
-    need_to_test=0
+    need_to_test=1
 
     #获取内存资源限制列表的时候，需要两步，第一步是下降，第二部是采取，两种方法都可以随机，也都可以不随机
     dec_rand=0
@@ -1583,7 +1583,7 @@ if __name__ == "__main__":
 
     # 关于是否需要建立知识库：可以根据txt文件中的内容来根据采样结果建立知识库
     if need_to_build==1:
-        record_name='kb_data/0_20240322_21_01_40gender_classify_bayes1dec_rand0sel_rand0mem_num10min_val0.0max_val1.0bin_nums100sample_bound5n_trials20.txt'
+        record_name=KB_DATA_PATH+'/0_gender_classify_bayes1dec_rand0sel_rand0mem_num10min_val0.0max_val1.0bin_nums100sample_bound5n_trials20.txt'
 
         with open(record_name, 'r') as file:
             # 逐行读取文件内容，将每行内容（即每个单词）打印出来
