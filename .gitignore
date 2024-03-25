@@ -1,6 +1,6 @@
 **/__pycache__/
 *.pyc
-*.csv
+#*.csv
 
 # input/ directory storing video, to big to track
 input/
