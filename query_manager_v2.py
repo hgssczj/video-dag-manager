@@ -244,6 +244,9 @@ flask.Flask.logger_name = "listlogger"
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
 query_app = flask.Flask(__name__)
 flask_cors.CORS(query_app)
+import logging
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 
 # 模拟云端数据库，维护接入节点及其已经submit的任务的job_uid。
 # 用户接口（/user/xxx）争用查询&修改，云端调度器（cloud_scheduler_loop）争用查询

@@ -3,6 +3,9 @@ import datetime
 import matplotlib.pyplot as plt
 import optuna
 import itertools
+import logging
+optuna.logging.set_verbosity(logging.WARNING)  
+
 plt.rcParams['font.sans-serif'] = ['SimHei'] # 运行配置参数中的字体（font）为黑体（SimHei）
 
 from common import KB_DATA_PATH,MAX_NUMBER,model_op,conf_and_serv_info,service_info_dict
@@ -63,26 +66,7 @@ class  KnowledgeBaseUser():
     # 用途：根据参数里指定的配置，根据知识库来预测对应性能，如果在知识库中找不到，则返回status为0；否则为1
     # 方法：依次遍历评估性能所需的各个字典并根据参数设置从中获取性能评估结果
     # 返回值：status,pred_delay_list,pred_delay_total，描述性能评估成果与否、预测的各阶段时延、预测的总时延
-    '''
-    'video_conf':   
-    {    'encoder': 'JPEG', 'fps': 1, 'reso': '360p'    }
-    'flow_mapping': 
-    {   
-        'face_alignment': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'}, 
-        'face_detection': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'} 
-    }
-    resource_limit={
-        "face_detection": {
-            "cpu_util_limit": 0.1,
-            "mem_util_limit": 0.2,
-        },
-        "face_alignment": {
-            "cpu_util_limit": 0.1,
-            "mem_util_limit": 0.2,
-        }
-    }
 
-    '''
     def get_pred_delay(self,conf, flow_mapping, resource_limit):
         # 知识库所在目录名
         # 存储配置对应的各阶段时延，以及总时延
@@ -133,7 +117,7 @@ class  KnowledgeBaseUser():
 
             
             if dict_key not in evaluator:
-                print('配置不存在',dict_key)
+                #print('配置不存在',dict_key)
                 return status,pred_delay_list,pred_delay_total
             
             pred_delay=evaluator[dict_key]
@@ -316,40 +300,7 @@ class  KnowledgeBaseUser():
                         mem_choice_range=[item for item in conf_info[serv_mem_limit]]
                     resource_limit[serv_name]["cpu_util_limit"]=trial.suggest_categorical(serv_cpu_limit,cpu_choice_range)
                     resource_limit[serv_name]["mem_util_limit"]=trial.suggest_categorical(serv_mem_limit,mem_choice_range)
-        '''
-        
-        user_constraint={
-            "delay": 0.1,  #用户约束暂时设置为0.3
-            "accuracy": 0.7
-        }
-
-        rsc_constraint={
-            "114.212.81.11":{
-                "cpu": 1.0,
-                "mem":1.0
-            },
-            "172.27.143.164": {
-                "cpu": 0.6,
-                "mem": 0.7
-            },
-            "172.27.151.145": {
-                "cpu": 0.5,
-                "mem": 0.8 
-            },
-        }
-        # 描述每一种服务所需的中资源阈值，它限制了贝叶斯优化的时候采取怎样的内存取值范围
-        rsc_upper_bound={
-            'face_detection':{
-                'cpu_limit':0.4,
-                'mem_limit':0.5,
-            },
-            'face_alignment':{
-                'cpu_limit':0.4,
-                'mem_limit':0.5,
-            }
-        }
-        '''
-
+       
         
         mul_objects=[]
         # 这是一个多目标优化问题，所以既要满足时延约束，又要满足资源约束。以下是获取时延约束的情况，要让最后的结果尽可能小。首先加入时延优化目标：
@@ -373,10 +324,10 @@ class  KnowledgeBaseUser():
             mul_objects.append(MAX_NUMBER)
         else:  #如果成功找到了一个可行的策略，按照如下方式计算返回值，目的是得到尽可能靠近约束时延0.7倍且小于约束时延的配置
             delay_constraint = self.user_constraint["delay"]
-            if pred_delay_total <= 0.95*delay_constraint:
+            if pred_delay_total <= 0.85*delay_constraint:
                 mul_objects.append(delay_constraint - pred_delay_total)
-            elif pred_delay_total > 0.95*delay_constraint:
-                mul_objects.append(0.05*delay_constraint + pred_delay_total)
+            elif pred_delay_total > 0.85*delay_constraint:
+                mul_objects.append(0.15*delay_constraint + pred_delay_total)
         
         # 然后加入各个设备上的优化目标：我需要获取每一个设备上的cpu约束，以及mem约束。
         
@@ -458,7 +409,7 @@ class  KnowledgeBaseUser():
         study.optimize(self.objective,n_trials=n_trials)
 
         ans_params=[]
-        print("开始获取帕累托最优解")
+        #print("开始获取帕累托最优解")
         trials = sorted(study.best_trials, key=lambda t: t.values) # 对字典best_trials按values从小到达排序  
         
         #此处的帕累托最优解可能重复，因此首先要提取内容，将其转化为字符串记录在ans_params中，然后从ans_params里删除重复项
@@ -504,7 +455,7 @@ class  KnowledgeBaseUser():
 
         # 从ans_params里删除重复项，并选择真正status不为0的有效帕累托最优解返回。同时存储该配置对应的预估时延
         ans_params_set=list(set(ans_params))
-        print("帕累托最优解总数（含重复）",len(ans_params_set))
+        # print("帕累托最优解总数（含重复）",len(ans_params_set))
         # 保存满足时延约束的解
         params_in_delay_in_rsc_cons=[]
         params_in_delay_out_rsc_cons=[]
@@ -602,7 +553,7 @@ class  KnowledgeBaseUser():
                 print(status,pred_delay_list,pred_delay_total)
                 print(status)
                 '''
-        print("时延约束为",self.user_constraint["delay"])
+        #print("时延约束为",self.user_constraint["delay"])
         return params_in_delay_in_rsc_cons,params_in_delay_out_rsc_cons,params_out_delay_cons
  
 
@@ -692,18 +643,19 @@ if __name__ == "__main__":
                                   )
     need_pred_delay=1
     if need_pred_delay==1:
-        conf={"reso": "360p", "fps": 30, "encoder": "JPEG"},
-        flow_mapping={
+        conf=dict({"reso": "360p", "fps": 10, "encoder": "JPEG"})
+        flow_mapping=dict({
             "face_detection": {"model_id": 0, "node_ip": "172.27.143.164", "node_role": "host"}, 
             "gender_classification": {"model_id": 0, "node_ip": "172.27.143.164", "node_role": "host"}
-            }
-        resource_limit={
-            "face_detection": {"cpu_util_limit": 0.25, "mem_util_limit": 1.0}, 
-            "gender_classification": {"cpu_util_limit": 0.75, "mem_util_limit": 1.0}
-            }
-        cold_starter.get_pred_delay(conf=conf,
-                                    flow_mapping=flow_mapping,
-                                    resource_limit=resource_limit)
+            })
+        resource_limit=dict({
+            "face_detection": {"cpu_util_limit": 0.2, "mem_util_limit": 0.004}, 
+            "gender_classification": {"cpu_util_limit": 0.2, "mem_util_limit": 0.008}
+            })
+        status,pred_delay_list,pred_delay_total=cold_starter.get_pred_delay(conf=conf,
+                                                                flow_mapping=flow_mapping,
+                                                                resource_limit=resource_limit)
+        print(status,pred_delay_list,pred_delay_total)
 
     need_bayes_search=0
     if need_bayes_search==1:

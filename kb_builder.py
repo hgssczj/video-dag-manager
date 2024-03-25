@@ -21,51 +21,6 @@ plt.rcParams['font.sans-serif'] = ['SimHei'] # 运行配置参数中的字体（
 
 from common import KB_DATA_PATH,NO_BAYES_GOAL,BEST_ALL_DELAY,BEST_STD_DELAY,model_op,conf_and_serv_info
 
-#'''
-
-# 调度策略三要素：conf，flow_mapping，resource_limit，如下：
-'''
-conf:
-{
-    'reso': '480p', 
-    'fps': 1, 
-    'encoder': 'JPEG'
-}
-flow_mapping:
-{
-    'face_detection': 
-    {
-        'model_id': 0, 
-        'node_ip': '172.27.151.145', 
-        'node_role': 'host'
-    }, 
-    'face_alignment': 
-    {
-        'model_id': 0, 
-        'node_ip': '172.27.151.145',
-        'node_role': 'host'
-    }
-}
-
-resource_limit:
-{
-    'face_detection': 
-    {
-        'cpu_util_limit': 1.0, 
-        'mem_util_limit': 1.0
-    }, 
-    'face_alignment': 
-    {
-        'cpu_util_limit': 1.0, 
-        'mem_util_limit': 1.0
-    }
-}
-'''
-
-
-
-
-
 # 每一个特定任务对应一个KnowledgeBaseBuilder类
 class KnowledgeBaseBuilder():   
     
@@ -163,12 +118,14 @@ class KnowledgeBaseBuilder():
     # 返回值：无
     def anylze_explore_result(self,filepath):  #分析记录下来的文件结果，也就是采样结果
         
+        
         df = pd.read_csv(filepath)
         #df = df[df.all_delay<1]
 
         x_list=[i for i in range(0,len(df))]
         soretd_value=sorted(df['all_delay'])
         a,b,c=self.draw_hist(data=soretd_value,title_name='分布',bins=100)
+  
         
         a=list(a)
         
@@ -1135,6 +1092,8 @@ class KnowledgeBaseBuilder():
     # 返回值：绘制直方图时返回的a,b,c(array, bins, patches)，
     #        其中，array是每个bin内的数据个数，bins是每个bin的左右端点，patches是生成的每个bin的Patch对象。
     def draw_hist(self,data,title_name,bins):
+        print('准备绘制中')
+        print(data)
         plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
         plt.rcParams['axes.unicode_minus']=False #用来正常显示负号 #有中文出现的情况，需要u'内容'
         plt.yticks(fontproperties='Times New Roman', )
@@ -1498,12 +1457,14 @@ if __name__ == "__main__":
     # 是否进行严格采样（遍历所有配置）
     need_tight_kb=0
     # 是否根据某个csv文件绘制画像 
-    need_to_draw=0
+    need_to_draw=1
     # 是否需要基于初始采样结果建立一系列字典，也就是时延有关的知识库
     need_to_build=0
+    # 是否需要将某个文件的内容更新到知识库之中
+    need_to_add=0
 
     #是否需要发起一次简单的查询并测试调度器的功能
-    need_to_test=1
+    need_to_test=0
 
     #获取内存资源限制列表的时候，需要两步，第一步是下降，第二部是采取，两种方法都可以随机，也都可以不随机
     dec_rand=0
@@ -1529,7 +1490,7 @@ if __name__ == "__main__":
                                     rsc_upper_bound=rsc_upper_bound)
     if need_to_test==1:
         kb_builder.send_query() 
-        filepath=kb_builder.just_record(record_num=1000)
+        filepath=kb_builder.just_record(record_num=5000)
 
         kb_builder.anylze_explore_result(filepath=filepath)
         kb_builder.draw_picture_from_sample(filepath=filepath)
@@ -1618,9 +1579,18 @@ if __name__ == "__main__":
 
         # 是否需要绘画展示文件中的数据结果
     
+    # 如果想要用一个新记录的csv文件内容来更新知识库
+    if need_to_add==1:
+        filepath=KB_DATA_PATH+'/20240325_15_44_32_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv'
+        kb_builder.update_evaluator_from_samples(filepath=filepath)
+        kb_builder.update_conf_info_from_samples(filepath=filepath)
+
+        
+
     # 关于是否需要绘制图像
     if need_to_draw==1:
-        filepath='kb_data/20240319_13_43_18_kb_builder_0.7_tight_build_gender_classify_cold_start03.csv'
+        print('准备画画')
+        filepath='kb_data/20240325_18_06_51_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv'
         kb_builder.anylze_explore_result(filepath=filepath)
         kb_builder.draw_picture_from_sample(filepath=filepath)
 

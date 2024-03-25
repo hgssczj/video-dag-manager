@@ -248,5 +248,12 @@
     "reso=720p fps=30 encoder=JPEG gender_classification_trans_ip=114.212.81.11 gender_classification_trans_cpu_util_limit=1.0 gender_classification_trans_mem_util_limit=1.0 ": 0.0458093881607055,
     "reso=360p fps=30 encoder=JPEG gender_classification_trans_ip=114.212.81.11 gender_classification_trans_cpu_util_limit=1.0 gender_classification_trans_mem_util_limit=1.0 ": 0.043752253055572454,
     "reso=480p fps=10 encoder=JPEG gender_classification_trans_ip=114.212.81.11 gender_classification_trans_cpu_util_limit=1.0 gender_classification_trans_mem_util_limit=1.0 ": 0.0263568328486548,
-    "reso=480p fps=1 encoder=JPEG gender_classification_trans_ip=114.212.81.11 gender_classification_trans_cpu_util_limit=1.0 gender_classification_trans_mem_util_limit=1.0 ": 0.010443451404571485
+    "reso=480p fps=1 encoder=JPEG gender_classification_trans_ip=114.212.81.11 gender_classification_trans_cpu_util_limit=1.0 gender_classification_trans_mem_util_limit=1.0 ": 0.010443451404571485,
+    "reso=360p fps=30 encoder=JPEG gender_classification_trans_ip=172.27.143.164 gender_classification_trans_cpu_util_limit=1.0 gender_classification_trans_mem_util_limit=0.008 ": 0.0355382817132132,
+    "reso=360p fps=30 encoder=JPEG gender_classification_trans_ip=172.27.143.164 gender_classification_trans_cpu_util_limit=0.75 gender_classification_trans_mem_util_limit=0.008 ": 0.035642534494399976,
+    "reso=360p fps=30 encoder=JPEG gender_classification_trans_ip=172.27.143.164 gender_classification_trans_cpu_util_limit=0.7 gender_classification_trans_mem_util_limit=0.008 ": 0.03451493174530735,
+    "reso=360p fps=30 encoder=JPEG gender_classification_trans_ip=172.27.143.164 gender_classification_trans_cpu_util_limit=0.5 gender_classification_trans_mem_util_limit=0.008 ": 0.03918012740120051,
+    "reso=360p fps=30 encoder=JPEG gender_classification_trans_ip=172.27.143.164 gender_classification_trans_cpu_util_limit=0.3 gender_classification_trans_mem_util_limit=0.008 ": 0.03655551647653381,
+    "reso=360p fps=20 encoder=JPEG gender_classification_trans_ip=172.27.143.164 gender_classification_trans_cpu_util_limit=0.2 gender_classification_trans_mem_util_limit=0.008 ": 0.0439684909322987,
+    "reso=360p fps=10 encoder=JPEG gender_classification_trans_ip=172.27.143.164 gender_classification_trans_cpu_util_limit=0.2 gender_classification_trans_mem_util_limit=0.008 ": 0.03324197740345206
 }

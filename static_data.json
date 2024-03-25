@@ -1,5 +1,5 @@
 {
-    "conf": {"reso": "360p", "fps": 30, "encoder": "JPEG"}, 
+    "conf": {"reso": "360p", "fps": 10, "encoder": "JPEG"}, 
     "flow_mapping": 
         {
         "face_detection": {"model_id": 0, "node_ip": "172.27.143.164", "node_role": "host"}, 
@@ -7,8 +7,8 @@
         }, 
     "resource_limit": 
         {
-        "face_detection": {"cpu_util_limit": 0.25, "mem_util_limit": 1.0}, 
-        "gender_classification": {"cpu_util_limit": 0.75, "mem_util_limit": 1.0}
+        "face_detection": {"cpu_util_limit": 0.2, "mem_util_limit": 0.004}, 
+        "gender_classification": {"cpu_util_limit": 0.2, "mem_util_limit": 0.008}
         },
     "rsc_upper_bound":
         {
@@ -25,6 +25,9 @@
         "obj_stable": 1,
         "obj_size": 300,
         "delay": 0.2
+    },
+    "user_constraint": {
+        "delay": 0.3
     },
     "if_test":1
 }

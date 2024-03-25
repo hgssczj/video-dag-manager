@@ -90,7 +90,7 @@ def get_coldstart_plan_bayes(
         conf={}
         flow_mapping={}
         resource_limit={}
-        print("未能获取任何可用解")
+        #print("未能获取任何可用解")
         return ans_found, conf, flow_mapping, resource_limit
 
     # 如果可以找到最优解，现在就需要查看并进行一些修正了    
@@ -205,6 +205,16 @@ def get_fast_judege_bayes(
     rsc_down_bound=None,
     work_condition=None
 ):
+    '''
+    print('get_fast_judege_bayes面临的资源约束')
+    print(rsc_upper_bound)
+    print(rsc_down_bound)
+    print('get_fast_judege_bayes面临的可选配置')
+    print(conf_and_serv_info['reso'])
+    print(conf_and_serv_info['fps'])
+    for serv_name in serv_names:
+        print(conf_and_serv_info[serv_name+'_ip'])
+    '''
     #(1)建立冷启动器
     cold_starter=KnowledgeBaseUser( conf_names=conf_names,
                                     serv_names=serv_names,
@@ -218,16 +228,18 @@ def get_fast_judege_bayes(
 
     # (2)依次尝试不同的n_trail，并用params_in_delay_cons_total和params_out_delay_cons_total两个列表，
     # 分别存储查到的满足约束和不满足约束的解。查找在找到一个绝佳解的时候停止。
-    n_trials_range=[100,100]
+    n_trials_range=[100,200,300]
     ans_found=0
     for n_trials in n_trials_range:
         params_in_delay_in_rsc_cons,params_in_delay_out_rsc_cons,params_out_delay_cons=cold_starter.get_plan_in_cons(n_trials=n_trials)
         if len(params_in_delay_in_rsc_cons)>0:
             sorted_params=sorted(params_in_delay_in_rsc_cons,key=lambda item:(item['num_cloud']-item['task_accuracy']))
             best_params=sorted_params[0]
-            print('获取最新查找的可行解')
+            #'''
+            print('获取fast_judege最新查找的可行解')
             for key in best_params.keys():
-                    print(key,best_params[key])
+                print(key,best_params[key])
+            #'''
             conf=best_params['conf']
             flow_mapping=best_params['flow_mapping']
             resource_limit=best_params['resource_limit']
@@ -236,7 +248,7 @@ def get_fast_judege_bayes(
     conf={}
     flow_mapping={}
     resource_limit={}
-    print("未能获取任何可用解")
+    print("未能获取fast_judege获取任何可用解")
     return ans_found, conf, flow_mapping, resource_limit
 
 # 努力寻找第一个满足约束解的贝叶斯优化函数
@@ -271,9 +283,11 @@ def get_in_all_cons_bayes(
         if len(params_in_delay_in_rsc_cons)>0:
             sorted_params=sorted(params_in_delay_in_rsc_cons,key=lambda item:(item['num_cloud']-item['task_accuracy']))
             best_params=sorted_params[0]
+            '''
             print('获取最新查找的可行解')
             for key in best_params.keys():
-                    print(key,best_params[key])
+                print(key,best_params[key])
+            '''
             conf=best_params['conf']
             flow_mapping=best_params['flow_mapping']
             resource_limit=best_params['resource_limit']
@@ -282,7 +296,7 @@ def get_in_all_cons_bayes(
     conf={}
     flow_mapping={}
     resource_limit={}
-    print("未能获取任何可用解")
+    #print("未能获取任何可用解")
     return ans_found, conf, flow_mapping, resource_limit
 
 # 快速寻找满足约束，且精度更高的解的贝叶斯优化函数
@@ -604,9 +618,9 @@ def micro_search_move_cloud(
 def micro_search_extreme_case(
     serv_names=None,
 ):
-    conf={"reso": "360p", "fps": 1, "encoder": "JPEG"}
-    flow_mapping={}
-    resource_limit={}
+    conf=dict({"reso": "360p", "fps": 1, "encoder": "JPEG"})
+    flow_mapping=dict()
+    resource_limit=dict()
     cloud_ip=''
     for device_ip in model_op.keys():
         if model_op[device_ip]['node_role']=='cloud':
@@ -638,11 +652,11 @@ def access_to_reassign_only(
             "172.27.151.145":{"cpu": 1.0, "mem": 1.0}
         },
     '''
-    print('执行微观调度:尝试在配置和ip不变时重新分配资源来减小时延')
+    # print('执行微观调度:尝试在配置和ip不变时重新分配资源来减小时延')
      #（1）指定资源限制外的配置为特定配置
     for serv_name in serv_names:
         conf_and_serv_info[serv_name+'_ip']=[cert_flow_mapping[serv_name]['node_ip']]
-    print('cert_conf',cert_conf)
+    #print('cert_conf',cert_conf)
     conf_and_serv_info['reso']=[cert_conf['reso']]
     conf_and_serv_info['fps']=[cert_conf['fps']]
     
@@ -750,7 +764,7 @@ def macro_judge (
         in_rsc_cons=0  #超出资源约束
     
     # 时延约束满足，资源约束也满足
-    if in_delay_cons==1 and in_rsc_cons==1:
+    if in_delay_cons==1 and in_rsc_cons==1 and all_proc_delay<0.75*user_constraint['delay']:
         print('满足约束，一切安好')
         #此时要追求更高的精度，除非精度已经达到上限
         if old_conf['reso']=='1080p' and old_conf['fps']==30:
@@ -763,8 +777,21 @@ def macro_judge (
     # 为了简化实现，我直接根据画像判断当前的资源充分情况。如果资源已经十分充分，就不考虑配置不变重新分配资源的事
     # 什么情况下不考虑“保持配置不变修改资源”？要么是资源已经非常充分了，要么是不可能在当前配置下满足时延了。
     else:
+        print('开始进行宏观调度')
+
+        # 首先判断当前任务是否已经都在云端
+        cert_host_num=0
+        for serv_name in old_flow_mapping.keys():
+            if old_flow_mapping[serv_name]['node_role']!='cloud':
+                cert_host_num+=1
+            else:
+                break
         
-        #1、首先判断能否通过来解决问题：
+        if cert_host_num==0: #如果所有任务已经都在云端，边端没有任务，那就不考虑重新分配资源了
+            print('宏观调度认为应该优先进行：降低配置')
+            return [common.DOWNGRADE_CONF,common.EXTREME_CASE]
+
+        #1、首先判断能否通过只进行新的资源分配来解决问题：
         ans_found, conf, flow_mapping, resource_limit=access_to_reassign_only(
                                                             conf_names=conf_names,
                                                             serv_names=serv_names,
@@ -777,10 +804,11 @@ def macro_judge (
                                                         )
         if ans_found==1:
             #此时将该方法放在最开头
+            print('宏观调度认为可以优先进行：配置不变下的资源重新分配')
             return [common.REASSIGN_RSC,common.DOWNGRADE_CONF,common.MOVE_CLOUD,common.EXTREME_CASE]
         
         #2、接着考虑能否通过3来解决问题，只要看最低配置下能不能找到可行解就够了
-        min_conf={"reso": "360p", "fps": 5, "encoder": "JPEG"}
+        min_conf=dict({"reso": "360p", "fps": 5, "encoder": "JPEG"})
         ans_found, conf, flow_mapping, resource_limit=access_to_reassign_only(
                                                             conf_names=conf_names,
                                                             serv_names=serv_names,
@@ -793,14 +821,17 @@ def macro_judge (
                                                         )
         if ans_found==1:
             #此时将3作为优先采用的方法（降低配置）
+            print('宏观调度认为应该优先进行：降低配置')
             return [common.DOWNGRADE_CONF,common.MOVE_CLOUD,common.EXTREME_CASE]
         
         #如果都不行，那就只能将4作为优先采用的方法了,也就是挪到云端。为此，首先要检查当前是否有可以挪到云端的服务
         for serv_name in old_flow_mapping.keys():
             if old_flow_mapping[serv_name]['node_role']!='cloud':
+                print('宏观调度认为应该优先进行：推送一个任务到云端')
                 return [common.MOVE_CLOUD,common.EXTREME_CASE]
         
         #如果已经全部挪到云端，就只能考虑使用极端策略了。计算策略就是配置全部到云端，然后配置全部都最低。
+        print('宏观调度认为应该优先进行：采用极端状况预案')
         return [common.EXTREME_CASE]
 
 
@@ -888,9 +919,31 @@ def scheduler(
             prev_resource_limit[job_uid]=resource_limit
         else:
             print("查表已经失败,使用极端配置")
-            return None #后续这里应该改成别的，比如默认配置什么的
-    
-    else:#进行负反馈
+            conf,flow_mapping,resource_limit=micro_search_extreme_case(serv_names=serv_names)
+            prev_conf[job_uid]=conf
+            prev_flow_mapping[job_uid]=flow_mapping
+            prev_resource_limit[job_uid]=resource_limit
+            print('最终采用:极端情况')
+        
+        # 为了测试方便，以下人为设置初始冷启动值，以便查看更多稳定可靠的效果。但是下面这一部分代码实际上不能作为真正的冷启动。
+        conf=dict({
+        "reso": "360p", "fps": 30, "encoder": "JPEG", 
+        })
+        flow_mapping=dict({
+            "face_detection": {"model_id": 0, "node_ip": "172.27.143.164", "node_role": "host"}, 
+            "gender_classification": {"model_id": 0, "node_ip": "172.27.143.164", "node_role": "host"}
+        })
+        resource_limit=dict({
+            "face_detection": {"cpu_util_limit": 0.25, "mem_util_limit": 0.004}, 
+            "gender_classification": {"cpu_util_limit": 0.75, "mem_util_limit": 0.008}
+        })
+        prev_conf[job_uid]=conf
+        prev_flow_mapping[job_uid]=flow_mapping
+        prev_resource_limit[job_uid]=resource_limit
+        print('目前使用了默认配置代替冷启动过程')
+
+    else:
+        #获取宏观调控计划
         micro_plans=macro_judge (
                     job_uid=job_uid,
                     work_condition=work_condition,
@@ -902,6 +955,7 @@ def scheduler(
                     all_proc_delay=all_proc_delay
                 )
         print('本次给出的宏观指导',micro_plans)
+        # 按照宏观调控计划来完成任务
         if len(micro_plans)>0:
             #形如[common.REASSIGN_RSC,common.DOWNGRADE_CONF,common.MOVE_CLOUD,common.EXTREME_CASE]
             for micro_plan in micro_plans:
@@ -977,6 +1031,9 @@ def scheduler(
                         prev_resource_limit[job_uid]=resource_limit
                         print('最终采用:移到云端')
                         break
+    print(prev_conf[job_uid])
+    print(prev_flow_mapping[job_uid])
+    print(prev_resource_limit[job_uid])
 
     return prev_conf[job_uid], prev_flow_mapping[job_uid], prev_resource_limit[job_uid]  #沿用之前的配置
 
@@ -1121,8 +1178,13 @@ def scheduler_test(
 
 
     # 测试部分——-负反馈测试器，利用静态数据测试实时变化
-    print("展示最新调度计划和执行结果")
-    print(appended_result_list[-1])
+    all_proc_delay=0
+    if appended_result_list!=None:
+        print("展示最新执行结果ext_runtime")
+        print(appended_result_list[-1]['ext_runtime'])
+        serv_proc_delays=appended_result_list[-1]['ext_runtime']['plan_result']['process_delay']
+        for serv_name in serv_proc_delays.keys():
+            all_proc_delay+=serv_proc_delays[serv_name]
 
     all_proc_delay=0
     if appended_result_list!=None:

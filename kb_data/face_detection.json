@@ -240,8 +240,13 @@
     "reso=720p fps=10 encoder=JPEG face_detection_ip=114.212.81.11 face_detection_cpu_util_limit=1.0 face_detection_mem_util_limit=1.0 ": 0.16667963398827443,
     "reso=720p fps=1 encoder=JPEG face_detection_ip=114.212.81.11 face_detection_cpu_util_limit=1.0 face_detection_mem_util_limit=1.0 ": 0.05956428320535687,
     "reso=480p fps=20 encoder=JPEG face_detection_ip=114.212.81.11 face_detection_cpu_util_limit=1.0 face_detection_mem_util_limit=1.0 ": 0.08422914809650839,
-    "reso=720p fps=30 encoder=JPEG face_detection_ip=114.212.81.11 face_detection_cpu_util_limit=1.0 face_detection_mem_util_limit=1.0 ": 0.24537749290466304,
+    "reso=720p fps=30 encoder=JPEG face_detection_ip=114.212.81.11 face_detection_cpu_util_limit=1.0 face_detection_mem_util_limit=1.0 ": 0.30537749290466304,
     "reso=360p fps=30 encoder=JPEG face_detection_ip=114.212.81.11 face_detection_cpu_util_limit=1.0 face_detection_mem_util_limit=1.0 ": 0.05467595656712845,
     "reso=480p fps=10 encoder=JPEG face_detection_ip=114.212.81.11 face_detection_cpu_util_limit=1.0 face_detection_mem_util_limit=1.0 ": 0.06680508785777618,
-    "reso=480p fps=1 encoder=JPEG face_detection_ip=114.212.81.11 face_detection_cpu_util_limit=1.0 face_detection_mem_util_limit=1.0 ": 0.024237998937949118
+    "reso=480p fps=1 encoder=JPEG face_detection_ip=114.212.81.11 face_detection_cpu_util_limit=1.0 face_detection_mem_util_limit=1.0 ": 0.024237998937949118,
+    "reso=360p fps=30 encoder=JPEG face_detection_ip=172.27.143.164 face_detection_cpu_util_limit=1.0 face_detection_mem_util_limit=0.004 ": 0.1343809089490345,
+    "reso=360p fps=30 encoder=JPEG face_detection_ip=172.27.143.164 face_detection_cpu_util_limit=0.25 face_detection_mem_util_limit=0.004 ": 0.13477627933025357,
+    "reso=360p fps=30 encoder=JPEG face_detection_ip=172.27.143.164 face_detection_cpu_util_limit=0.2 face_detection_mem_util_limit=0.004 ": 0.16006410646738495,
+    "reso=360p fps=20 encoder=JPEG face_detection_ip=172.27.143.164 face_detection_cpu_util_limit=0.2 face_detection_mem_util_limit=0.004 ": 0.14484473846960758,
+    "reso=360p fps=10 encoder=JPEG face_detection_ip=172.27.143.164 face_detection_cpu_util_limit=0.2 face_detection_mem_util_limit=0.004 ": 0.09589518623037649
 }

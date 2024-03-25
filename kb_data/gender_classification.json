@@ -248,5 +248,12 @@
     "reso=720p fps=30 encoder=JPEG gender_classification_ip=114.212.81.11 gender_classification_cpu_util_limit=1.0 gender_classification_mem_util_limit=1.0 ": 0.004690670967102,
     "reso=360p fps=30 encoder=JPEG gender_classification_ip=114.212.81.11 gender_classification_cpu_util_limit=1.0 gender_classification_mem_util_limit=1.0 ": 0.004738112290700233,
     "reso=480p fps=10 encoder=JPEG gender_classification_ip=114.212.81.11 gender_classification_cpu_util_limit=1.0 gender_classification_mem_util_limit=1.0 ": 0.003907690445582034,
-    "reso=480p fps=1 encoder=JPEG gender_classification_ip=114.212.81.11 gender_classification_cpu_util_limit=1.0 gender_classification_mem_util_limit=1.0 ": 0.0010338722742520333
+    "reso=480p fps=1 encoder=JPEG gender_classification_ip=114.212.81.11 gender_classification_cpu_util_limit=1.0 gender_classification_mem_util_limit=1.0 ": 0.0010338722742520333,
+    "reso=360p fps=30 encoder=JPEG gender_classification_ip=172.27.143.164 gender_classification_cpu_util_limit=1.0 gender_classification_mem_util_limit=0.008 ": 0.05193009759698591,
+    "reso=360p fps=30 encoder=JPEG gender_classification_ip=172.27.143.164 gender_classification_cpu_util_limit=0.75 gender_classification_mem_util_limit=0.008 ": 0.05345768729845679,
+    "reso=360p fps=30 encoder=JPEG gender_classification_ip=172.27.143.164 gender_classification_cpu_util_limit=0.7 gender_classification_mem_util_limit=0.008 ": 0.052284407061199765,
+    "reso=360p fps=30 encoder=JPEG gender_classification_ip=172.27.143.164 gender_classification_cpu_util_limit=0.5 gender_classification_mem_util_limit=0.008 ": 0.0631646012503003,
+    "reso=360p fps=30 encoder=JPEG gender_classification_ip=172.27.143.164 gender_classification_cpu_util_limit=0.3 gender_classification_mem_util_limit=0.008 ": 0.10076345716203959,
+    "reso=360p fps=20 encoder=JPEG gender_classification_ip=172.27.143.164 gender_classification_cpu_util_limit=0.2 gender_classification_mem_util_limit=0.008 ": 0.14528403765913364,
+    "reso=360p fps=10 encoder=JPEG gender_classification_ip=172.27.143.164 gender_classification_cpu_util_limit=0.2 gender_classification_mem_util_limit=0.008 ": 0.10133933824497263
 }

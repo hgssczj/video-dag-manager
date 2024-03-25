@@ -1,2 +1,5 @@
 本目录里存放着kb_data1和kb_data2中数据的集合，既有边，也有云。
 未来我还会考虑在这里加入更多的文件，用于更新知识库没能找到的配置。
+同时，20240325_15_44_32_kb_builder_0.3_tight_build_gender_classify_cold_start04文件里含有一系列附属配置，可以提供小于0.3时延约束、都在边缘端执行的配置。
+该文件应该作为附加项用need_to_add添加到知识库中。
+20240325_18_06_51_kb_builder_0.3_tight_build_gender_classify_cold_start04是我采集的，可用于进行描述画像作用的一系列数据。
