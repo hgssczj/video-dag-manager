@@ -8,12 +8,18 @@ import datetime
 import pandas as pd
 import numpy as np
 import scipy.signal
+import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.pyplot import MultipleLocator
+from matplotlib.font_manager import FontProperties
 import time
 import optuna
 import itertools
 import random
-plt.rcParams['font.sans-serif'] = ['SimHei'] # 运行配置参数中的字体（font）为黑体（SimHei）
+
+plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']
+plt.rcParams['axes.unicode_minus']=False
+matplotlib.use('TkAgg')
 
 #试图以类的方式将整个独立建立知识库的过程模块化
 
@@ -116,23 +122,20 @@ class KnowledgeBaseBuilder():
     # 用途：分析采样结果的均匀分布程度
     # 方法：从指定文件路径中，提取‘all_delay’键对应的内容，得到数组，并绘制直方图，分析其在不同区间的取值分布情况
     # 返回值：无
-    def anylze_explore_result(self,filepath):  #分析记录下来的文件结果，也就是采样结果
-        
-        
+    def anylze_explore_result(self, filepath):  #分析记录下来的文件结果，也就是采样结果
         df = pd.read_csv(filepath)
-        #df = df[df.all_delay<1]
+        # df = df[df.all_delay<1]
 
-        x_list=[i for i in range(0,len(df))]
-        soretd_value=sorted(df['all_delay'])
-        a,b,c=self.draw_hist(data=soretd_value,title_name='分布',bins=100)
-  
+        x_list = [i for i in range(0, len(df))]
+        soretd_value = sorted(df['all_delay'])
+        satisfy_constraint_num = sum(i <= 0.3 for i in soretd_value)
+        satisfy_constraint_rate = satisfy_constraint_num / len(soretd_value)
+        print("时延达标率为:{}".format(satisfy_constraint_rate))
+        # a, b, c = self.draw_hist(data=soretd_value, title_name='分布', bins=100)
         
-        a=list(a)
-        
-        a=np.array(a)
-        print(a)
-        print(a.std())
-        print(sum(a))
+        # print(a)
+        # print(a.std())
+        # print(a.sum())
 
     # evaluator_init：
     # 用途：为一个服务建立一个由键值对构成的空白字典（空白知识库），以json文件形式保存
@@ -1093,7 +1096,7 @@ class KnowledgeBaseBuilder():
     #        其中，array是每个bin内的数据个数，bins是每个bin的左右端点，patches是生成的每个bin的Patch对象。
     def draw_hist(self,data,title_name,bins):
         print('准备绘制中')
-        print(data)
+        # print(data)
         plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
         plt.rcParams['axes.unicode_minus']=False #用来正常显示负号 #有中文出现的情况，需要u'内容'
         plt.yticks(fontproperties='Times New Roman', )
@@ -1107,29 +1110,37 @@ class KnowledgeBaseBuilder():
     # 用途：根据参数给定的x和y序列绘制曲线图
     # 方法：不赘述
     # 返回值：无
-    def draw_picture(self,x_value,y_value,title_name):
-        plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
-        plt.rcParams['axes.unicode_minus']=False #用来正常显示负号 #有中文出现的情况，需要u'内容'
-        plt.yticks(fontproperties='Times New Roman', )
-        plt.xticks(fontproperties='Times New Roman', )
-        plt.plot(x_value,y_value)
-        plt.title(title_name)
+    def draw_picture(self, x_value, y_value, title_name, figure_broaden=False, xlabel=None, ylabel=None):
+        if figure_broaden:
+            plt.figure(figsize=[8, 3])  
+        else:
+            plt.figure(figsize=[5.5, 4.5])  
+        if xlabel:
+            plt.xlabel(xlabel, fontdict={'fontsize': 13, 'family': 'SimSun'})
+        if ylabel:
+            plt.ylabel(ylabel, fontdict={'fontsize': 13, 'family': 'SimSun'})
+        plt.yticks(fontproperties='Times New Roman')
+        plt.xticks(fontproperties='Times New Roman')
+        plt.plot(x_value, y_value)
+        plt.title(title_name, fontdict={'fontsize': 15, 'family': 'SimSun'})
+        plt.grid(ls="--", alpha=0.4)  # 绘制虚线网格
         plt.show()
 
     # draw_delay_and_cons：
     # 用途：在相同的x值上绘制两个y值，如果需要绘制约束的话就用它
     # 方法：不赘述
     # 返回值：无
-    def draw_delay_and_cons(self,x_value1,y_value1,y_value2,title_name):
-        plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
-        plt.rcParams['axes.unicode_minus']=False #用来正常显示负号 #有中文出现的情况，需要u'内容'
-        #plt.ylim(0,1)
-        plt.yticks(fontproperties='Times New Roman', )
-        plt.xticks(fontproperties='Times New Roman', )
-        plt.plot(x_value1,y_value1,label="实际时延")
-        plt.plot(x_value1,y_value2,label="时延约束")
-        plt.title(title_name)
-        plt.legend()
+    def draw_delay_and_cons(self, x_value1, y_value1, y_value2, title_name):
+        plt.figure(figsize=[5.5, 4.5])  
+        plt.xlabel("帧数", fontdict={'fontsize': 13, 'family': 'SimSun'})
+        plt.ylabel("时延/s", fontdict={'fontsize': 13, 'family': 'SimSun'})
+        plt.yticks(fontproperties='Times New Roman')
+        plt.xticks(fontproperties='Times New Roman')
+        plt.plot(x_value1, y_value1, label="执行时延")
+        plt.plot(x_value1, y_value2, label="时延约束")
+        plt.title(title_name, fontdict={'fontsize': 15, 'family': 'SimSun'})
+        plt.grid(ls="--", alpha=0.4)  # 绘制虚线网格
+        plt.legend(prop={'family': 'SimSun', 'size': 9})
         plt.show()
 
     
@@ -1147,8 +1158,8 @@ class KnowledgeBaseBuilder():
         # 每一个服务各自的时延随时间的变化
         # 总时延和所有服务的时延随时间的变化
         # 各个配置各自的变化
-        self.conf_names
-        self.serv_names
+        # self.conf_names
+        # self.serv_names
 
         x_list=[]
         for i in df['n_loop']:
@@ -1159,9 +1170,9 @@ class KnowledgeBaseBuilder():
             cons_delay.append(self.query_body['user_constraint']['delay'])
 
         # 绘制总时延和约束时延
-        self.draw_delay_and_cons(x_value1=x_list,y_value1=df['all_delay'],y_value2=cons_delay,title_name="all_delay&constraint_delay/时间")
+        self.draw_delay_and_cons(x_value1=x_list, y_value1=df['all_delay'], y_value2=cons_delay, title_name="执行时延随时间变化图")
 
-        # '''
+        
         for serv_name in self.serv_names:
             # if serv_name=="face_alignment":  #专门研究人脸检测情况
             # if serv_name=="face_detection":  #专门研究姿态估计情况
@@ -1181,25 +1192,35 @@ class KnowledgeBaseBuilder():
             cpu_util_limit=serv_name+'_cpu_util_limit'
             cpu_util_use=serv_name+'_cpu_util_use'
 
-            self.draw_picture(x_value=x_list,y_value=df[serv_ip_name],title_name=serv_ip_name+"/时间")
-            self.draw_picture(x_value=x_list,y_value=df[serv_proc_delay_name],title_name=serv_proc_delay_name+"/时间")
-            self.draw_picture(x_value=x_list,y_value=df[trans_delay_name],title_name=trans_delay_name+"/时间")
+            self.draw_picture(x_value=x_list, y_value=df[serv_ip_name], title_name=serv_name+"执行节点随时间变化图", figure_broaden=True)
+            # self.draw_picture(x_value=x_list, y_value=df[serv_proc_delay_name], title_name=serv_name+"处理时延随时间变化图", xlabel='帧数', ylabel='处理时延/s')
+            # self.draw_picture(x_value=x_list, y_value=df[trans_delay_name], title_name=serv_name+"传输时延随时间变化图", xlabel='帧数', ylabel='传输时延/s')
 
-            self.draw_picture(x_value=x_list,y_value=df[mem_portrait],title_name=mem_portrait+"/时间")
-            self.draw_picture(x_value=x_list,y_value=df[mem_util_limit],title_name=mem_util_limit+"/时间")
+            # self.draw_picture(x_value=x_list, y_value=df[mem_portrait], title_name=mem_portrait+"/时间")
+            # self.draw_picture(x_value=x_list, y_value=df[mem_util_limit], title_name=mem_util_limit+"/时间")
 
-             # print(df[mem_util_use])
-            self.draw_picture(x_value=x_list,y_value=df[mem_util_use],title_name=mem_util_use+"/时间")
+            # print(df[mem_util_use])
+            # self.draw_picture(x_value=x_list, y_value=df[mem_util_use], title_name=mem_util_use+"/时间")
 
-            self.draw_picture(x_value=x_list,y_value=df[cpu_portrait],title_name=cpu_portrait+"/时间")
-            self.draw_picture(x_value=x_list,y_value=df[cpu_util_limit],title_name=cpu_util_limit+"/时间")
-            self.draw_picture(x_value=x_list,y_value=df[cpu_util_use],title_name=cpu_util_use+"/时间")
+            # self.draw_picture(x_value=x_list, y_value=df[cpu_portrait], title_name=cpu_portrait+"/时间")
+            self.draw_picture(x_value=x_list, y_value=df[cpu_util_limit], title_name=serv_name+" CPU分配量随时间变化图", xlabel='帧数', ylabel='CPU分配量')
+            # self.draw_picture(x_value=x_list, y_value=df[cpu_util_use], title_name=serv_name+" CPU使用量随时间变化图", xlabel='帧数', ylabel='CPU使用量')
             
-        
+        conf_draw_dict = {
+            'reso': {
+                'title_name': '分辨率',
+                'ylabel': '分辨率'
+            },
+            'fps': {
+                'title_name': '帧率',
+                'ylabel': '帧率'
+            }
+        }
         for conf_name in self.conf_names:
-          self.draw_picture(x_value=df['n_loop'],y_value=df[conf_name],title_name=conf_name+"/时间")
-        # '''
-
+            if conf_name in conf_draw_dict:
+                self.draw_picture(x_value=df['n_loop'], y_value=df[conf_name], title_name=conf_draw_dict[conf_name]['title_name']+"随时间变化图", xlabel='帧数', ylabel=conf_draw_dict[conf_name]['ylabel'])
+        
+        # plt.show()
 
    
     # find_non_zero_element_rand：
@@ -1588,9 +1609,9 @@ if __name__ == "__main__":
         
 
     # 关于是否需要绘制图像
-    if need_to_draw==1:
+    if need_to_draw == 1:
         print('准备画画')
-        filepath='kb_data/20240325_18_06_51_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv'
+        filepath = 'kb_data/20240325_18_06_51_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv'
         kb_builder.anylze_explore_result(filepath=filepath)
         kb_builder.draw_picture_from_sample(filepath=filepath)
 
