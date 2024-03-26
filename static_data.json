@@ -1,5 +1,5 @@
 {
-    "conf": {"reso": "360p", "fps": 10, "encoder": "JPEG"}, 
+    "conf": {"reso": "360p", "fps": 30, "encoder": "JPEG"}, 
     "flow_mapping": 
         {
         "face_detection": {"model_id": 0, "node_ip": "172.27.143.164", "node_role": "host"}, 

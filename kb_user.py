@@ -540,9 +540,9 @@ class  KnowledgeBaseUser():
                 '''
 
                 # 根据配置是否满足时延约束，将其分为两类
-                if pred_delay_total < self.user_constraint["delay"] and ans_dict['deg_violate']==0:
+                if pred_delay_total <=0.95* self.user_constraint["delay"] and ans_dict['deg_violate']==0:
                     params_in_delay_in_rsc_cons.append(ans_dict)
-                elif pred_delay_total < self.user_constraint["delay"] and ans_dict['deg_violate']>0:
+                elif pred_delay_total <=0.95*self.user_constraint["delay"] and ans_dict['deg_violate']>0:
                     params_in_delay_out_rsc_cons.append(ans_dict)
                 else:
                     params_out_delay_cons.append(ans_dict)

@@ -764,20 +764,22 @@ def macro_judge (
         in_rsc_cons=0  #超出资源约束
     
     # 时延约束满足，资源约束也满足
-    if in_delay_cons==1 and in_rsc_cons==1 and all_proc_delay<0.75*user_constraint['delay']:
+    if in_delay_cons==1 and in_rsc_cons==1:
         print('满足约束，一切安好')
         #此时要追求更高的精度，除非精度已经达到上限
         if old_conf['reso']=='1080p' and old_conf['fps']==30:
             print('配置无法增加，精度无法增加')
             return []  #空表示什么都不需要做
-        else:
+        elif all_proc_delay<0.5*user_constraint['delay']:
             return [common.IMPROVE_ACCURACY] #建议使用micro_search_improve_accuracy
+        else: #可以增加精度但是不值得增加精度
+            return []
     
     # 如果时延约束和资源约束不能同时满足，就要思考该怎么办了。
     # 为了简化实现，我直接根据画像判断当前的资源充分情况。如果资源已经十分充分，就不考虑配置不变重新分配资源的事
     # 什么情况下不考虑“保持配置不变修改资源”？要么是资源已经非常充分了，要么是不可能在当前配置下满足时延了。
     else:
-        print('开始进行宏观调度')
+        print('约束不满足，开始进行宏观调度')
 
         # 首先判断当前任务是否已经都在云端
         cert_host_num=0
@@ -875,11 +877,13 @@ def scheduler(
     #获得各阶段处理时延all_proc_delay
     all_proc_delay=0
     if appended_result_list!=None:
-        print("展示最新执行结果ext_runtime")
-        print(appended_result_list[-1]['ext_runtime'])
+        #print("展示最新执行结果ext_runtime")
+        #print(appended_result_list[-1]['ext_runtime'])
         serv_proc_delays=appended_result_list[-1]['ext_runtime']['plan_result']['process_delay']
         for serv_name in serv_proc_delays.keys():
             all_proc_delay+=serv_proc_delays[serv_name]
+        print('感知到总处理时延是',all_proc_delay)
+        print(serv_proc_delays)
     
     #获得设备的资源约束rsc_constraint
     with open('static_data.json', 'r') as f:  
@@ -1188,12 +1192,14 @@ def scheduler_test(
 
     all_proc_delay=0
     if appended_result_list!=None:
-        print("展示最新执行结果ext_runtime")
-        print(appended_result_list[-1]['ext_runtime'])
+        #print("展示最新执行结果ext_runtime")
+        #print(appended_result_list[-1]['ext_runtime'])
         serv_proc_delays=appended_result_list[-1]['ext_runtime']['plan_result']['process_delay']
         
         for serv_name in serv_proc_delays.keys():
             all_proc_delay+=serv_proc_delays[serv_name]
+        print('感知到总处理时延是',all_proc_delay)
+        print(serv_proc_delays)
    
     static_data={}
 

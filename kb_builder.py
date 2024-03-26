@@ -8,12 +8,18 @@ import datetime
 import pandas as pd
 import numpy as np
 import scipy.signal
+import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.pyplot import MultipleLocator
+from matplotlib.font_manager import FontProperties
 import time
 import optuna
 import itertools
 import random
-plt.rcParams['font.sans-serif'] = ['SimHei'] # 运行配置参数中的字体（font）为黑体（SimHei）
+
+plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']
+plt.rcParams['axes.unicode_minus']=False
+matplotlib.use('TkAgg')
 
 #试图以类的方式将整个独立建立知识库的过程模块化
 
@@ -116,23 +122,20 @@ class KnowledgeBaseBuilder():
     # 用途：分析采样结果的均匀分布程度
     # 方法：从指定文件路径中，提取‘all_delay’键对应的内容，得到数组，并绘制直方图，分析其在不同区间的取值分布情况
     # 返回值：无
-    def anylze_explore_result(self,filepath):  #分析记录下来的文件结果，也就是采样结果
-        
-        
+    def anylze_explore_result(self, filepath):  #分析记录下来的文件结果，也就是采样结果
         df = pd.read_csv(filepath)
-        #df = df[df.all_delay<1]
+        # df = df[df.all_delay<1]
 
-        x_list=[i for i in range(0,len(df))]
-        soretd_value=sorted(df['all_delay'])
-        a,b,c=self.draw_hist(data=soretd_value,title_name='分布',bins=100)
-  
+        x_list = [i for i in range(0, len(df))]
+        soretd_value = sorted(df['all_delay'])
+        satisfy_constraint_num = sum(i <= 0.3 for i in soretd_value)
+        satisfy_constraint_rate = satisfy_constraint_num / len(soretd_value)
+        print("时延达标率为:{}".format(satisfy_constraint_rate))
+        # a, b, c = self.draw_hist(data=soretd_value, title_name='分布', bins=100)
         
-        a=list(a)
-        
-        a=np.array(a)
-        print(a)
-        print(a.std())
-        print(sum(a))
+        # print(a)
+        # print(a.std())
+        # print(a.sum())
 
     # evaluator_init：
     # 用途：为一个服务建立一个由键值对构成的空白字典（空白知识库），以json文件形式保存
@@ -546,19 +549,32 @@ class KnowledgeBaseBuilder():
             n_loop=res['n_loop']
             if n_loop not in self.written_n_loop:  #以字典为参数，只有那些没有在字典里出现过的row才会被写入文件，
                 print('n_loop',n_loop)
-                print(' all_delay:',portrait_info['cur_latency'],'只考虑处理：',row['all_delay'])
-                print("face_detection处理时延:",row['face_detection_proc_delay'],' 传输时延:',row['face_detection_trans_delay'])
-                print("gender_classification处理时延:",row['gender_classification_proc_delay'],' 传输时延:',row['gender_classification_trans_delay'])
+                #print(' all_delay:',portrait_info['cur_latency'],'只考虑处理：',row['all_delay'])
+                print('总处理时延：',row['all_delay'])
+                #print("face_detection处理时延:",row['face_detection_proc_delay'],' 传输时延:',row['face_detection_trans_delay'])
+                print("face_detection处理时延:",row['face_detection_proc_delay'])
+                #print("gender_classification处理时延:",row['gender_classification_proc_delay'],' 传输时延:',row['gender_classification_trans_delay'])
+                print("gender_classification处理时延:",row['gender_classification_proc_delay'])
                 print('reso:',row['reso'],' fps:',row['fps'])
-                print('face_detection_ip:',row['face_detection_ip'],' gender_classification_ip:',row['gender_classification_ip'])
+                face_role='node'
+                if row['face_detection_ip']=='114.212.81.11':
+                    face_role='cloud'
+                gender_role='node'
+                if row['gender_classification_ip']=='114.212.81.11':
+                    gender_role='cloud'
+                print('face_detection_ip:',face_role,' gender_classification_ip:',gender_role)
                 print('face_detection资源')
-                print('cpu限制',row['face_detection_cpu_util_limit'],'cpu使用',row['face_detection_cpu_util_use'])
-                print('mem限制',row['face_detection_mem_util_limit'],'mem使用',row['face_detection_mem_util_use'])
-                print('face_detection资源需求:',portrait_info['resource_portrait']['face_detection']['resource_demand'])
+                #print('cpu限制',row['face_detection_cpu_util_limit'],'cpu使用',row['face_detection_cpu_util_use'])
+                #print('mem限制',row['face_detection_mem_util_limit'],'mem使用',row['face_detection_mem_util_use'])
+                #print('face_detection资源需求:',portrait_info['resource_portrait']['face_detection']['resource_demand'])
+                print('cpu限制',row['face_detection_cpu_util_limit'])
+                print('mem限制',row['face_detection_mem_util_limit'])
                 print('gender_classification资源')
-                print('cpu限制',row['gender_classification_cpu_util_limit'],'cpu使用',row['gender_classification_cpu_util_use'])
-                print('mem限制',row['gender_classification_mem_util_limit'],'mem使用',row['gender_classification_mem_util_use'])
-                print('gender_classification资源需求:',portrait_info['resource_portrait']['gender_classification']['resource_demand'])
+                #print('cpu限制',row['gender_classification_cpu_util_limit'],'cpu使用',row['gender_classification_cpu_util_use'])
+                #print('mem限制',row['gender_classification_mem_util_limit'],'mem使用',row['gender_classification_mem_util_use'])
+                #print('gender_classification资源需求:',portrait_info['resource_portrait']['gender_classification']['resource_demand'])
+                print('cpu限制',row['gender_classification_cpu_util_limit'])
+                print('mem限制',row['gender_classification_mem_util_limit'])
                 print()
                 self.writer.writerow(row)
                 print("写入成功")
@@ -911,6 +927,7 @@ class KnowledgeBaseBuilder():
 
     def create_evaluator_from_samples(self,filepath):
         df = pd.read_csv(filepath)
+        used_set=set()
         # 首先，完成对每一个服务的性能评估器的初始化,并提取其字典，加入到性能评估器列表中
         for service_info in self.service_info_list:
             # 对于每一个服务，首先确定服务有哪些配置，构建conf_list
@@ -940,7 +957,8 @@ class KnowledgeBaseBuilder():
                     dict_key+=service_conf[i]+'='+str(values_list[i])+' '
                 #得到当前行对应的一个配置
                 
-                if dict_key not in evaluator:
+                if dict_key not in used_set:
+                    used_set.add(dict_key)
                     #如果该配置尚未被记录，需要求avg_delay
                     condition_all=True  #用于检索字典所需的条件
                     for i in range(0,len(values_list)):
@@ -966,6 +984,7 @@ class KnowledgeBaseBuilder():
     
     def update_evaluator_from_samples(self,filepath):
         df = pd.read_csv(filepath)
+        used_set=set()
         # 首先，完成对每一个服务的性能评估器的初始化,并提取其字典，加入到性能评估器列表中
         for service_info in self.service_info_list:
             # 对于每一个服务，首先确定服务有哪些配置，构建conf_list
@@ -994,7 +1013,8 @@ class KnowledgeBaseBuilder():
                     dict_key+=service_conf[i]+'='+str(values_list[i])+' '
                 #得到当前行对应的一个配置
                 
-                if dict_key not in evaluator:
+                if dict_key not in used_set:
+                    used_set.add(dict_key)
                     #如果该配置尚未被记录，需要求avg_delay
                     condition_all=True  #用于检索字典所需的条件
                     for i in range(0,len(values_list)):
@@ -1093,7 +1113,7 @@ class KnowledgeBaseBuilder():
     #        其中，array是每个bin内的数据个数，bins是每个bin的左右端点，patches是生成的每个bin的Patch对象。
     def draw_hist(self,data,title_name,bins):
         print('准备绘制中')
-        print(data)
+        # print(data)
         plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
         plt.rcParams['axes.unicode_minus']=False #用来正常显示负号 #有中文出现的情况，需要u'内容'
         plt.yticks(fontproperties='Times New Roman', )
@@ -1107,29 +1127,37 @@ class KnowledgeBaseBuilder():
     # 用途：根据参数给定的x和y序列绘制曲线图
     # 方法：不赘述
     # 返回值：无
-    def draw_picture(self,x_value,y_value,title_name):
-        plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
-        plt.rcParams['axes.unicode_minus']=False #用来正常显示负号 #有中文出现的情况，需要u'内容'
-        plt.yticks(fontproperties='Times New Roman', )
-        plt.xticks(fontproperties='Times New Roman', )
-        plt.plot(x_value,y_value)
-        plt.title(title_name)
+    def draw_picture(self, x_value, y_value, title_name, figure_broaden=False, xlabel=None, ylabel=None):
+        if figure_broaden:
+            plt.figure(figsize=[8, 3])  
+        else:
+            plt.figure(figsize=[5.5, 4.5])  
+        if xlabel:
+            plt.xlabel(xlabel, fontdict={'fontsize': 13, 'family': 'SimSun'})
+        if ylabel:
+            plt.ylabel(ylabel, fontdict={'fontsize': 13, 'family': 'SimSun'})
+        plt.yticks(fontproperties='Times New Roman')
+        plt.xticks(fontproperties='Times New Roman')
+        plt.plot(x_value, y_value)
+        plt.title(title_name, fontdict={'fontsize': 15, 'family': 'SimSun'})
+        plt.grid(ls="--", alpha=0.4)  # 绘制虚线网格
         plt.show()
 
     # draw_delay_and_cons：
     # 用途：在相同的x值上绘制两个y值，如果需要绘制约束的话就用它
     # 方法：不赘述
     # 返回值：无
-    def draw_delay_and_cons(self,x_value1,y_value1,y_value2,title_name):
-        plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
-        plt.rcParams['axes.unicode_minus']=False #用来正常显示负号 #有中文出现的情况，需要u'内容'
-        #plt.ylim(0,1)
-        plt.yticks(fontproperties='Times New Roman', )
-        plt.xticks(fontproperties='Times New Roman', )
-        plt.plot(x_value1,y_value1,label="实际时延")
-        plt.plot(x_value1,y_value2,label="时延约束")
-        plt.title(title_name)
-        plt.legend()
+    def draw_delay_and_cons(self, x_value1, y_value1, y_value2, title_name):
+        plt.figure(figsize=[5.5, 4.5])  
+        plt.xlabel("帧数", fontdict={'fontsize': 13, 'family': 'SimSun'})
+        plt.ylabel("时延/s", fontdict={'fontsize': 13, 'family': 'SimSun'})
+        plt.yticks(fontproperties='Times New Roman')
+        plt.xticks(fontproperties='Times New Roman')
+        plt.plot(x_value1, y_value1, label="执行时延")
+        plt.plot(x_value1, y_value2, label="时延约束")
+        plt.title(title_name, fontdict={'fontsize': 15, 'family': 'SimSun'})
+        plt.grid(ls="--", alpha=0.4)  # 绘制虚线网格
+        plt.legend(prop={'family': 'SimSun', 'size': 9})
         plt.show()
 
     
@@ -1147,8 +1175,8 @@ class KnowledgeBaseBuilder():
         # 每一个服务各自的时延随时间的变化
         # 总时延和所有服务的时延随时间的变化
         # 各个配置各自的变化
-        self.conf_names
-        self.serv_names
+        # self.conf_names
+        # self.serv_names
 
         x_list=[]
         for i in df['n_loop']:
@@ -1159,15 +1187,22 @@ class KnowledgeBaseBuilder():
             cons_delay.append(self.query_body['user_constraint']['delay'])
 
         # 绘制总时延和约束时延
-        self.draw_delay_and_cons(x_value1=x_list,y_value1=df['all_delay'],y_value2=cons_delay,title_name="all_delay&constraint_delay/时间")
+        self.draw_delay_and_cons(x_value1=x_list, y_value1=df['all_delay'], y_value2=cons_delay, title_name="执行时延随时间变化图")
 
-        # '''
+        
         for serv_name in self.serv_names:
             # if serv_name=="face_alignment":  #专门研究人脸检测情况
             # if serv_name=="face_detection":  #专门研究姿态估计情况
                 # continue
             serv_role_name=serv_name+'_role'
             serv_ip_name=serv_name+'_ip'
+            serv_ip_list = df[serv_ip_name].tolist()
+            serv_node_list = []
+            for ip in serv_ip_list: 
+                if ip == '114.212.81.11':
+                    serv_node_list.append('cloud')
+                else:
+                    serv_node_list.append('edge')
             serv_proc_delay_name=serv_name+'_proc_delay'
             trans_ip_name=serv_name+'_trans_ip'
             trans_delay_name=serv_name+'_trans_delay'
@@ -1181,25 +1216,35 @@ class KnowledgeBaseBuilder():
             cpu_util_limit=serv_name+'_cpu_util_limit'
             cpu_util_use=serv_name+'_cpu_util_use'
 
-            self.draw_picture(x_value=x_list,y_value=df[serv_ip_name],title_name=serv_ip_name+"/时间")
-            self.draw_picture(x_value=x_list,y_value=df[serv_proc_delay_name],title_name=serv_proc_delay_name+"/时间")
-            self.draw_picture(x_value=x_list,y_value=df[trans_delay_name],title_name=trans_delay_name+"/时间")
+            self.draw_picture(x_value=x_list, y_value=serv_node_list, title_name=serv_name+"执行节点随时间变化图", figure_broaden=True)
+            # self.draw_picture(x_value=x_list, y_value=df[serv_proc_delay_name], title_name=serv_name+"处理时延随时间变化图", xlabel='帧数', ylabel='处理时延/s')
+            # self.draw_picture(x_value=x_list, y_value=df[trans_delay_name], title_name=serv_name+"传输时延随时间变化图", xlabel='帧数', ylabel='传输时延/s')
 
-            self.draw_picture(x_value=x_list,y_value=df[mem_portrait],title_name=mem_portrait+"/时间")
-            self.draw_picture(x_value=x_list,y_value=df[mem_util_limit],title_name=mem_util_limit+"/时间")
+            # self.draw_picture(x_value=x_list, y_value=df[mem_portrait], title_name=mem_portrait+"/时间")
+            # self.draw_picture(x_value=x_list, y_value=df[mem_util_limit], title_name=mem_util_limit+"/时间")
 
-             # print(df[mem_util_use])
-            self.draw_picture(x_value=x_list,y_value=df[mem_util_use],title_name=mem_util_use+"/时间")
+            # print(df[mem_util_use])
+            # self.draw_picture(x_value=x_list, y_value=df[mem_util_use], title_name=mem_util_use+"/时间")
 
-            self.draw_picture(x_value=x_list,y_value=df[cpu_portrait],title_name=cpu_portrait+"/时间")
-            self.draw_picture(x_value=x_list,y_value=df[cpu_util_limit],title_name=cpu_util_limit+"/时间")
-            self.draw_picture(x_value=x_list,y_value=df[cpu_util_use],title_name=cpu_util_use+"/时间")
+            # self.draw_picture(x_value=x_list, y_value=df[cpu_portrait], title_name=cpu_portrait+"/时间")
+            self.draw_picture(x_value=x_list, y_value=df[cpu_util_limit], title_name=serv_name+" CPU分配量随时间变化图", xlabel='帧数', ylabel='CPU分配量')
+            # self.draw_picture(x_value=x_list, y_value=df[cpu_util_use], title_name=serv_name+" CPU使用量随时间变化图", xlabel='帧数', ylabel='CPU使用量')
             
-        
+        conf_draw_dict = {
+            'reso': {
+                'title_name': '分辨率',
+                'ylabel': '分辨率'
+            },
+            'fps': {
+                'title_name': '帧率',
+                'ylabel': '帧率'
+            }
+        }
         for conf_name in self.conf_names:
-          self.draw_picture(x_value=df['n_loop'],y_value=df[conf_name],title_name=conf_name+"/时间")
-        # '''
-
+            if conf_name in conf_draw_dict:
+                self.draw_picture(x_value=df['n_loop'], y_value=df[conf_name], title_name=conf_draw_dict[conf_name]['title_name']+"随时间变化图", xlabel='帧数', ylabel=conf_draw_dict[conf_name]['ylabel'])
+        
+        # plt.show()
 
    
     # find_non_zero_element_rand：
@@ -1488,10 +1533,18 @@ if __name__ == "__main__":
                                     serv_names=serv_names,
                                     service_info_list=service_info_list,
                                     rsc_upper_bound=rsc_upper_bound)
+    filepath=''
     if need_to_test==1:
         kb_builder.send_query() 
-        filepath=kb_builder.just_record(record_num=5000)
+        filepath=kb_builder.just_record(record_num=350)
 
+        kb_builder.anylze_explore_result(filepath=filepath)
+        kb_builder.draw_picture_from_sample(filepath=filepath)
+
+    # 关于是否需要绘制图像
+    if need_to_draw==1:
+        print('准备画画')
+        filepath='kb_data/20240326_22_58_46_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv'
         kb_builder.anylze_explore_result(filepath=filepath)
         kb_builder.draw_picture_from_sample(filepath=filepath)
     
@@ -1581,18 +1634,22 @@ if __name__ == "__main__":
     
     # 如果想要用一个新记录的csv文件内容来更新知识库
     if need_to_add==1:
-        filepath=KB_DATA_PATH+'/20240325_15_44_32_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv'
-        kb_builder.update_evaluator_from_samples(filepath=filepath)
-        kb_builder.update_conf_info_from_samples(filepath=filepath)
+        '''
+        new_list=['kb_data/20240326_20_30_40_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv',
+        'kb_data/20240326_20_55_52_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv',
+        'kb_data/20240326_21_00_27_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv',
+        'kb_data/20240326_21_08_05_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv',
+        'kb_data/20240326_21_16_29_kb_builder_0.35_tight_build_gender_classify_cold_start04.csv']
+        '''
+        new_list=['kb_data/20240326_21_38_09_kb_builder_0.35_tight_build_gender_classify_cold_start04.csv']
+        new_list=['kb_data/20240326_21_52_35_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv']
+        new_list=['kb_data/20240326_21_59_19_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv']
+        for filepath in new_list:
+            kb_builder.update_evaluator_from_samples(filepath=filepath)
+            kb_builder.update_conf_info_from_samples(filepath=filepath)
 
         
 
-    # 关于是否需要绘制图像
-    if need_to_draw==1:
-        print('准备画画')
-        filepath='kb_data/20240325_18_06_51_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv'
-        kb_builder.anylze_explore_result(filepath=filepath)
-        kb_builder.draw_picture_from_sample(filepath=filepath)
 
     exit()
 
