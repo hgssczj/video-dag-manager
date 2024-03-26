@@ -1216,9 +1216,9 @@ class KnowledgeBaseBuilder():
             cpu_util_limit=serv_name+'_cpu_util_limit'
             cpu_util_use=serv_name+'_cpu_util_use'
 
-            self.draw_picture(x_value=x_list, y_value=serv_node_list, title_name=serv_name+"执行节点随时间变化图", figure_broaden=True)
-            # self.draw_picture(x_value=x_list, y_value=df[serv_proc_delay_name], title_name=serv_name+"处理时延随时间变化图", xlabel='帧数', ylabel='处理时延/s')
-            # self.draw_picture(x_value=x_list, y_value=df[trans_delay_name], title_name=serv_name+"传输时延随时间变化图", xlabel='帧数', ylabel='传输时延/s')
+            self.draw_picture(x_value=x_list,y_value=df[serv_ip_name],title_name=serv_ip_name+"/时间")
+            self.draw_picture(x_value=x_list,y_value=df[serv_proc_delay_name],title_name=serv_proc_delay_name+"/时间")
+            self.draw_picture(x_value=x_list,y_value=df[trans_delay_name],title_name=trans_delay_name+"/时间")
 
             # self.draw_picture(x_value=x_list, y_value=df[mem_portrait], title_name=mem_portrait+"/时间")
             # self.draw_picture(x_value=x_list, y_value=df[mem_util_limit], title_name=mem_util_limit+"/时间")
@@ -1648,7 +1648,7 @@ if __name__ == "__main__":
             kb_builder.update_evaluator_from_samples(filepath=filepath)
             kb_builder.update_conf_info_from_samples(filepath=filepath)
 
-        
+    
 
 
     exit()
