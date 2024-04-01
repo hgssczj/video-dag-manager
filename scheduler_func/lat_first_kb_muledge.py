@@ -1210,11 +1210,17 @@ def scheduler_test(
     conf = static_data['conf']
     flow_mapping = static_data['flow_mapping']
     resource_limit = static_data['resource_limit']
+    global prev_conf
+    global prev_flow_mapping
+    global prev_resource_limit
+    prev_conf[job_uid]=conf
+    prev_flow_mapping[job_uid]=flow_mapping
+    prev_resource_limit[job_uid]=resource_limit
 
     if_test=static_data['if_test']
 
     if if_test==1: #此时仅仅是读取文件中的配置并返还
-        return conf, flow_mapping, resource_limit
+        return prev_conf[job_uid], prev_flow_mapping[job_uid], prev_resource_limit[job_uid]  #沿用之前的配置
     
    
 

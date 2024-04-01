@@ -1,5 +1,5 @@
 #彭师兄同步到边
-
+'''
 from logging_utils import root_logger
 from query_manager_v2 import Query
 from kb_builder import KnowledgeBaseBuilder
@@ -7,12 +7,27 @@ import json
 
 from scheduler_func import lat_first_kb_muledge
 from common import conf_and_serv_info
-
+'''
 if __name__ == "__main__":
 
     #此处函数用于验证调度器的行为
+    import socket  
+    print('开始测试5')
+    def get_ip_address():  
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  
+        try:  
+            # doesn't even have to be reachable  
+            s.connect(('10.255.255.255', 1))  
+            IP = s.getsockname()[0]  
+        except Exception:  
+            IP = '127.0.0.1'  
+        finally:  
+            s.close()  
+        return IP  
+    print('当前内网ip是:')
+    print(get_ip_address())
  
- 
+    '''
     job_uid=1
     dag={}
     dag["flow"]= ["face_detection", "gender_classification"]
@@ -55,3 +70,4 @@ if __name__ == "__main__":
         user_constraint=user_constraint,
         appended_result_list=appended_result_list
     )
+    '''

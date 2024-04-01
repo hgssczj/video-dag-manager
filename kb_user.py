@@ -594,7 +594,7 @@ work_condition={
 
 if __name__ == "__main__":
 
-
+    
     from RuntimePortrait import RuntimePortrait
     myportrait=RuntimePortrait(pipeline=serv_names)
     rsc_upper_bound={}
@@ -645,13 +645,16 @@ if __name__ == "__main__":
     if need_pred_delay==1:
         conf=dict({"reso": "360p", "fps": 10, "encoder": "JPEG"})
         flow_mapping=dict({
-            "face_detection": {"model_id": 0, "node_ip": "172.27.143.164", "node_role": "host"}, 
-            "gender_classification": {"model_id": 0, "node_ip": "172.27.143.164", "node_role": "host"}
+            "face_detection": {"model_id": 0, "node_ip": "172.27.132.253", "node_role": "host"}, 
+            "gender_classification": {"model_id": 0, "node_ip": "172.27.132.253", "node_role": "host"}
             })
         resource_limit=dict({
             "face_detection": {"cpu_util_limit": 0.2, "mem_util_limit": 0.004}, 
             "gender_classification": {"cpu_util_limit": 0.2, "mem_util_limit": 0.008}
             })
+        import time
+        time.sleep(1)
+        print('开始查找')
         status,pred_delay_list,pred_delay_total=cold_starter.get_pred_delay(conf=conf,
                                                                 flow_mapping=flow_mapping,
                                                                 resource_limit=resource_limit)

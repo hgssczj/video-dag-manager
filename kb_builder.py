@@ -16,6 +16,7 @@ import time
 import optuna
 import itertools
 import random
+import re
 
 plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']
 plt.rcParams['axes.unicode_minus']=False
@@ -595,7 +596,7 @@ class KnowledgeBaseBuilder():
     def post_get_write(self,conf,flow_mapping,resource_limit):
         # print("开始发出消息并配置")
         #（1）更新配置
-        r1 = self.sess.post(url="http://{}/job/update_plan".format(self.node_addr),
+        r1 = self.sess.post(url="http://{}/query/update_prev_plan".format(self.query_addr),
                         json={"job_uid": self.query_id, "video_conf": conf, "flow_mapping": flow_mapping,"resource_limit":resource_limit})
         if not r1.json():
             return {"status":0,"des":"fail to update plan"}
@@ -1090,6 +1091,61 @@ class KnowledgeBaseBuilder():
             #现在字典里存储着有关该服务每一个配置在当前文件夹中的所有取值，将其存入
             with open(KB_DATA_PATH+'/'+ service_info['name']+'_conf_info'+'.json', 'w') as f:  
                 json.dump(conf_info, f) 
+    
+    # update_kb_with_new_node_ip：
+    # 用途：默认知识库中所有的边缘端性能一样，用已有的边缘端ip对应配置作为新边缘端ip的对应配置，进一步丰富知识库
+    # 方法：读取知识库中所有的配置组合，然后将其中设计到边缘端的那些修改为新ip，然后加入知识库
+    # 返回值：无，但是会得到全新的、含有新边缘端ip的知识库
+    def update_kb_with_new_node_ip(self,new_node_ip):
+
+        for service_info in self.service_info_list:
+            evaluator=self.evaluator_load(eval_name=service_info["name"])
+            new_evaluator=dict()
+            for dict_key in evaluator.keys():
+                conf_key=str(dict_key)
+                conf_ip=str(service_info["name"])+'_ip='
+                pattern = rf"{re.escape(conf_ip)}([^ ]*)" 
+                match = re.search(pattern, conf_key)
+                if match:
+                    old_ip=match.group(1)
+                    # 首先判断字典中已有的配置是不是边缘节点，如果是才考虑下一步
+                    if model_op[old_ip]['node_role']=='host':
+                        new_conf_key = re.sub(pattern, f"{conf_ip}{new_node_ip}", conf_key) 
+                        if new_conf_key not in evaluator:
+                            new_evaluator[new_conf_key]=evaluator[conf_key]
+
+            merged_dict = {**evaluator, **new_evaluator}  
+            #完成对该服务的evaluator的处理
+            self.evaluator_dump(evaluator= merged_dict,eval_name=service_info['name'])
+
+
+            # 根据情况调整conf_info.json
+            with open(KB_DATA_PATH+'/'+ service_info['name']+'_conf_info'+'.json', 'r') as f:  
+                old_conf_info = json.load(f)  
+                #print(old_conf_info)
+                ip_list=list(old_conf_info[service_info["name"]+"_ip"])
+                if new_node_ip not in ip_list:
+                    ip_list.append(new_node_ip)
+                old_conf_info[service_info["name"]+"_ip"]=ip_list
+
+            
+            #现在字典里存储着有关该服务每一个配置在当前文件夹中的所有取值，将其存入
+            with open(KB_DATA_PATH+'/'+ service_info['name']+'_conf_info'+'.json', 'w') as f:  
+                json.dump(old_conf_info, f) 
+        
+    # delete_cert_conf_in_kb：
+    # 用途：删除知识库中的某些配置
+    # 方法：将含有参数字符串在内的键值对全部消除
+    # 返回值：无
+    def delete_cert_conf_in_kb(self,cert_conf_element):
+        for service_info in self.service_info_list:
+            # 不初始化，直接加载
+            evaluator=self.evaluator_load(eval_name=service_info["name"])
+            keys_to_remove = [k for k in evaluator if cert_conf_element in k]  
+            for key in keys_to_remove:  
+                del evaluator[key]  
+            #完成对该服务的evaluator的处理
+            self.evaluator_dump(evaluator= evaluator,eval_name=service_info['name'])
 
 
 
@@ -1430,7 +1486,7 @@ serv_names=["face_detection","gender_classification"]
 #这个query_body用于测试单位的“人进入会议室”，也就是只有一张脸的情况，工况不变，但是会触发调度器变化，因为ifd很小
 #'''
 query_body = {
-        "node_addr": "172.27.143.164:3001",
+        "node_addr": "192.168.1.7:3001",
         "video_id": 4,     
         "pipeline":  ["face_detection", "gender_classification"],#制定任务类型
         "user_constraint": {
@@ -1502,14 +1558,16 @@ if __name__ == "__main__":
     # 是否进行严格采样（遍历所有配置）
     need_tight_kb=0
     # 是否根据某个csv文件绘制画像 
-    need_to_draw=1
+    need_to_draw=0
     # 是否需要基于初始采样结果建立一系列字典，也就是时延有关的知识库
     need_to_build=0
     # 是否需要将某个文件的内容更新到知识库之中
     need_to_add=0
+    # 判断是否需要在知识库中存放新的边缘ip，利用已有的更新
+    need_new_ip=0
 
     #是否需要发起一次简单的查询并测试调度器的功能
-    need_to_test=0
+    need_to_test=1
 
     #获取内存资源限制列表的时候，需要两步，第一步是下降，第二部是采取，两种方法都可以随机，也都可以不随机
     dec_rand=0
@@ -1524,8 +1582,8 @@ if __name__ == "__main__":
               
 
     kb_builder=KnowledgeBaseBuilder(expr_name="tight_build_gender_classify_cold_start04",
-                                    node_ip='172.27.143.164',
-                                    node_addr="172.27.143.164:3001",
+                                    node_ip='192.168.1.7',
+                                    node_addr="192.168.1.7:3001",
                                     query_addr="114.212.81.11:3000",
                                     service_addr="114.212.81.11:3500",
                                     query_body=query_body,
@@ -1647,6 +1705,12 @@ if __name__ == "__main__":
         for filepath in new_list:
             kb_builder.update_evaluator_from_samples(filepath=filepath)
             kb_builder.update_conf_info_from_samples(filepath=filepath)
+    
+    
+    if need_new_ip==1:
+        
+        kb_builder.update_kb_with_new_node_ip(new_node_ip='172.27.132.253')
+        #kb_builder.delete_cert_conf_in_kb(cert_conf_element='172.27.132.253')
 
     
 

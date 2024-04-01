@@ -95,12 +95,6 @@ model_op={
                 "node_ip": "172.27.132.253",
                 "node_role": "host"  
             },
-            "172.27.151.145": {
-                "model_id": 0,
-                "node_ip": "172.27.151.145",
-                "node_role": "host"  
-            },
-
         }
 
 service_info_dict={

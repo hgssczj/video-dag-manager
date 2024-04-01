@@ -1,13 +1,4 @@
 # video-dag-manager (no-render-test)
-2024.1说明
-no-render-test分支的video-dag-manager继承了no-render-demo分支，有以下异同点：
-
-相同点：
-本分支与no-render-demo分支一样都支持一云多边结构，都按照彭清桦师兄的初版架构进行设计。其中的job_manager.py、query_manager.py、cloud_sidechan、edge_sidechan都和原版保持一致。
-
-不同点：
-初版的video-dag-manager调度器基于PID进行，本分支的调度器基于知识库进行。本分支提供了一系列建立知识库的接口，并更正了原始版本中的大量错误，重写了视频端提供方式。
-相比原版，主要工作集中在`query_manger_v2.py`和`job_manger_v2.py`，以及scheduler_func目录下的lat_first_kb_muledge.py（基于知识库的多边调度）、整个expr_data2目录及内部的knowledgebase_builder.py（离线采样构建知识库、进行测试并绘制相应图片）
 
 
 ## 1 大致结构
@@ -473,28 +464,6 @@ flow_mapping = {
 }
 ```
 
-## 8 视频流sidechan接口
-
-```js
-描述：云端建立任务与视频流地址关系
-接口：POST：5101/user/update_node_addr
-请求数据：
-{
-    "job_uid": "GLOBAL_ID_1",
-    "node_addr": "172.28.16.100:5101"
-}
-
-描述：云端对外获取视频帧的接口，该接口的请求将被转发到对应边端的5101同名接口
-接口：GET：5100/user/video/<job_uid>
-返回数据：参见`GET：5101/user/video/<job_uid>`的返回
-
-描述：边缘端直接返回结果帧（无渲染），由云端请求
-接口：GET：5101/user/video/<job_uid>
-返回数据
-{
-    直接获取`Content-Type: image/jpeg`的帧
-}
-```
 
 ## 9 知识库建立者knowledgebase_builder
 

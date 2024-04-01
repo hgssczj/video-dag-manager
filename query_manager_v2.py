@@ -24,20 +24,26 @@ import json
 from PortraitModel import PortraitModel
 import torch
 from RuntimePortrait import RuntimePortrait
+import scheduler_func.lat_first_kb_muledge
+
 
 class Query():
     CONTENT_ELE_MAXN = 50
 
-    def __init__(self, query_id, node_addr, video_id, pipeline, user_constraint):
+    def __init__(self, query_id, node_addr, video_id, pipeline, user_constraint,job_info):
         self.query_id = query_id
         # 查询指令信息
         self.node_addr = node_addr
         self.video_id = video_id
         self.pipeline = pipeline
         self.user_constraint = user_constraint
+        self.job_info=job_info
+
+
         self.flow_mapping = None
         self.video_conf = None
         self.resource_limit = None
+        self.created_job = False #表示已经生成了job
         # NOTES: 目前仅支持流水线
         assert isinstance(self.pipeline, list)
         # 查询指令结果
@@ -140,6 +146,20 @@ class Query():
     
     def get_result(self):
         return self.result
+    
+    def set_created_job(self,value):
+        self.created_job=value
+
+    def get_created_job(self):
+        return self.created_job
+    
+    def get_node_addr(self):
+        return self.node_addr
+    
+    def get_job_info(self):
+        return self.job_info
+    
+    
 
 class QueryManager():
     # 保存执行结果的缓冲大小
@@ -150,6 +170,7 @@ class QueryManager():
         self.service_cloud_addr = None
         self.query_dict = dict()  # key: global_job_id；value: Query对象
         self.video_info = dict()
+        self.bandwidth_dict = dict()
 
         # keepalive的http客户端
         self.sess = requests.Session()
@@ -171,14 +192,15 @@ class QueryManager():
 
         self.video_info[node_addr][video_id].update({"type": video_type})
 
-    def submit_query(self, query_id, node_addr, video_id, pipeline, user_constraint):
+    def submit_query(self, query_id, node_addr, video_id, pipeline, user_constraint,job_info):
         # 在本地启动新的job
         assert query_id not in self.query_dict.keys()
         query = Query(query_id=query_id,
                       node_addr=node_addr,
                       video_id=video_id,
                       pipeline=pipeline,
-                      user_constraint=user_constraint)
+                      user_constraint=user_constraint,
+                      job_info=job_info)
         # job.set_manager(self)
         self.query_dict[query.get_query_id()] = query
         root_logger.info("current query_dict={}".format(self.query_dict.keys()))
@@ -256,10 +278,6 @@ node_status = dict()
 
 
 
-
-
-
-
 # 接受用户提交视频流查询
 # 递归请求：/job/submit_job
 @query_app.route("/query/submit_query", methods=["POST"])
@@ -274,6 +292,7 @@ def user_submit_query_cbk():
     user_constraint = para['user_constraint']
 
     if node_addr not in query_manager.video_info:
+        print('目前云端video_info为',query_manager.video_info)
         return flask.jsonify({"status": 1, "error": "cannot found {}".format(node_addr)})
 
     # TODO：在云端注册任务实例，维护job执行结果、调度信息
@@ -285,27 +304,88 @@ def user_submit_query_cbk():
         'pipeline': pipeline,
         'user_constraint': user_constraint
     }
+    print('新query的job_info')
+    print(new_job_info)
     query_manager.submit_query(query_id=new_job_info['job_uid'],
                                 node_addr=new_job_info['node_addr'],
                                 video_id=new_job_info['video_id'],
                                 pipeline=new_job_info['pipeline'],
-                                user_constraint=new_job_info['user_constraint'])
-
-    # TODO：在边缘端为每个query创建一个job
-    r = query_manager.sess.post("http://{}/job/submit_job".format(node_addr), 
-                                json=new_job_info)
-    
-    # TODO：更新sidechan信息
-    # cloud_ip = manager.get_cloud_addr().split(":")[0]
-    cloud_ip = "127.0.0.1"
-    r_sidechan = query_manager.sess.post(url="http://{}:{}/user/update_node_addr".format(cloud_ip, 3100),
-                                   json={"job_uid": job_uid,
-                                         "node_addr": node_addr.split(":")[0] + ":3101"})
-
+                                user_constraint=new_job_info['user_constraint'],
+                                job_info=new_job_info)
+    print('完成一次提交，新的字典为')
+    print(query_manager.query_dict)
+    '''
+    # 要等任务已经被领取了才算任务提交成功
+    while True:
+        query=query_manager.query_dict[job_uid]
+        if query.get_created_job()==True:
+            break
+    '''
     return flask.jsonify({"status": 0,
                           "msg": "submitted to (cloud) manager from api: /query/submit_query",
                           "query_id": job_uid,
-                          "r_sidechan": r_sidechan.text})
+                         })
+
+
+# TODO：为无job的query生成job
+@query_app.route("/query/get_jobs_info_and_jobs_plan", methods=["POST"])
+@flask_cors.cross_origin()
+def query_get_job_cbk():
+    para = flask.request.json
+    jobs_info=dict()
+    jobs_plan=dict()
+    node_addr = para['node_addr']
+    bandwidth = para['bandwidth']
+    # 在query_manager里用一个字典保存每一个边缘当前的带宽。
+    query_manager.bandwidth_dict[node_addr]=bandwidth
+    # 查找该边缘端对应的所有query，提取其信息
+    print('当前任务字典query_dict')
+    print(query_manager.query_dict)
+    print('当前带宽字典bandwidth_dict')
+    print(query_manager.bandwidth_dict)
+
+    for query_id, query in query_manager.query_dict.items():
+        print(query_id,query.get_node_addr())
+        # 获取尚未生成job的query的job_info
+        if query.get_created_job()==False and query.get_node_addr()==node_addr: 
+            query.set_created_job(True) #将其状态表示为已创建job
+            jobs_info[query_id]=query.get_job_info()
+            print('发现新job',jobs_info[query_id])
+        # 获取已经生成job且已经有调度计划的query的调度计划
+        # print(query.get_created_job(),query.get_node_addr())
+        if query.get_created_job()==True and query.get_node_addr()==node_addr and \
+            query_id in scheduler_func.lat_first_kb_muledge.prev_conf and\
+            query_id in scheduler_func.lat_first_kb_muledge.prev_flow_mapping and \
+            query_id in scheduler_func.lat_first_kb_muledge.prev_resource_limit:
+            # print('开始更新调度计划')
+            jobs_plan[query_id]={
+                'job_uid':query_id,
+                'video_conf':scheduler_func.lat_first_kb_muledge.prev_conf[query_id],
+                'flow_mapping':scheduler_func.lat_first_kb_muledge.prev_flow_mapping[query_id],
+                'resource_limit':scheduler_func.lat_first_kb_muledge.prev_resource_limit[query_id]
+            }
+    info_and_plan={
+        'jobs_info':jobs_info,
+        'jobs_plan':jobs_plan
+    }
+    # 得到可用来生成job的一系列列表
+    return flask.jsonify(info_and_plan)
+
+
+# TODO：为无job的query生成job
+@query_app.route("/query/update_prev_plan", methods=["POST"])
+@flask_cors.cross_origin()
+def update_prev_plan_cbk():
+    para = flask.request.json
+
+    job_uid=para['job_uid']
+    scheduler_func.lat_first_kb_muledge.prev_conf[job_uid]=para['video_conf']
+    scheduler_func.lat_first_kb_muledge.prev_flow_mapping[job_uid]=para['flow_mapping']
+    scheduler_func.lat_first_kb_muledge.prev_resource_limit[job_uid]=para['resource_limit']
+
+    return flask.jsonify({"statys":0,"msg":"prev plan has been updated"})
+
+
 
 # TODO：同步job的执行结果
 @query_app.route("/query/sync_result", methods=["POST"])
@@ -373,12 +453,14 @@ def node_video_info():
 @flask_cors.cross_origin()
 def node_join_cbk():
     para = flask.request.json
-    root_logger.info("from {}: got {}".format(flask.request.remote_addr, para))
-    node_ip = flask.request.remote_addr
+    print('发现新边端')
+    #root_logger.info("from {}: got {}".format(flask.request.remote_addr, para))
+    node_ip = para['node_ip']
     node_port = para['node_port']
     node_addr = node_ip + ":" + str(node_port)
     video_id = para['video_id']
     video_type = para['video_type']
+    print(node_ip,node_port,node_addr)
 
     query_manager.add_video(node_addr=node_addr, video_id=video_id, video_type=video_type)
 
@@ -393,11 +475,11 @@ def start_query_listener(serv_port=3000):
 def cloud_scheduler_loop_kb(query_manager=None):
     assert query_manager
     assert isinstance(query_manager, QueryManager)
-    import scheduler_func.lat_first_kb_muledge
+    
     while True:
         # 每5s调度一次
         time.sleep(3)
-        print('开始周期性的调度')
+        #print('开始周期性的调度')
         
         root_logger.info("start new schedule ...")
         try:
@@ -426,7 +508,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
                     #修改：只有当runtimw_info不存在或者含有delay的时候才运行。
                     # best_conf, best_flow_mapping, best_resource_limit
                     if not work_condition or 'delay' in work_condition :
-                        conf, flow_mapping,resource_limit = scheduler_func.lat_first_kb_muledge.scheduler(
+                        conf, flow_mapping,resource_limit = scheduler_func.lat_first_kb_muledge.scheduler_test(
                             job_uid=query_id,
                             dag={"generator": "x", "flow": query.pipeline},
                             system_status=system_status,
@@ -435,15 +517,11 @@ def cloud_scheduler_loop_kb(query_manager=None):
                             user_constraint=user_constraint,
                             appended_result_list=appended_result_list
                         )
-                    print("下面展示即将发送到边端的调度计划：")
+                    print("下面展示即将更新的调度计划：")
                     print(type(query_id),query_id)
                     print(type(conf),conf)
                     print(type(flow_mapping),flow_mapping)
                     print(type(resource_limit),resource_limit)
-
-                    # 更新边端策略
-                    r = query_manager.sess.post(url="http://{}/job/update_plan".format(node_addr),
-                                json={"job_uid": query_id, "video_conf": conf, "flow_mapping": flow_mapping,'resource_limit':resource_limit})
                 else:
                     print("query.video_id:",query.video_id,"不值得调度")
         except Exception as e:
@@ -469,11 +547,5 @@ if __name__ == "__main__":
 
     query_manager.set_service_cloud_addr(addr=args.serv_cloud_addr)
 
-    # 启动视频流sidechan（由云端转发请求到边端）
-    import cloud_sidechan
-    video_serv_inter_port = args.video_cloud_port
-    mp.Process(target=cloud_sidechan.init_and_start_video_proc,
-               args=(video_serv_inter_port,)).start()
-    time.sleep(1)
 
     cloud_scheduler_loop_kb(query_manager)

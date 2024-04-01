@@ -22,9 +22,23 @@ import common
 import json
 from camera_simulation import video_info_list
 from common import resolution_wh
+import socket  
+from test_iperf_client import get_bandwidth
 
-# 视频流sidechan
-video_q = mp.Queue(50)
+
+# 用于获取设备的ip
+def get_ip_address():  
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  
+    try:  
+        # doesn't even have to be reachable  
+        s.connect(('10.255.255.255', 1))  
+        IP = s.getsockname()[0]  
+    except Exception:  
+        IP = '127.0.0.1'  
+    finally:  
+        s.close()  
+    return IP  
+
 
 def sfg_get_next_init_task(
     job_uid=None,
@@ -36,7 +50,6 @@ def sfg_get_next_init_task(
     assert video_cap
 
     global resolution_wh
-    global video_q
 
     # 从视频流读取一帧，根据fps跳帧
     cam_fps = video_cap.get(cv2.CAP_PROP_FPS)
@@ -53,15 +66,6 @@ def sfg_get_next_init_task(
             root_logger.error('Camera input error，please check.')
             time.sleep(1)
             continue
-
-        # 视频流sidechan
-        video_q.put_nowait({
-            "job_uid": job_uid,
-            "image_type": "jpeg",
-            "image_bytes": field_codec_utils.encode_image_tobytes(
-                cv2.resize(frame, (480, 360))
-            )
-        })
 
         assert ret
 
@@ -125,13 +129,18 @@ class JobManager():
     
     # 接入query manager，汇报自身信息
     def join_query_controller(self, query_addr, tracker_port):
+        print('准备加入云端')
         self.query_addr = query_addr
+        node_ip=get_ip_address()
+        self.local_addr=node_ip+":"+str(tracker_port)
         for video_info in self.video_info_list:
             r = self.sess.post(url="http://{}/node/join".format(self.query_addr),
-                               json={"node_port": tracker_port,
+                               json={"node_ip":node_ip,
+                                     "node_port": tracker_port,
                                      "video_id": video_info["id"],
                                      "video_type": video_info["type"]})
-            self.local_addr = r.json()["node_addr"]
+            #云端不知道边缘端ip，应该用以下方法获得真正的ip
+            
 
     def get_video_info_by_id(self, video_id=id):
         for info in self.video_info_list:
@@ -171,6 +180,9 @@ class JobManager():
 
         # root_logger.info("get runtime of job-{}: {}".format(job_uid, rt))
         return rt
+    
+    
+
 
     # 在本地启动新的job
     def submit_job(self, job_uid, node_addr, video_id, pipeline, user_constraint):
@@ -183,6 +195,42 @@ class JobManager():
         job.set_manager(self)
         self.job_dict[job.get_job_uid()] = job
         # root_logger.info("current job_dict={}".format(self.job_dict.keys()))
+    
+    # 向云端获取可用于创建job的job_info
+    def created_job_and_update_plan_and_get_bandwidth(self):
+        if self.local_addr:
+            bandwidth=get_bandwidth()
+            resp = self.sess.post(url="http://{}/query/get_jobs_info_and_jobs_plan".format(self.query_addr),
+                        json={"node_addr": self.local_addr,
+                              'bandwidth':bandwidth})
+            
+            if resp.json():  #如果本地ip已经初始化，且r1.json存在，就说明获取job_info成功了
+                print('准备新建job或更新调度计划')
+                info_and_plan=resp.json()
+                jobs_info=info_and_plan['jobs_info']
+                jobs_plan=info_and_plan['jobs_plan']
+                # 建立新job
+                for job_uid,job_info in jobs_info.items():
+                    print('建立新job',job_uid)
+                    self.submit_job(
+                        job_uid=job_uid,
+                        node_addr=job_info['node_addr'],
+                        video_id=job_info['video_id'],
+                        pipeline=job_info['pipeline'],
+                        user_constraint=job_info['user_constraint']
+                    )
+                # 更新调度计划
+                for job_uid,job_plan in jobs_plan.items():
+                    print('更新新调度计划',job_uid)
+                    print(job_plan)
+                    self.update_job_plan(
+                        job_uid=job_uid,
+                        video_conf=job_plan['video_conf'],
+                        flow_mapping=job_plan['flow_mapping'],
+                        resource_limit=job_plan['resource_limit']
+                    )
+
+                        
 
     # 工作节点获取未分配工作线程的查询任务
     def start_new_job(self):
@@ -234,6 +282,10 @@ class JobManager():
     def remove_job(self, job):
         # 根据job的id移除job
         del self.job_dict[job.get_job_uid()]
+
+
+
+
 
 import content_func.sniffer
 
@@ -508,12 +560,6 @@ class Job():
             return None
 
 
-
-
-
-
-
-
 # 单例变量：主线程任务管理器，Manager
 job_manager = JobManager()
 # 单例变量：后台web线程
@@ -521,56 +567,6 @@ flask.Flask.logger_name = "listlogger"
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
 tracker_app = flask.Flask(__name__)
 flask_cors.CORS(tracker_app)
-
-
-
-
-
-
-
-
-# 接受query manager下发的query，生成本地job（每个query一个job、每个job一个线程）
-@tracker_app.route("/job/submit_job", methods=["POST"])
-@flask_cors.cross_origin()
-def job_submit_job_cbk():
-    # 获取产生job的初始化参数
-    para = flask.request.json
-    job_manager.submit_job(job_uid=para['job_uid'],
-                           node_addr=para['node_addr'],
-                           video_id=para['video_id'],
-                           pipeline=para['pipeline'],
-                           user_constraint=para['user_constraint'])
-    return flask.jsonify({"status": 0,
-                          "msg": "submitted to manager from api: job/submit_job",
-                          "job_uid": para["job_uid"]})
-
-# 接受调度计划更新
-@tracker_app.route("/job/update_plan", methods=["POST"])
-@flask_cors.cross_origin()
-def job_update_plan_cbk():
-    para = flask.request.json
-    # root_logger.info("/job/update_plan got para={}".format(para))
-
-    # 与工作节点模拟CPU执行的主循环竞争manager
-    job_manager.update_job_plan(job_uid=para['job_uid'],
-                                video_conf=para['video_conf'],
-                                flow_mapping=para['flow_mapping'],
-                                resource_limit=para['resource_limit'])
-
-    return flask.jsonify({"status": 0, "msg": "node updated plan (manager.update_job_plan)"})
-
-# 获取job的运行时情境
-'''
-@tracker_app.route("/job/get_runtime/<job_uid>", methods=["GET"])
-@flask_cors.cross_origin()
-def job_sync_runtime_cbk(job_uid):
-    rt = job_manager.get_job_runtime(job_uid=job_uid)
-
-    return flask.jsonify(rt)
-'''
-
-
-
 
 
 def start_tracker_listener(serv_port=3001):
@@ -605,19 +601,14 @@ if __name__ == "__main__":
     
     job_manager.set_service_cloud_addr(addr=args.serv_cloud_addr)
 
-    # 启动视频流sidechan（由云端转发请求到边端）
-    import edge_sidechan
-    video_serv_inter_port = args.video_side_port
-    mp.Process(target=edge_sidechan.init_and_start_video_proc,
-               args=(video_q, video_serv_inter_port,)).start()
-    time.sleep(1)
 
     # 线程轮询启动循环
     # 一个Job对应一个视频流查询、对应一个进程/线程
     while True:
-        
+        job_manager.created_job_and_update_plan_and_get_bandwidth()
         job_manager.start_new_job()
-
-        sleep_sec = 5
-        root_logger.warning(f"---- sleeping for {sleep_sec} sec ----")
-        time.sleep(sleep_sec)
+        
+        # 不需要睡眠，因为created_job_and_update_plan中获取带宽本身会导致休眠
+        # sleep_sec = 2
+        # root_logger.warning(f"---- sleeping for {sleep_sec} sec ----")
+        # time.sleep(sleep_sec)
