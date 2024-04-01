@@ -1092,11 +1092,11 @@ class KnowledgeBaseBuilder():
             with open(KB_DATA_PATH+'/'+ service_info['name']+'_conf_info'+'.json', 'w') as f:  
                 json.dump(conf_info, f) 
     
-    # update_kb_with_new_node_ip：
+    # add_node_ip_in_k：
     # 用途：默认知识库中所有的边缘端性能一样，用已有的边缘端ip对应配置作为新边缘端ip的对应配置，进一步丰富知识库
     # 方法：读取知识库中所有的配置组合，然后将其中设计到边缘端的那些修改为新ip，然后加入知识库
     # 返回值：无，但是会得到全新的、含有新边缘端ip的知识库
-    def update_kb_with_new_node_ip(self,new_node_ip):
+    def add_node_ip_in_kb(self,new_node_ip):
 
         for service_info in self.service_info_list:
             evaluator=self.evaluator_load(eval_name=service_info["name"])
@@ -1133,19 +1133,83 @@ class KnowledgeBaseBuilder():
             with open(KB_DATA_PATH+'/'+ service_info['name']+'_conf_info'+'.json', 'w') as f:  
                 json.dump(old_conf_info, f) 
         
-    # delete_cert_conf_in_kb：
-    # 用途：删除知识库中的某些配置
-    # 方法：将含有参数字符串在内的键值对全部消除
+        print('完成对知识库中特定ip配置的增添')
+
+    # swap_node_ip_in_kb：
+    # 用途：将知识库中指定的ip替换为另一种ip
+    # 方法：读取知识库中所有的配置组合，然后将其中的old_node_ip部分换成new_node_ip
     # 返回值：无
-    def delete_cert_conf_in_kb(self,cert_conf_element):
+    def swap_node_ip_in_kb(self,old_node_ip,new_node_ip):
+
+        for service_info in self.service_info_list:
+            evaluator=self.evaluator_load(eval_name=service_info["name"])
+            new_evaluator=dict()
+            keys_to_remove=[]
+            for dict_key in evaluator.keys():
+                conf_key=str(dict_key)
+                conf_ip=str(service_info["name"])+'_ip='
+                pattern = rf"{re.escape(conf_ip)}([^ ]*)" 
+                match = re.search(pattern, conf_key)
+                if match:
+                    old_ip=match.group(1)
+                    # 首先判断字典中已有的配置是不是边缘节点，如果是才考虑下一步
+                    if old_ip==old_node_ip:
+                        keys_to_remove.append(conf_key)
+                        new_conf_key = re.sub(pattern, f"{conf_ip}{new_node_ip}", conf_key) 
+                        if new_conf_key not in evaluator:
+                            new_evaluator[new_conf_key]=evaluator[conf_key]
+            
+            for key in keys_to_remove:  
+                del evaluator[key]  
+                        
+            merged_dict = {**evaluator, **new_evaluator}  
+            #完成对该服务的evaluator的处理
+            self.evaluator_dump(evaluator= merged_dict,eval_name=service_info['name'])
+
+
+            # 根据情况调整conf_info.json
+            with open(KB_DATA_PATH+'/'+ service_info['name']+'_conf_info'+'.json', 'r') as f:  
+                old_conf_info = json.load(f)  
+                #print(old_conf_info)
+                ip_list=list(old_conf_info[service_info["name"]+"_ip"])
+                if new_node_ip not in ip_list:
+                    ip_list.append(new_node_ip)
+                # 增加新ip的同时删除老ip
+                new_ip_list = [ip for ip in ip_list if ip != old_node_ip]  
+                old_conf_info[service_info["name"]+"_ip"]=new_ip_list
+
+            #现在字典里存储着有关该服务每一个配置在当前文件夹中的所有取值，将其存入
+            with open(KB_DATA_PATH+'/'+ service_info['name']+'_conf_info'+'.json', 'w') as f:  
+                json.dump(old_conf_info, f) 
+        print('完成对知识库中特定ip配置的替换')
+        
+    # delete_node_ip_in_kb：
+    # 用途：删除知识库中的某些ip
+    # 方法：将含有参数字符串在内的键值对全部消除,同时重写conf_info文件
+    # 返回值：无
+    def delete_node_ip_in_kb(self,old_node_ip):
         for service_info in self.service_info_list:
             # 不初始化，直接加载
             evaluator=self.evaluator_load(eval_name=service_info["name"])
-            keys_to_remove = [k for k in evaluator if cert_conf_element in k]  
+            keys_to_remove = [k for k in evaluator if old_node_ip in k]  
             for key in keys_to_remove:  
                 del evaluator[key]  
             #完成对该服务的evaluator的处理
             self.evaluator_dump(evaluator= evaluator,eval_name=service_info['name'])
+
+            #之后要把这个ip也从conf_info里删除
+            # 根据情况调整conf_info.json
+            with open(KB_DATA_PATH+'/'+ service_info['name']+'_conf_info'+'.json', 'r') as f:  
+                old_conf_info = json.load(f)  
+                #print(old_conf_info)
+                ip_list=list(old_conf_info[service_info["name"]+"_ip"])
+                new_ip_list = [ip for ip in ip_list if ip != old_node_ip]  
+                old_conf_info[service_info["name"]+"_ip"]=new_ip_list
+
+            #现在字典里存储着有关该服务每一个配置在当前文件夹中的所有取值，将其存入
+            with open(KB_DATA_PATH+'/'+ service_info['name']+'_conf_info'+'.json', 'w') as f:  
+                json.dump(old_conf_info, f) 
+        print('完成对知识库中特定ip配置的删除')
 
 
 
@@ -1562,12 +1626,12 @@ if __name__ == "__main__":
     # 是否需要基于初始采样结果建立一系列字典，也就是时延有关的知识库
     need_to_build=0
     # 是否需要将某个文件的内容更新到知识库之中
-    need_to_add=0
+    need_to_add=1
     # 判断是否需要在知识库中存放新的边缘ip，利用已有的更新
     need_new_ip=0
 
     #是否需要发起一次简单的查询并测试调度器的功能
-    need_to_test=1
+    need_to_test=0
 
     #获取内存资源限制列表的时候，需要两步，第一步是下降，第二部是采取，两种方法都可以随机，也都可以不随机
     dec_rand=0
@@ -1651,8 +1715,6 @@ if __name__ == "__main__":
         kb_builder.send_query() 
         kb_builder.sample_and_record(sample_bound=10) #表示对于所有配置组合每种组合采样sample_bound次。
 
-    
-
     # 关于是否需要建立知识库：可以根据txt文件中的内容来根据采样结果建立知识库
     if need_to_build==1:
         record_name=KB_DATA_PATH+'/0_gender_classify_bayes1dec_rand0sel_rand0mem_num10min_val0.0max_val1.0bin_nums100sample_bound5n_trials20.txt'
@@ -1690,7 +1752,7 @@ if __name__ == "__main__":
 
         # 是否需要绘画展示文件中的数据结果
     
-    # 如果想要用一个新记录的csv文件内容来更新知识库
+    # 如果想要用新记录的csv文件内容来更新知识库
     if need_to_add==1:
         '''
         new_list=['kb_data/20240326_20_30_40_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv',
@@ -1702,17 +1764,18 @@ if __name__ == "__main__":
         new_list=['kb_data/20240326_21_38_09_kb_builder_0.35_tight_build_gender_classify_cold_start04.csv']
         new_list=['kb_data/20240326_21_52_35_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv']
         new_list=['kb_data/20240326_21_59_19_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv']
+        new_list=['kb_data/20240401_15_52_56_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv']
         for filepath in new_list:
             kb_builder.update_evaluator_from_samples(filepath=filepath)
             kb_builder.update_conf_info_from_samples(filepath=filepath)
     
     
     if need_new_ip==1:
-        
-        kb_builder.update_kb_with_new_node_ip(new_node_ip='172.27.132.253')
-        #kb_builder.delete_cert_conf_in_kb(cert_conf_element='172.27.132.253')
-
-    
+        # 此处可以直接修改知识库中的特定配置，比如删除所有特定ip下的配置，或者基于各个边缘端都相同的思想添加新的边缘端ip配置，或者将知识库中的某个ip换成新的ip
+        # kb_builder.add_node_ip_in_kb(new_node_ip='172.27.143.164')
+        kb_builder.delete_node_ip_in_kb(old_node_ip='172.27.143.164')
+        # kb_builder.swap_node_ip_in_kb(old_node_ip='172.27.143.164',new_node_ip='192.168.1.7')
+        print('完成更新')
 
 
     exit()

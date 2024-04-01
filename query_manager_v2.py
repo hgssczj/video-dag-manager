@@ -338,7 +338,6 @@ def query_get_job_cbk():
     bandwidth = para['bandwidth']
     # 在query_manager里用一个字典保存每一个边缘当前的带宽。
     query_manager.bandwidth_dict[node_addr]=bandwidth
-    # 查找该边缘端对应的所有query，提取其信息
     print('当前任务字典query_dict')
     print(query_manager.query_dict)
     print('当前带宽字典bandwidth_dict')
@@ -507,15 +506,17 @@ def cloud_scheduler_loop_kb(query_manager=None):
                     print(work_condition)
                     #修改：只有当runtimw_info不存在或者含有delay的时候才运行。
                     # best_conf, best_flow_mapping, best_resource_limit
+                    bandwidth_dict=query_manager.bandwidth_dict.copy()
                     if not work_condition or 'delay' in work_condition :
-                        conf, flow_mapping,resource_limit = scheduler_func.lat_first_kb_muledge.scheduler_test(
+                        conf, flow_mapping,resource_limit = scheduler_func.lat_first_kb_muledge.scheduler(
                             job_uid=query_id,
                             dag={"generator": "x", "flow": query.pipeline},
                             system_status=system_status,
                             work_condition=work_condition,
                             portrait_info=portrait_info,
                             user_constraint=user_constraint,
-                            appended_result_list=appended_result_list
+                            appended_result_list=appended_result_list,
+                            bandwidth_dict=bandwidth_dict,
                         )
                     print("下面展示即将更新的调度计划：")
                     print(type(query_id),query_id)

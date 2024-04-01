@@ -645,13 +645,7 @@ def access_to_reassign_only(
     cert_conf=None,
     cert_flow_mapping=None,   
 ):
-    '''
-      rsc_constraint={
-            "114.212.81.11": {"cpu": 1.0, "mem": 1.0}, 
-            "172.27.143.164": {"cpu": 1.0, "mem": 1.0}, 
-            "172.27.151.145":{"cpu": 1.0, "mem": 1.0}
-        },
-    '''
+
     # print('执行微观调度:尝试在配置和ip不变时重新分配资源来减小时延')
      #（1）指定资源限制外的配置为特定配置
     for serv_name in serv_names:
@@ -722,12 +716,19 @@ def macro_judge (
     conf_names=None,
     serv_names=None,
     service_info_list=None,
-    all_proc_delay=None
+    all_proc_delay=None,
+    bandwidth_dict=None
 ):
     global prev_conf
     global prev_flow_mapping
     global prev_resource_limit
 
+    
+
+    if not bool(work_condition) or not bool(user_constraint):
+        return [common.COLD_START]
+    
+    # 下面三行必须放在冷启动返还之后，否则配置是空的
     old_conf=prev_conf[job_uid]
     old_flow_mapping=prev_flow_mapping[job_uid]
     old_resource_limit=prev_resource_limit[job_uid]
@@ -847,8 +848,12 @@ def scheduler(
     work_condition=None,
     portrait_info=None,
     user_constraint=None,
-    appended_result_list=None
+    appended_result_list=None,
+    bandwidth_dict=None
 ):
+    print('当前调度器感知到各个边缘到云端的带宽是:')
+    print(bandwidth_dict)
+
     assert job_uid, "should provide job_uid"
 
     # 调度器首先要根据dag来得到关于服务的各个信息
@@ -891,64 +896,7 @@ def scheduler(
     rsc_constraint=static_data['rsc_constraint']
 
 
-    # 一、冷启动判断
-    if not bool(work_condition) or not bool(user_constraint):
-        myportrait=RuntimePortrait(pipeline=serv_names)
-        rsc_upper_bound={}
-        rsc_down_bound={}
-        for serv_name in serv_names:
-            serv_rsc_cons=myportrait.help_cold_start(service=serv_name)
-            rsc_upper_bound[serv_name]={}
-            rsc_upper_bound[serv_name]['cpu_limit']=serv_rsc_cons['cpu']['edge']
-            rsc_upper_bound[serv_name]['mem_limit']=serv_rsc_cons['mem']['edge']
-            rsc_down_bound[serv_name]={}
-            rsc_down_bound[serv_name]['cpu_limit']=0.0
-            rsc_down_bound[serv_name]['mem_limit']=0.0
-   
-
-        ans_found, conf, flow_mapping, resource_limit=get_coldstart_plan_bayes(
-                                                        conf_names=conf_names,
-                                                        serv_names=serv_names,
-                                                        service_info_list=service_info_list,
-                                                        rsc_constraint=rsc_constraint,
-                                                        user_constraint=user_constraint,
-                                                        rsc_upper_bound=rsc_upper_bound,
-                                                        rsc_down_bound=rsc_down_bound,
-                                                        work_condition=work_condition
-                                                    )
-
-        if ans_found==1:#如果确实找到了，需要更新字典里之前保存的三大配置
-            prev_conf[job_uid]=conf
-            prev_flow_mapping[job_uid]=flow_mapping
-            prev_resource_limit[job_uid]=resource_limit
-        else:
-            print("查表已经失败,使用极端配置")
-            conf,flow_mapping,resource_limit=micro_search_extreme_case(serv_names=serv_names)
-            prev_conf[job_uid]=conf
-            prev_flow_mapping[job_uid]=flow_mapping
-            prev_resource_limit[job_uid]=resource_limit
-            print('最终采用:极端情况')
-        
-        # 为了测试方便，以下人为设置初始冷启动值，以便查看更多稳定可靠的效果。但是下面这一部分代码实际上不能作为真正的冷启动。
-        conf=dict({
-        "reso": "360p", "fps": 30, "encoder": "JPEG", 
-        })
-        flow_mapping=dict({
-            "face_detection": {"model_id": 0, "node_ip": "172.27.143.164", "node_role": "host"}, 
-            "gender_classification": {"model_id": 0, "node_ip": "172.27.143.164", "node_role": "host"}
-        })
-        resource_limit=dict({
-            "face_detection": {"cpu_util_limit": 0.25, "mem_util_limit": 0.004}, 
-            "gender_classification": {"cpu_util_limit": 0.75, "mem_util_limit": 0.008}
-        })
-        prev_conf[job_uid]=conf
-        prev_flow_mapping[job_uid]=flow_mapping
-        prev_resource_limit[job_uid]=resource_limit
-        print('目前使用了默认配置代替冷启动过程')
-
-    else:
-        #获取宏观调控计划
-        micro_plans=macro_judge (
+    micro_plans=macro_judge (
                     job_uid=job_uid,
                     work_condition=work_condition,
                     user_constraint=user_constraint,
@@ -956,214 +904,162 @@ def scheduler(
                     conf_names=conf_names,
                     serv_names=serv_names,
                     service_info_list=service_info_list,
-                    all_proc_delay=all_proc_delay
+                    all_proc_delay=all_proc_delay,
+                    bandwidth_dict=bandwidth_dict
                 )
-        print('本次给出的宏观指导',micro_plans)
-        # 按照宏观调控计划来完成任务
-        if len(micro_plans)>0:
-            #形如[common.REASSIGN_RSC,common.DOWNGRADE_CONF,common.MOVE_CLOUD,common.EXTREME_CASE]
-            for micro_plan in micro_plans:
-                # 极端情况
-                if micro_plan==common.EXTREME_CASE:
+    print('本次给出的宏观指导',micro_plans)
+
+        
+    # 按照宏观调控计划来完成任务
+    if len(micro_plans)>0:
+        #形如[common.REASSIGN_RSC,common.DOWNGRADE_CONF,common.MOVE_CLOUD,common.EXTREME_CASE]
+        for micro_plan in micro_plans:
+            
+            if micro_plan==common.COLD_START:
+                myportrait=RuntimePortrait(pipeline=serv_names)
+                rsc_upper_bound={}
+                rsc_down_bound={}
+                for serv_name in serv_names:
+                    serv_rsc_cons=myportrait.help_cold_start(service=serv_name)
+                    rsc_upper_bound[serv_name]={}
+                    rsc_upper_bound[serv_name]['cpu_limit']=serv_rsc_cons['cpu']['edge']
+                    rsc_upper_bound[serv_name]['mem_limit']=serv_rsc_cons['mem']['edge']
+                    rsc_down_bound[serv_name]={}
+                    rsc_down_bound[serv_name]['cpu_limit']=0.0
+                    rsc_down_bound[serv_name]['mem_limit']=0.0
+        
+
+                ans_found, conf, flow_mapping, resource_limit=get_coldstart_plan_bayes(
+                                                                conf_names=conf_names,
+                                                                serv_names=serv_names,
+                                                                service_info_list=service_info_list,
+                                                                rsc_constraint=rsc_constraint,
+                                                                user_constraint=user_constraint,
+                                                                rsc_upper_bound=rsc_upper_bound,
+                                                                rsc_down_bound=rsc_down_bound,
+                                                                work_condition=work_condition
+                                                            )
+
+                if ans_found==1:#如果确实找到了，需要更新字典里之前保存的三大配置
+                    prev_conf[job_uid]=conf
+                    prev_flow_mapping[job_uid]=flow_mapping
+                    prev_resource_limit[job_uid]=resource_limit
+                else:
+                    print("查表已经失败,使用极端配置")
                     conf,flow_mapping,resource_limit=micro_search_extreme_case(serv_names=serv_names)
                     prev_conf[job_uid]=conf
                     prev_flow_mapping[job_uid]=flow_mapping
                     prev_resource_limit[job_uid]=resource_limit
                     print('最终采用:极端情况')
+                
+                # 为了测试方便，以下人为设置初始冷启动值，以便查看更多稳定可靠的效果。但是下面这一部分代码实际上不能作为真正的冷启动。
+                '''
+                conf=dict({
+                "reso": "360p", "fps": 30, "encoder": "JPEG", 
+                })
+                flow_mapping=dict({
+                    "face_detection": {"model_id": 0, "node_ip": "192.168.1.7", "node_role": "host"}, 
+                    "gender_classification": {"model_id": 0, "node_ip": "192.168.1.7", "node_role": "host"}
+                })
+                resource_limit=dict({
+                    "face_detection": {"cpu_util_limit": 0.25, "mem_util_limit": 0.004}, 
+                    "gender_classification": {"cpu_util_limit": 0.75, "mem_util_limit": 0.008}
+                })
+                prev_conf[job_uid]=conf
+                prev_flow_mapping[job_uid]=flow_mapping
+                prev_resource_limit[job_uid]=resource_limit
+                print('目前使用了默认配置代替冷启动过程')
+                '''
+                break
+            
+            # 极端情况
+            elif micro_plan==common.EXTREME_CASE:
+                conf,flow_mapping,resource_limit=micro_search_extreme_case(serv_names=serv_names)
+                prev_conf[job_uid]=conf
+                prev_flow_mapping[job_uid]=flow_mapping
+                prev_resource_limit[job_uid]=resource_limit
+                print('最终采用:极端情况')
+                break
+
+            # 尝试提升精度
+            elif micro_plan==common.IMPROVE_ACCURACY:
+                ans_found,conf,flow_mapping,resource_limit=micro_search_improve_accuracy(  
+                                                    job_uid=job_uid,
+                                                    conf_names=conf_names,
+                                                    serv_names=serv_names,
+                                                    service_info_list=service_info_list,
+                                                    rsc_constraint=rsc_constraint,
+                                                    user_constraint=user_constraint,
+                                                    work_condition=work_condition
+                                                )
+                if ans_found==1:
+                    prev_conf[job_uid]=conf
+                    prev_flow_mapping[job_uid]=flow_mapping
+                    prev_resource_limit[job_uid]=resource_limit
+                    print('最终采用:提升精度')
                     break
-                elif micro_plan==common.IMPROVE_ACCURACY:
-                    ans_found,conf,flow_mapping,resource_limit=micro_search_improve_accuracy(  
-                                                        job_uid=job_uid,
-                                                        conf_names=conf_names,
-                                                        serv_names=serv_names,
-                                                        service_info_list=service_info_list,
-                                                        rsc_constraint=rsc_constraint,
-                                                        user_constraint=user_constraint,
-                                                        work_condition=work_condition
-                                                    )
-                    if ans_found==1:
-                        prev_conf[job_uid]=conf
-                        prev_flow_mapping[job_uid]=flow_mapping
-                        prev_resource_limit[job_uid]=resource_limit
-                        print('最终采用:提升精度')
-                        break
-                elif micro_plan==common.REASSIGN_RSC:
-                    ans_found,conf,flow_mapping,resource_limit=micro_search_reassign_rsc(  
-                                                        job_uid=job_uid,
-                                                        conf_names=conf_names,
-                                                        serv_names=serv_names,
-                                                        service_info_list=service_info_list,
-                                                        rsc_constraint=rsc_constraint,
-                                                        user_constraint=user_constraint,
-                                                        work_condition=work_condition
-                                                    )
-                    if ans_found==1:
-                        prev_conf[job_uid]=conf
-                        prev_flow_mapping[job_uid]=flow_mapping
-                        prev_resource_limit[job_uid]=resource_limit
-                        print('最终采用:重新分配资源')
-                        break
-                elif micro_plan==common.DOWNGRADE_CONF:
-                    ans_found,conf,flow_mapping,resource_limit=micro_search_downgrade_conf(  
-                                                        job_uid=job_uid,
-                                                        conf_names=conf_names,
-                                                        serv_names=serv_names,
-                                                        service_info_list=service_info_list,
-                                                        rsc_constraint=rsc_constraint,
-                                                        user_constraint=user_constraint,
-                                                        work_condition=work_condition
-                                                    )
-                    if ans_found==1:
-                        prev_conf[job_uid]=conf
-                        prev_flow_mapping[job_uid]=flow_mapping
-                        prev_resource_limit[job_uid]=resource_limit
-                        print('最终采用:降低配置')
-                        break
-                elif micro_plan==common.MOVE_CLOUD:
-                    ans_found,conf,flow_mapping,resource_limit=micro_search_move_cloud(  
-                                                        job_uid=job_uid,
-                                                        conf_names=conf_names,
-                                                        serv_names=serv_names,
-                                                        service_info_list=service_info_list,
-                                                        rsc_constraint=rsc_constraint,
-                                                        user_constraint=user_constraint,
-                                                        work_condition=work_condition
-                                                    )
-                    if ans_found==1:
-                        prev_conf[job_uid]=conf
-                        prev_flow_mapping[job_uid]=flow_mapping
-                        prev_resource_limit[job_uid]=resource_limit
-                        print('最终采用:移到云端')
-                        break
+            
+            # 尝试重新分配资源
+            elif micro_plan==common.REASSIGN_RSC:
+                ans_found,conf,flow_mapping,resource_limit=micro_search_reassign_rsc(  
+                                                    job_uid=job_uid,
+                                                    conf_names=conf_names,
+                                                    serv_names=serv_names,
+                                                    service_info_list=service_info_list,
+                                                    rsc_constraint=rsc_constraint,
+                                                    user_constraint=user_constraint,
+                                                    work_condition=work_condition
+                                                )
+                if ans_found==1:
+                    prev_conf[job_uid]=conf
+                    prev_flow_mapping[job_uid]=flow_mapping
+                    prev_resource_limit[job_uid]=resource_limit
+                    print('最终采用:重新分配资源')
+                    break
+            
+            # 尝试降低配置
+            elif micro_plan==common.DOWNGRADE_CONF:
+                ans_found,conf,flow_mapping,resource_limit=micro_search_downgrade_conf(  
+                                                    job_uid=job_uid,
+                                                    conf_names=conf_names,
+                                                    serv_names=serv_names,
+                                                    service_info_list=service_info_list,
+                                                    rsc_constraint=rsc_constraint,
+                                                    user_constraint=user_constraint,
+                                                    work_condition=work_condition
+                                                )
+                if ans_found==1:
+                    prev_conf[job_uid]=conf
+                    prev_flow_mapping[job_uid]=flow_mapping
+                    prev_resource_limit[job_uid]=resource_limit
+                    print('最终采用:降低配置')
+                    break
+
+            # 尝试挪到云端
+            elif micro_plan==common.MOVE_CLOUD:
+                ans_found,conf,flow_mapping,resource_limit=micro_search_move_cloud(  
+                                                    job_uid=job_uid,
+                                                    conf_names=conf_names,
+                                                    serv_names=serv_names,
+                                                    service_info_list=service_info_list,
+                                                    rsc_constraint=rsc_constraint,
+                                                    user_constraint=user_constraint,
+                                                    work_condition=work_condition
+                                                )
+                if ans_found==1:
+                    prev_conf[job_uid]=conf
+                    prev_flow_mapping[job_uid]=flow_mapping
+                    prev_resource_limit[job_uid]=resource_limit
+                    print('最终采用:移到云端')
+                    break
+
+
     print(prev_conf[job_uid])
     print(prev_flow_mapping[job_uid])
     print(prev_resource_limit[job_uid])
 
     return prev_conf[job_uid], prev_flow_mapping[job_uid], prev_resource_limit[job_uid]  #沿用之前的配置
 
-
-
-
-# -----------------
-# 该函数只使用get_coldstart_plan_bayes冷启动函数来解决问题，作用是作为无画像的baseline存在。
-# ---- 调度入口 ----
-def scheduler_only_cold(
-    job_uid=None,
-    dag=None,
-    system_status=None,
-    work_condition=None,
-    portrait_info=None,
-    user_constraint=None,
-    appended_result_list=None
-):
-
-
-    assert job_uid, "should provide job_uid"
-    ########################################################################################################
-    # 调度器首先要根据dag来得到关于服务的各个信息
-    #（1）构建serv_names:根据dag获取serv_names，涉及的各个服务名
-    #（2）构建service_info_list：根据serv_names，加上“_trans”构建传输阶段，从service_info_dict提取信息构建service_info_list
-    # (3) 构建conf_names：根据service_info_list里每一个服务的配置参数，得到conf_names，保存所有影响任务的配置参数（不含ip）
-    #（4）获取每一个设备的资源约束，以及每一个服务的资源上限
-    serv_names=dag['flow']
-    
-    service_info_list=[]  #建立service_info_list，需要处理阶段，也需要传输阶段
-    for serv_name in serv_names:
-        service_info_list.append(service_info_dict[serv_name])
-        # 不考虑传输时延了
-        # service_info_list.append(service_info_dict[serv_name+"_trans"])
-    
-    conf=dict()
-    for service_info in service_info_list:
-        service_conf_names = service_info['conf']
-        for service_conf_name in service_conf_names:
-            if service_conf_name not in conf:
-                conf[service_conf_name]=1
-    conf_names=list(conf.keys())  #conf_names里保存所有配置参数的名字
-    ########################################################################################################
-
-    ########################################################################################################
-    #调度器要展示最新结果并获取执行时延，以及当前资源约束（资源约束可能随时变化）
-    all_proc_delay=0
-    if appended_result_list!=None:
-        print("展示最新执行结果ext_runtime")
-        print(appended_result_list[-1]['ext_runtime'])
-        serv_proc_delays=appended_result_list[-1]['ext_runtime']['plan_result']['process_delay']
-        
-        for serv_name in serv_proc_delays.keys():
-            all_proc_delay+=serv_proc_delays[serv_name]
-    
-
-    with open('static_data.json', 'r') as f:  
-        static_data = json.load(f)
-    
-    #当前资源约束情况
-    rsc_constraint=static_data['rsc_constraint']
-    '''
-    rsc_constraint:{
-            "114.212.81.11": {"cpu": 1.0, "mem": 1.0}, 
-            "172.27.143.164": {"cpu": 0.1, "mem": 0.1}, 
-            "172.27.151.145":{"cpu": 0.1, "mem": 0.2}
-        }
-    '''
-    ########################################################################################################
-
-    ########################################################################################################
-
-    need_seek_table=0 #需要查表
-  
-    # 一、初始情况下选择使用查表
-    if not bool(work_condition) or not bool(user_constraint):
-        print('初始冷启动')
-        need_seek_table=1
-    # 二、时延超出常规时需要查表
-    elif all_proc_delay > user_constraint['delay']:
-        print('时延不满足')
-        need_seek_table==1
-
-    ########################################################################################################
-
-    
-    # 如果需要查表
-    if need_seek_table==1:
-        #查找时用于剪枝的资源上限
-        myportrait=RuntimePortrait(pipeline=serv_names)
-        rsc_upper_bound={}
-        for serv_name in serv_names:
-            serv_rsc_cons=myportrait.help_cold_start(service=serv_name)
-            rsc_upper_bound[serv_name]={}
-            rsc_upper_bound[serv_name]['cpu_limit']=serv_rsc_cons['cpu']['edge']
-            rsc_upper_bound[serv_name]['mem_limit']=serv_rsc_cons['mem']['edge']
-        print("画像提供的资源上限")
-        print(rsc_upper_bound)
-
-        rsc_down_bound={
-            "face_detection": {"cpu_limit": 0.0, "mem_limit": 0.0}, 
-            "gender_classification": {"cpu_limit": 0.0, "mem_limit": 0.0}
-        }
-    
-        ans_found, conf, flow_mapping, resource_limit=get_coldstart_plan_bayes(
-                                                        conf_names=conf_names,
-                                                        serv_names=serv_names,
-                                                        service_info_list=service_info_list,
-                                                        rsc_constraint=rsc_constraint,
-                                                        user_constraint=user_constraint,
-                                                        rsc_upper_bound=rsc_upper_bound,
-                                                        rsc_down_bound=rsc_down_bound,
-                                                        work_condition=work_condition
-                                                    )
-
-        if ans_found==1:#如果确实找到了，需要更新字典里之前保存的三大配置
-            prev_conf[job_uid]=conf
-            prev_flow_mapping[job_uid]=flow_mapping
-            prev_resource_limit[job_uid]=resource_limit
-        else:
-            print("查表已经失败，出现重大问题")
-            return None #后续这里应该改成别的，比如默认配置什么的
-    
-
-
-    return prev_conf[job_uid], prev_flow_mapping[job_uid], prev_resource_limit[job_uid]  #沿用之前的配置
 
 
 # -----------------
@@ -1176,7 +1072,8 @@ def scheduler_test(
     work_condition=None,
     portrait_info=None,
     user_constraint=None,
-    appended_result_list=None
+    appended_result_list=None,
+    bandwidth_dict=None
 ):
     assert job_uid, "should provide job_uid"
 

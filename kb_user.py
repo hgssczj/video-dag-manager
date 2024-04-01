@@ -363,42 +363,6 @@ class  KnowledgeBaseUser():
         return mul_objects
 
         
-        '''
-        rsc_constraint={
-            "114.212.81.11":{
-                "cpu": 1.0,
-                "mem":1.0
-            },
-            "172.27.143.164": {
-                "cpu": 0.6,
-                "mem": 0.7
-            },
-            "172.27.151.145": {
-                "cpu": 0.5,
-                "mem": 0.8 
-            },
-        }
-            'video_conf':   
-            {    'encoder': 'JPEG', 'fps': 1, 'reso': '360p'    }
-            'flow_mapping': 
-            {   
-                'face_alignment': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'}, 
-                'face_detection': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'} 
-            }
-            resource_limit={
-                "face_detection": {
-                    "cpu_util_limit": 0.1,
-                    "mem_util_limit": 0.2,
-                },
-                "face_alignment": {
-                    "cpu_util_limit": 0.1,
-                    "mem_util_limit": 0.2,
-                }
-            }
-        '''
-
-            
-
     # get_plan_in_cons：
     # 用途：基于贝叶斯优化，调用多目标优化的贝叶斯模型，得到一系列帕累托最优解
     # 方法：通过贝叶斯优化，在有限轮数内选择一个最优的结果
@@ -628,7 +592,7 @@ if __name__ == "__main__":
     conf_and_serv_info['reso']=['360p']
     conf_and_serv_info['fps']=[5]
     for serv_name in serv_names:
-        conf_and_serv_info[serv_name+'_ip']=['172.27.143.164']
+        conf_and_serv_info[serv_name+'_ip']=['192.168.1.7']
 
 
               
