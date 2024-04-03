@@ -588,10 +588,10 @@ class KnowledgeBaseBuilder():
 
 
     # post_get_write：
-    # 用途：更新调度计划，感知运行时情境，并调用post_get_write记录在csv文件中
+    # 用途：更新调度计划，感知运行时情境，并调用write_in_file记录在csv文件中
     # 方法：使用update_plan接口将conf,flow_mapping,resource_limit应用在query_id指定的任务中
     #      依次获取运行时情境
-    #      使用post_get_write方法将感知到的结果写入文件之中
+    #      使用write_in_file方法将感知到的结果写入文件之中
     # 返回值：包含updated_result的键值对
     def post_get_write(self,conf,flow_mapping,resource_limit):
         # print("开始发出消息并配置")
@@ -633,9 +633,9 @@ class KnowledgeBaseBuilder():
         return {"status":3,"des:":"succeed to record a row","updatetd_result":updatetd_result}
     
     # get_write：
-    # 用途：感知运行时情境，并调用post_get_write记录在csv文件中。相比post_get_result，不会修改调度计划。
+    # 用途：感知运行时情境，并调用write_in_file记录在csv文件中。相比post_get_write，不会修改调度计划。
     # 方法：依次获取运行时情境
-    #      使用post_get_write方法将感知到的结果写入文件之中
+    #      使用write_in_file方法将感知到的结果写入文件之中
     # 返回值：包含updated_result的键值对
     def get_write(self):
          
@@ -1092,7 +1092,7 @@ class KnowledgeBaseBuilder():
             with open(KB_DATA_PATH+'/'+ service_info['name']+'_conf_info'+'.json', 'w') as f:  
                 json.dump(conf_info, f) 
     
-    # add_node_ip_in_k：
+    # add_node_ip_in_kb：
     # 用途：默认知识库中所有的边缘端性能一样，用已有的边缘端ip对应配置作为新边缘端ip的对应配置，进一步丰富知识库
     # 方法：读取知识库中所有的配置组合，然后将其中设计到边缘端的那些修改为新ip，然后加入知识库
     # 返回值：无，但是会得到全新的、含有新边缘端ip的知识库
@@ -1550,7 +1550,7 @@ serv_names=["face_detection","gender_classification"]
 #这个query_body用于测试单位的“人进入会议室”，也就是只有一张脸的情况，工况不变，但是会触发调度器变化，因为ifd很小
 #'''
 query_body = {
-        "node_addr": "192.168.1.7:3001",
+        "node_addr": "192.168.1.9:4001",
         "video_id": 4,     
         "pipeline":  ["face_detection", "gender_classification"],#制定任务类型
         "user_constraint": {
@@ -1626,12 +1626,12 @@ if __name__ == "__main__":
     # 是否需要基于初始采样结果建立一系列字典，也就是时延有关的知识库
     need_to_build=0
     # 是否需要将某个文件的内容更新到知识库之中
-    need_to_add=1
+    need_to_add=0
     # 判断是否需要在知识库中存放新的边缘ip，利用已有的更新
     need_new_ip=0
 
     #是否需要发起一次简单的查询并测试调度器的功能
-    need_to_test=0
+    need_to_test=1
 
     #获取内存资源限制列表的时候，需要两步，第一步是下降，第二部是采取，两种方法都可以随机，也都可以不随机
     dec_rand=0
@@ -1646,10 +1646,10 @@ if __name__ == "__main__":
               
 
     kb_builder=KnowledgeBaseBuilder(expr_name="tight_build_gender_classify_cold_start04",
-                                    node_ip='192.168.1.7',
-                                    node_addr="192.168.1.7:3001",
-                                    query_addr="114.212.81.11:3000",
-                                    service_addr="114.212.81.11:3500",
+                                    node_ip='192.168.1.9',
+                                    node_addr="192.168.1.9:4001",
+                                    query_addr="114.212.81.11:4000",
+                                    service_addr="114.212.81.11:4500",
                                     query_body=query_body,
                                     conf_names=conf_names,
                                     serv_names=serv_names,
@@ -1772,8 +1772,8 @@ if __name__ == "__main__":
     
     if need_new_ip==1:
         # 此处可以直接修改知识库中的特定配置，比如删除所有特定ip下的配置，或者基于各个边缘端都相同的思想添加新的边缘端ip配置，或者将知识库中的某个ip换成新的ip
-        # kb_builder.add_node_ip_in_kb(new_node_ip='172.27.143.164')
-        kb_builder.delete_node_ip_in_kb(old_node_ip='172.27.143.164')
+        kb_builder.add_node_ip_in_kb(new_node_ip='192.168.1.9')
+        # kb_builder.delete_node_ip_in_kb(old_node_ip='172.27.143.164')
         # kb_builder.swap_node_ip_in_kb(old_node_ip='172.27.143.164',new_node_ip='192.168.1.7')
         print('完成更新')
 

@@ -80,8 +80,11 @@ class Query():
     def update_runtime(self, runtime_info):
         self.runtime_portrait.update_runtime(runtime_info)
     
-    def get_work_condition(self):
-        return self.runtime_portrait.get_work_condition()
+    def get_aggregate_work_condition(self):
+        return self.runtime_portrait.get_aggregate_work_condition()
+
+    def get_latest_work_condition(self):
+        return self.runtime_portrait.get_latest_work_condition()
 
     def get_portrait_info(self):
         return self.runtime_portrait.get_portrait_info()
@@ -466,7 +469,7 @@ def node_join_cbk():
     return flask.jsonify({"status": 0, "msg": "joined one video to query_manager", "node_addr": node_addr})
 
 
-def start_query_listener(serv_port=3000):
+def start_query_listener(serv_port=4000):
     query_app.run(host="0.0.0.0", port=serv_port)
 
 
@@ -491,7 +494,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
             for qid, query in query_dict.items():
                 assert isinstance(query, Query)
                 query_id = query.query_id
-                work_condition=query.get_work_condition()
+                work_condition=query.get_aggregate_work_condition()
                 portrait_info=query.get_portrait_info()
                 appended_result_list=query.get_appended_result_list()
                 if query.video_id<99:  #如果是大于等于99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
@@ -532,11 +535,11 @@ def cloud_scheduler_loop_kb(query_manager=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--query_port', dest='query_port',
-                        type=int, default=3000)
+                        type=int, default=4000)
     parser.add_argument('--serv_cloud_addr', dest='serv_cloud_addr',
-                        type=str, default='127.0.0.1:3500')
+                        type=str, default='127.0.0.1:4500')
     parser.add_argument('--video_cloud_port', dest='video_cloud_port',
-                        type=int, default=3100)
+                        type=int, default=4100)
     args = parser.parse_args()
 
     threading.Thread(target=start_query_listener,

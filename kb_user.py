@@ -592,7 +592,7 @@ if __name__ == "__main__":
     conf_and_serv_info['reso']=['360p']
     conf_and_serv_info['fps']=[5]
     for serv_name in serv_names:
-        conf_and_serv_info[serv_name+'_ip']=['192.168.1.7']
+        conf_and_serv_info[serv_name+'_ip']=['192.168.1.9']
 
 
               

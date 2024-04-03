@@ -287,7 +287,6 @@ class JobManager():
 
 
 
-import content_func.sniffer
 
 class Job():
     JOB_STATE_UNSCHED = 0
@@ -305,9 +304,6 @@ class Job():
         # 执行状态机（本地不保存结果）
         self.state = Job.JOB_STATE_UNSCHED
         self.worker_thread = None
-        # 运行时情境
-        self.sniffer = content_func.sniffer.Sniffer(job_uid=job_uid)
-        # self.current_runtime = dict()
         # 调度状态机：执行计划与历史计划的执行结果
         self.user_constraint = user_constraint
         self.flow_mapping = None
@@ -359,20 +355,6 @@ class Job():
     def get_user_constraint(self):
         return self.user_constraint
     
-    '''
-    # -----------------------
-    # ---- 运行时情境相关 ----
-    def update_runtime(self, taskname, output_ctx):
-        self.sniffer.sniff(taskname=taskname, output_ctx=output_ctx)
-    '''
-
-    '''
-    def get_runtime(self):
-        new_runtime = self.sniffer.describe_runtime()
-        if new_runtime:
-            self.current_runtime = new_runtime
-        return self.current_runtime
-    '''
     
     # ------------------
     # ---- 执行循环 ----
@@ -386,7 +368,8 @@ class Job():
 
         # 0、初始化数据流来源（TODO：从缓存区读取）
         cap = cv2.VideoCapture(self.manager.get_video_info_by_id(self.video_id)['url'])
-
+        cap_fps = cap.get(cv2.CAP_PROP_FPS)
+        
         n = 0
         curr_cam_frame_id = 0
         curr_conf_frame_id = 0
@@ -401,6 +384,7 @@ class Job():
                                        video_conf=cur_plan[common.PLAN_KEY_VIDEO_CONF],
                                        curr_cam_frame_id=curr_cam_frame_id,
                                        curr_conf_frame_id=curr_conf_frame_id)
+            frame_encoded = output_ctx['image']
             root_logger.info("done generator task, get_next_init_task({})".format(output_ctx.keys()))
             
             # 2、执行
@@ -473,8 +457,7 @@ class Job():
                 output_ctx['proc_resource_info']['node_role'] = choice["node_role"]
                 output_ctx['proc_resource_info']['cpu_util_limit'] = task_limit['cpu_util_limit']
                 output_ctx['proc_resource_info']['mem_util_limit'] = task_limit['mem_util_limit']
-                output_ctx['task_conf'] = cur_plan[common.PLAN_KEY_VIDEO_CONF]  # 将当前任务的可配置参数也报告给运行时情境
-
+                output_ctx['task_conf'] = cur_plan[common.PLAN_KEY_VIDEO_CONF]
                 proc_resource_info_dict[taskname] = output_ctx['proc_resource_info']
                 runtime_dict[taskname] = output_ctx
                 print("完成情境获取")
@@ -492,6 +475,9 @@ class Job():
                 "frame_id": cam_frame_id,
                 "n_loop": n
             }
+            runtime_dict['task_conf'] = cur_plan[common.PLAN_KEY_VIDEO_CONF]  # 将当前任务的可配置参数也报告给运行时情境
+            runtime_dict['frame'] = frame_encoded  # 将视频帧编码后上云，是为了计算目标速度
+            runtime_dict['cap_fps'] = cap_fps  # 视频的原始帧率，为了计算目标速度
             #完成以上处理后，total_frame_delay是总时延，而plan_result里完整包含了当前帧各阶段的真实时延，应该作为runtime_info的一部分
             for taskname in plan_result['process_delay']:
                 plan_result['process_delay'][taskname] = \
@@ -569,7 +555,7 @@ tracker_app = flask.Flask(__name__)
 flask_cors.CORS(tracker_app)
 
 
-def start_tracker_listener(serv_port=3001):
+def start_tracker_listener(serv_port=4001):
     tracker_app.run(host="0.0.0.0", port=serv_port)
     # app.run(port=serv_port)
     # app.run(host="*", port=serv_port)
@@ -577,13 +563,13 @@ def start_tracker_listener(serv_port=3001):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--query_addr', dest='query_addr',
-                        type=str, default='114.212.81.11:3000')
+                        type=str, default='114.212.81.11:4000')
     parser.add_argument('--tracker_port', dest='tracker_port',
-                        type=int, default=3001)
+                        type=int, default=4001)
     parser.add_argument('--serv_cloud_addr', dest='serv_cloud_addr',
-                        type=str, default='114.212.81.11:3500')
+                        type=str, default='114.212.81.11:4500')
     parser.add_argument('--video_side_port', dest='video_side_port',
-                        type=int, default=3101)
+                        type=int, default=4101)
     args = parser.parse_args()
 
     # 接受下发的query生成job、接收更新的调度策略

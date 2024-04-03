@@ -3,11 +3,14 @@ import torch
 import common
 import numpy as np
 import requests
+import field_codec_utils
+import cv2
+import math
 
 class RuntimePortrait():
     CONTENT_ELE_MAXN = 50
     def __init__(self, pipeline):
-        self.service_cloud_addr = "114.212.81.11:3500"
+        self.service_cloud_addr = "114.212.81.11:4500"
         self.sess = requests.Session()
         
         # 存储工况情境的字段
@@ -81,16 +84,26 @@ class RuntimePortrait():
                     self.runtime_pkg_list['obj_n'] = list()
                 if 'obj_size' not in self.runtime_pkg_list:
                     self.runtime_pkg_list['obj_size'] = list()
+                if 'obj_speed' not in self.runtime_pkg_list:
+                    self.runtime_pkg_list['obj_speed'] = list()
 
-                # 更新各字段序列（防止爆内存）
+                ##### 1.获取当前目标数量
                 if len(self.runtime_pkg_list['obj_n']) > RuntimePortrait.CONTENT_ELE_MAXN:
                     del self.runtime_pkg_list['obj_n'][0]
                 self.runtime_pkg_list['obj_n'].append(len(runtime_info[taskname]['faces']))
 
+                
+                ##### 2.获取当前目标大小
+                reso = runtime_info['task_conf']['reso']
+                
                 obj_size = 0
                 for x_min, y_min, x_max, y_max in runtime_info[taskname]['bbox']:
-                    # TODO：需要依据分辨率转化
-                    obj_size += (x_max - x_min) * (y_max - y_min)
+                    # 将目标大小统一转换为1080p下的大小
+                    x_min_1 = x_min / common.resolution_wh[reso]['w'] * 1920
+                    y_min_1 = y_min / common.resolution_wh[reso]['h'] * 1080
+                    x_max_1 = x_max / common.resolution_wh[reso]['w'] * 1920
+                    y_max_1 = y_max / common.resolution_wh[reso]['h'] * 1080
+                    obj_size += (x_max_1 - x_min_1) * (y_max_1 - y_min_1)
                 if len(runtime_info[taskname]['bbox']) > 0:
                     obj_size /= len(runtime_info[taskname]['bbox'])
 
@@ -98,7 +111,118 @@ class RuntimePortrait():
                     del self.runtime_pkg_list['obj_size'][0]
                 
                 self.runtime_pkg_list['obj_size'].append(obj_size)
+                
+                ##### 3.获取当前目标速度
+                cap_fps = runtime_info['cap_fps']
+                
+                if len(self.runtime_info_list) == 0 or len(runtime_info[taskname]['bbox']) == 0:  # 目前没有之前的结果则无法计算两帧之间的移动，也就无法计算速度；当前帧没有检测到人脸，也无法计算速度
+                    return
+                
+                pre_frame = field_codec_utils.decode_image(self.runtime_info_list[-1]['frame'])
+                pre_bbox = self.runtime_info_list[-1][taskname]['bbox']
+                pre_frame_id = self.runtime_info_list[-1]['end_pipe']["frame_id"]
+                
+                if len(pre_bbox) == 0:  # 前一帧也没有目标，无法计算速度
+                    return
+                
+                cur_frame = field_codec_utils.decode_image(runtime_info['frame'])
+                cur_bbox = runtime_info[taskname]['bbox']
+                cur_frame_id = runtime_info['end_pipe']["frame_id"]
+                
+                obj_speed = self.cal_obj_speed(pre_frame, pre_bbox, pre_frame_id, cur_frame, cur_bbox, cur_frame_id, cap_fps)
+                
+                if len(self.runtime_pkg_list['obj_speed']) > RuntimePortrait.CONTENT_ELE_MAXN:
+                    del self.runtime_pkg_list['obj_speed'][0]
+                self.runtime_pkg_list['obj_speed'].append(obj_speed)
+    
+    def cal_obj_speed(self, pre_frame, pre_bbox, pre_frame_id, cur_frame, cur_bbox, cur_frame_id, cap_fps):
+        # 首先将两帧都转换为1080p的图像，且将两帧的bbox也转化为1080p下的坐标
+        pre_frame_1 = cv2.resize(pre_frame, (1920, 1080))
+        pre_bbox_1 = []
+        for i in range(len(pre_bbox)):
+            x_min = pre_bbox[i][0] / pre_frame.shape[1] * 1920
+            y_min = pre_bbox[i][1] / pre_frame.shape[0] * 1080
+            x_max = pre_bbox[i][2] / pre_frame.shape[1] * 1920
+            y_max = pre_bbox[i][3] / pre_frame.shape[0] * 1080
+            pre_bbox_1.append([int(x_min), int(y_min), int(x_max), int(y_max)])
+        
+        cur_frame_1 = cv2.resize(cur_frame, (1920, 1080))
+        cur_bbox_1 = []
+        for i in range(len(cur_bbox)):
+            x_min = cur_bbox[i][0] / cur_frame.shape[1] * 1920
+            y_min = cur_bbox[i][1] / cur_frame.shape[0] * 1080
+            x_max = cur_bbox[i][2] / cur_frame.shape[1] * 1920
+            y_max = cur_bbox[i][3] / cur_frame.shape[0] * 1080
+            cur_bbox_1.append([int(x_min), int(y_min), int(x_max), int(y_max)])
+        
+        
+        # 利用tracking+匹配的方式计算目标速度
+        speed_list = []
+        pre_frame_tracker_list = []
+        for temp_box in pre_bbox_1:
+            temp_x_min, temp_y_min, temp_x_max, temp_y_max = temp_box
+            temp_bbox = (temp_x_min, temp_y_min, temp_x_max - temp_x_min, temp_y_max - temp_y_min)
+            
+            temp_tracker = cv2.TrackerCSRT_create()  # 对每一个人脸都创建一个tracker
+            ok = temp_tracker.init(pre_frame_1, temp_bbox)
+         
+            pre_frame_tracker_list.append(temp_tracker)
+        
+        for i in range(len(pre_bbox_1)):
+            pre_frame_bbox = pre_bbox_1[i]
+            pre_x_min, pre_y_min, pre_x_max, pre_y_max = pre_frame_bbox  # 前一帧中目标的bbox
+            
+            ok, track_bbox = pre_frame_tracker_list[i].update(cur_frame_1)  # 利用tracker将前一帧中的目标在当前帧中移动
+            
+            if ok:  # 如果追踪成功，则将追踪之后bbox与当前帧真实的所有目标的bbox进行配对（利用iou），从而实现两帧之间目标的匹配
+                track_x_min = int(track_bbox[0])
+                track_y_min = int(track_bbox[1])
+                track_x_max = int(track_bbox[0] + track_bbox[2])
+                track_y_max = int(track_bbox[1] + track_bbox[3])
+                
+                temp_iou_list = []
+                for temp_box in cur_bbox_1:
+                    temp_iou = self.cal_iou([track_x_min, track_y_min, track_x_max, track_y_max], temp_box)
+                    temp_iou_list.append(temp_iou)
+                
+                obj_index = np.argmax(np.array(temp_iou_list))  # 与track之后的bbox重叠程度最大的bbox为该目标在当前帧中的bbox
+                
+                if temp_iou_list[obj_index] >= 0.1:  # track之后的bbox与真实的bbox之间一定要满足一定程度的重叠，否则认为是误判
+                    # 此时说明完成了前一帧中的目标和当前帧中的目标之间的匹配，可以计算速度
+                    temp_box = cur_bbox_1[obj_index]
+                    temp_center = ((temp_box[0] + temp_box[2]) / 2, (temp_box[1] + temp_box[3]) / 2)
+                    pre_center = ((pre_x_min + pre_x_max) / 2, (pre_y_min + pre_y_max) / 2)
+                    
+                    temp_speed_x = math.fabs((temp_center[0] - pre_center[0])) / (cur_frame_id - pre_frame_id) * cap_fps
+                    temp_speed_y = math.fabs((temp_center[1] - pre_center[1])) / (cur_frame_id - pre_frame_id) * cap_fps
+                    temp_speed = (temp_speed_x ** 2 + temp_speed_y ** 2) ** 0.5
+                    
+                    speed_list.append(temp_speed)
+        
+        if len(speed_list) == 0:
+            return 0
+        return np.max(speed_list)  # 返回速度的最大值，因为最大值决定帧率
+            
+    def cal_iou(self, predict_bbox, gt_bbox):
+        xmin1, ymin1, xmax1, ymax1 = predict_bbox
+        xmin2, ymin2, xmax2, ymax2 = gt_bbox
+        # 计算每个矩形的面积
+        s1 = (xmax1 - xmin1) * (ymax1 - ymin1)  # b1的面积
+        s2 = (xmax2 - xmin2) * (ymax2 - ymin2)  # b2的面积
 
+        # 计算相交矩形
+        xmin = max(xmin1, xmin2)
+        ymin = max(ymin1, ymin2)
+        xmax = min(xmax1, xmax2)
+        ymax = min(ymax1, ymax2)
+
+        w = max(0, xmax - xmin)
+        h = max(0, ymax - ymin)
+        a1 = w * h  # C∩G的面积
+        a2 = s1 + s2 - a1
+        iou = a1 / a2  # iou = a1/ (s1 + s2 - a1)
+        return iou
+                
     def aggregate_work_condition(self):
         # TODO：聚合情境感知参数的时间序列，给出预估值/统计值
         runtime_desc = dict()
@@ -113,10 +237,18 @@ class RuntimePortrait():
             runtime_desc['obj_stable'] = True if np.std(self.runtime_pkg_list['obj_n']) < 0.3 else False
 
         # 每次调用agg后清空
-        self.runtime_pkg_list = dict()
+        # self.runtime_pkg_list = dict()
         
         return runtime_desc
 
+    def get_latest_work_condition(self):
+        latest_work_condition = dict()
+        for k, v in self.runtime_pkg_list.items():
+            if len(v) > 0:
+                latest_work_condition[k] = self.runtime_pkg_list[k][-1]
+        
+        return latest_work_condition
+                
     def set_work_condition(self, new_work_condition):
         while len(self.work_condition_list) >= RuntimePortrait.CONTENT_ELE_MAXN:
             print("len(self.work_condition_list)={}".format(len(self.work_condition_list)))
@@ -124,7 +256,7 @@ class RuntimePortrait():
         self.work_condition_list.append(self.current_work_condition)
         self.current_work_condition = new_work_condition
     
-    def get_work_condition(self):
+    def get_aggregate_work_condition(self):
         new_work_condition = self.aggregate_work_condition()
         assert isinstance(new_work_condition, dict)
         if new_work_condition:  # 若new_work_condition非空，则更新current_work_condition；否则保持current_work_condition

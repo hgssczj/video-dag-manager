@@ -2,8 +2,8 @@
     "conf": {"reso": "360p", "fps": 30, "encoder": "JPEG"}, 
     "flow_mapping": 
         {
-        "face_detection": {"model_id": 0, "node_ip": "192.168.1.7", "node_role": "host"}, 
-        "gender_classification": {"model_id": 0, "node_ip": "192.168.1.7", "node_role": "host"}
+        "face_detection": {"model_id": 0, "node_ip": "192.168.1.9", "node_role": "host"}, 
+        "gender_classification": {"model_id": 0, "node_ip": "192.168.1.9", "node_role": "host"}
         }, 
     "resource_limit": 
         {
@@ -17,7 +17,8 @@
         },
     "rsc_constraint":{
             "114.212.81.11": {"cpu": 1.0, "mem": 1.0}, 
-            "192.168.1.7": {"cpu": 1.0, "mem": 1.0}
+            "192.168.1.7": {"cpu": 1.0, "mem": 1.0},
+            "192.168.1.9": {"cpu": 1.0, "mem": 1.0}
         },
     "work_condition":{
         "obj_n": 1,
