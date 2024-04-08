@@ -56,14 +56,14 @@ class RuntimePortrait():
     def update_runtime(self, runtime_info):
         # 更新云端的运行时情境信息
         
-        # 1.更新工况信息，便于前端展示(绘制折线图等)
-        self.update_work_condition(runtime_info)
-        
-        # 2.保存完整的运行时情境参数，为调度器查表提供参考
+        # 1.保存完整的运行时情境参数，为调度器查表提供参考
         self.runtime_info_list.append(runtime_info)
         # 避免保存过多的内容导致爆内存
         if len(self.runtime_info_list) > RuntimePortrait.CONTENT_ELE_MAXN:
             del self.runtime_info_list[0]
+        
+        # 2.更新工况信息，便于前端展示(绘制折线图等)
+        self.update_work_condition(runtime_info)
 
     def update_work_condition(self, runtime_info):
         # 更新工况信息，便于前端展示(绘制折线图等)
@@ -72,9 +72,10 @@ class RuntimePortrait():
                 if 'delay' not in self.runtime_pkg_list:
                     self.runtime_pkg_list['delay'] = list()
 
+                self.runtime_pkg_list['delay'].append(runtime_info[taskname]['delay'])
                 if len(self.runtime_pkg_list['delay']) > RuntimePortrait.CONTENT_ELE_MAXN:
                     del self.runtime_pkg_list['delay'][0]
-                self.runtime_pkg_list['delay'].append(runtime_info[taskname]['delay'])
+                
 
             # 对face_detection的结果，提取运行时情境
             # TODO：目标数量、目标大小、目标速度
@@ -88,13 +89,13 @@ class RuntimePortrait():
                     self.runtime_pkg_list['obj_speed'] = list()
 
                 ##### 1.获取当前目标数量
+                self.runtime_pkg_list['obj_n'].append(len(runtime_info[taskname]['faces']))
                 if len(self.runtime_pkg_list['obj_n']) > RuntimePortrait.CONTENT_ELE_MAXN:
                     del self.runtime_pkg_list['obj_n'][0]
-                self.runtime_pkg_list['obj_n'].append(len(runtime_info[taskname]['faces']))
-
                 
+
                 ##### 2.获取当前目标大小
-                reso = runtime_info['task_conf']['reso']
+                reso = runtime_info['exe_plan']['video_conf']['reso']
                 
                 obj_size = 0
                 for x_min, y_min, x_max, y_max in runtime_info[taskname]['bbox']:
@@ -107,34 +108,39 @@ class RuntimePortrait():
                 if len(runtime_info[taskname]['bbox']) > 0:
                     obj_size /= len(runtime_info[taskname]['bbox'])
 
+                self.runtime_pkg_list['obj_size'].append(obj_size)
                 if len(self.runtime_pkg_list['obj_size']) > RuntimePortrait.CONTENT_ELE_MAXN:
                     del self.runtime_pkg_list['obj_size'][0]
                 
-                self.runtime_pkg_list['obj_size'].append(obj_size)
                 
                 ##### 3.获取当前目标速度
                 cap_fps = runtime_info['cap_fps']
                 
-                if len(self.runtime_info_list) == 0 or len(runtime_info[taskname]['bbox']) == 0:  # 目前没有之前的结果则无法计算两帧之间的移动，也就无法计算速度；当前帧没有检测到人脸，也无法计算速度
-                    return
-                
-                pre_frame = field_codec_utils.decode_image(self.runtime_info_list[-1]['frame'])
-                pre_bbox = self.runtime_info_list[-1][taskname]['bbox']
-                pre_frame_id = self.runtime_info_list[-1]['end_pipe']["frame_id"]
-                
-                if len(pre_bbox) == 0:  # 前一帧也没有目标，无法计算速度
-                    return
-                
-                cur_frame = field_codec_utils.decode_image(runtime_info['frame'])
-                cur_bbox = runtime_info[taskname]['bbox']
-                cur_frame_id = runtime_info['end_pipe']["frame_id"]
-                
-                obj_speed = self.cal_obj_speed(pre_frame, pre_bbox, pre_frame_id, cur_frame, cur_bbox, cur_frame_id, cap_fps)
-                
+                if len(self.runtime_info_list) == 1 or len(runtime_info[taskname]['bbox']) == 0:  # 目前没有之前的结果则无法计算两帧之间的移动，也就无法计算速度；当前帧没有检测到人脸，也无法计算速度
+                    obj_speed = 314  # 设置为默认速度
+                else:
+                    pre_frame = field_codec_utils.decode_image(self.runtime_info_list[-2]['frame'])
+                    pre_bbox = self.runtime_info_list[-2][taskname]['bbox']
+                    pre_frame_id = self.runtime_info_list[-2]['end_pipe']["frame_id"]
+                    
+                    if len(pre_bbox) == 0:  # 前一帧也没有目标，无法计算速度
+                         obj_speed = 314  # 设置为默认速度
+                    else:
+                        cur_frame = field_codec_utils.decode_image(runtime_info['frame'])
+                        cur_bbox = runtime_info[taskname]['bbox']
+                        cur_frame_id = runtime_info['end_pipe']["frame_id"]
+                        
+                        obj_speed = self.cal_obj_speed(pre_frame, pre_bbox, pre_frame_id, cur_frame, cur_bbox, cur_frame_id, cap_fps)
+                    
+                self.runtime_pkg_list['obj_speed'].append(obj_speed)
                 if len(self.runtime_pkg_list['obj_speed']) > RuntimePortrait.CONTENT_ELE_MAXN:
                     del self.runtime_pkg_list['obj_speed'][0]
-                self.runtime_pkg_list['obj_speed'].append(obj_speed)
-    
+
+                # 确保各类工况保存的值数量相同，进而确保同一索引下的各类工况对应的视频帧相同，以免其他模块获取工况时出现不匹配的情况
+                assert len(self.runtime_pkg_list['obj_n']) == len(self.runtime_pkg_list['obj_size']) == len(self.runtime_pkg_list['obj_speed'])
+                # 确保工况保存的数量与画像保存的数量相同，确保调度器在获取最新的工况和画像时二者是对应的
+                assert len(self.runtime_pkg_list['obj_n']) == len(self.runtime_info_list)
+                
     def cal_obj_speed(self, pre_frame, pre_bbox, pre_frame_id, cur_frame, cur_bbox, cur_frame_id, cap_fps):
         # 首先将两帧都转换为1080p的图像，且将两帧的bbox也转化为1080p下的坐标
         pre_frame_1 = cv2.resize(pre_frame, (1920, 1080))
@@ -275,11 +281,13 @@ class RuntimePortrait():
         ###### 1. 判断时延是否满足约束
         assert('end_pipe' in cur_runtime_info)
         cur_latency = cur_runtime_info['end_pipe']['delay']
+        cur_process_latency = cur_runtime_info['end_pipe']['process_delay']
         assert('user_constraint' in cur_runtime_info)
         cur_user_latency_constraint = cur_runtime_info['user_constraint']['delay']
         if_overtime = True if cur_latency > cur_user_latency_constraint else False
         
         portrait_info['cur_latency'] = cur_latency
+        portrait_info['cur_process_latency'] = cur_process_latency
         portrait_info['user_constraint'] = cur_runtime_info['user_constraint']
         portrait_info['if_overtime'] = if_overtime
         
@@ -406,7 +414,15 @@ class RuntimePortrait():
                 portrait_info['resource_portrait'][service]['mem_bmi_lower_bound'] = 0
                 portrait_info['resource_portrait'][service]['mem_bmi_upper_bound'] = (edge_mem_upper_bound - edge_mem_lower_bound) / edge_mem_lower_bound
                 
-                
+        
+        ###### 4. 其他信息
+        portrait_info['bandwidth'] = cur_runtime_info['bandwidth']  # 云边之间的数据传输量
+        portrait_info['data_to_cloud'] = cur_runtime_info['data_to_cloud']  # 云边之间的带宽
+        portrait_info['exe_plan'] = cur_runtime_info['exe_plan']
+        portrait_info['data_trans_size'] = cur_runtime_info['data_trans_size']  # 各个服务输入和输出的数据量
+        portrait_info['frame'] = cur_runtime_info['frame']
+        portrait_info['process_delay'] = cur_runtime_info['process_delay']
+        
         return portrait_info
     
     def predict_resource_threshold(self, task_info):

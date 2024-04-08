@@ -199,64 +199,66 @@ class KnowledgeBaseBuilder():
 
         self.fp = open(filename, 'w', newline='')
 
-        fieldnames=[]
-        fieldnames=[ 'n_loop',
-                    'frame_id',
-                    'all_delay',
-                    'edge_mem_ratio']
-         #得到配置名
-        for i in range(0,len(self.conf_names)):
+        fieldnames = ['n_loop',
+                     'frame_id',
+                     'all_delay',
+                     # 'edge_mem_ratio',
+                     'obj_n',
+                     'bandwidth'
+                     ]
+        # 得到配置名
+        for i in range(0, len(self.conf_names)):
             fieldnames.append(self.conf_names[i])  
 
         #serv_names形如['face_detection', 'face_alignment']
-        for i in range(0,len(self.serv_names)):
-            serv_name=self.serv_names[i]
+        for i in range(0, len(self.serv_names)):
+            serv_name = self.serv_names[i]
             
-            field_name=serv_name+'_role'
+            field_name = serv_name+'_role'
             fieldnames.append(field_name)
-            field_name=serv_name+'_ip'
+            field_name = serv_name+'_ip'
             fieldnames.append(field_name)
-            field_name=serv_name+'_proc_delay'
+            field_name = serv_name+'_proc_delay'
             fieldnames.append(field_name)
 
-            field_name=serv_name+'_trans_ip'
+            field_name = serv_name+'_trans_ip'
             fieldnames.append(field_name)
-            field_name=serv_name+'_trans_delay'
+            field_name = serv_name+'_trans_delay'
             fieldnames.append(field_name)
 
             # 以下用于获取每一个服务对应的cpu资源画像、限制和效果
-            field_name=serv_name+'_cpu_portrait'
+            # field_name = serv_name + '_cpu_portrait'
+            # fieldnames.append(field_name)
+            field_name = serv_name + '_cpu_util_limit'
             fieldnames.append(field_name)
-            field_name=serv_name+'_cpu_util_limit'
-            fieldnames.append(field_name)
-            field_name=serv_name+'_cpu_util_use'
+            field_name = serv_name + '_cpu_util_use'
             fieldnames.append(field_name)
 
             
             # 以下用于获取每一个服务对应的cpu资源画像、限制和效果
-            field_name=serv_name+'_trans'+'_cpu_portrait'
-            fieldnames.append(field_name)
-            field_name=serv_name+'_trans'+'_cpu_util_limit'
-            fieldnames.append(field_name)
-            field_name=serv_name+'_trans'+'_cpu_util_use'
-            fieldnames.append(field_name)
+            # field_name=serv_name+'_trans'+'_cpu_portrait'
+            # fieldnames.append(field_name)
+            # field_name=serv_name+'_trans'+'_cpu_util_limit'
+            # fieldnames.append(field_name)
+            # field_name=serv_name+'_trans'+'_cpu_util_use'
+            # fieldnames.append(field_name)
             
 
             # 以下用于获取每一个服务对应的内存资源画像、限制和效果
-            field_name=serv_name+'_mem_portrait'
+            # field_name=serv_name+'_mem_portrait'
+            # fieldnames.append(field_name)
+            field_name = serv_name + '_mem_util_limit'
             fieldnames.append(field_name)
-            field_name=serv_name+'_mem_util_limit'
-            fieldnames.append(field_name)
-            field_name=serv_name+'_mem_util_use'
+            field_name = serv_name + '_mem_util_use'
             fieldnames.append(field_name)
 
             # 以下用于获取每一个服务对应的内存资源画像、限制和效果
-            field_name=serv_name+'_trans'+'_mem_portrait'
-            fieldnames.append(field_name)
-            field_name=serv_name+'_trans'+'_mem_util_limit'
-            fieldnames.append(field_name)
-            field_name=serv_name+'_trans'+'_mem_util_use'
-            fieldnames.append(field_name)
+            # field_name=serv_name+'_trans'+'_mem_portrait'
+            # fieldnames.append(field_name)
+            # field_name=serv_name+'_trans'+'_mem_util_limit'
+            # fieldnames.append(field_name)
+            # field_name=serv_name+'_trans'+'_mem_util_use'
+            # fieldnames.append(field_name)
 
 
         self.writer = csv.DictWriter(self.fp, fieldnames=fieldnames)
@@ -482,100 +484,100 @@ class KnowledgeBaseBuilder():
                 'face_alignment_trans_delay':a_trans_delay,
             }
             '''
-            row={}
+            row = {}
             # print("查看待处理结果")
             # print(res)
-            row['n_loop']=res['n_loop']
-            row['frame_id']=res['frame_id']
-            #row['all_delay']=res[ 'delay']
-            row['all_delay']=0
-            row['edge_mem_ratio']=self.edge_mem_ratio
+            row['n_loop'] = res['n_loop']
+            row['frame_id'] = res['frame_id']
+            # row['all_delay']=res['delay']
+            row['all_delay'] = res['proc_delay']
+            row['obj_n'] = res['obj_n']
+            row['bandwidth'] = res['bandwidth']
+            # row['edge_mem_ratio']=self.edge_mem_ratio
 
-            for i in range(0,len(self.conf_names)):
-                conf_name=self.conf_names[i]   #得到配置名
-                row[conf_name]=res['ext_plan']['video_conf'][conf_name]
+            for i in range(0, len(self.conf_names)):
+                conf_name = self.conf_names[i]   #得到配置名
+                row[conf_name] = res['ext_plan']['video_conf'][conf_name]
 
-            #serv_names形如['face_detection', 'face_alignment']
-            for i in range(0,len(self.serv_names)):
-                serv_name=self.serv_names[i]
+            # serv_names形如['face_detection', 'face_alignment']
+            for i in range(0, len(self.serv_names)):
+                serv_name = self.serv_names[i]
                 
-                serv_role_name=serv_name+'_role'
+                serv_role_name = serv_name + '_role'
+                serv_ip_name = serv_name + '_ip'
+                serv_proc_delay_name = serv_name + '_proc_delay'
+                trans_ip_name = serv_name + '_trans_ip'
+                trans_delay_name = serv_name + '_trans_delay'
 
-                serv_ip_name=serv_name+'_ip'
-                serv_proc_delay_name=serv_name+'_proc_delay'
-
-                trans_ip_name=serv_name+'_trans_ip'
-                trans_delay_name=serv_name+'_trans_delay'
-
-                row[serv_role_name]=res['ext_plan']['flow_mapping'][serv_name]['node_role']
-                row[serv_ip_name]=res['ext_plan']['flow_mapping'][serv_name]['node_ip']
-                row[serv_proc_delay_name]=res['ext_runtime']['plan_result']['process_delay'][serv_name]
-                row['all_delay']+=row[serv_proc_delay_name]
-                row[trans_ip_name]=row[serv_ip_name]
-                row[trans_delay_name]=res['ext_runtime']['plan_result']['delay'][serv_name]-row[serv_proc_delay_name]
+                row[serv_role_name] = res['ext_plan']['flow_mapping'][serv_name]['node_role']
+                row[serv_ip_name] = res['ext_plan']['flow_mapping'][serv_name]['node_ip']
+                row[serv_proc_delay_name] = res['ext_runtime']['plan_result']['process_delay'][serv_name]
+                # row['all_delay'] += row[serv_proc_delay_name]
+                row[trans_ip_name] = row[serv_ip_name]
+                row[trans_delay_name] = res['ext_runtime']['plan_result']['delay'][serv_name] - row[serv_proc_delay_name]
 
                 # 要从runtime_info里获取资源信息。暂时只提取runtime_portrait列表中的第一个画像
                 # 以下用于获取每一个服务对应的cpu资源画像、限制和效果
-                field_name=serv_name+'_cpu_portrait'
-                row[field_name]=portrait_info['resource_portrait'][serv_name]['cpu_portrait']
-                field_name=serv_name+'_cpu_util_limit'
-                row[field_name]=portrait_info['resource_portrait'][serv_name]['cpu_util_limit']
-                field_name=serv_name+'_cpu_util_use'
-                row[field_name]=portrait_info['resource_portrait'][serv_name]['cpu_util_use']
+                # field_name=serv_name+'_cpu_portrait'
+                # row[field_name]=portrait_info['resource_portrait'][serv_name]['cpu_portrait']
+                field_name = serv_name + '_cpu_util_limit'
+                row[field_name] = res['ext_runtime']['proc_resource_info'][serv_name]['cpu_util_limit']
+                field_name = serv_name + '_cpu_util_use'
+                row[field_name] = res['ext_runtime']['proc_resource_info'][serv_name]['cpu_util_use']
 
                 # 以下用于获取每一个服务对应的内存资源画像、限制和效果
-                field_name=serv_name+'_mem_portrait'
-                row[field_name]=portrait_info['resource_portrait'][serv_name]['mem_portrait']
-                field_name=serv_name+'_mem_util_limit'
-                row[field_name]=portrait_info['resource_portrait'][serv_name]['mem_util_limit']
-                field_name=serv_name+'_mem_util_use'
-                row[field_name]=portrait_info['resource_portrait'][serv_name]['mem_util_use']
+                # field_name=serv_name+'_mem_portrait'
+                # row[field_name]=portrait_info['resource_portrait'][serv_name]['mem_portrait']
+                field_name = serv_name + '_mem_util_limit'
+                row[field_name] = res['ext_runtime']['proc_resource_info'][serv_name]['mem_util_limit']
+                field_name = serv_name + '_mem_util_use'
+                row[field_name] = res['ext_runtime']['proc_resource_info'][serv_name]['mem_util_use']
 
                 # 以下用于获取每一个服务对应的cpu资源画像、限制和效果
-                field_name=serv_name+'_trans'+'_cpu_portrait'
-                row[field_name]=portrait_info['resource_portrait'][serv_name]['cpu_portrait']
-                field_name=serv_name+'_trans'+'_cpu_util_limit'
-                row[field_name]=portrait_info['resource_portrait'][serv_name]['cpu_util_limit']
-                field_name=serv_name+'_trans'+'_cpu_util_use'
-                row[field_name]=portrait_info['resource_portrait'][serv_name]['cpu_util_use']
+                # field_name=serv_name+'_trans'+'_cpu_portrait'
+                # row[field_name]=portrait_info['resource_portrait'][serv_name]['cpu_portrait']
+                # field_name = serv_name + '_trans' + '_cpu_util_limit'
+                # row[field_name] = res['ext_runtime']['proc_resource_info'][serv_name]['cpu_util_limit']
+                # field_name = serv_name + '_trans' + '_cpu_util_use'
+                # row[field_name] = res['ext_runtime']['proc_resource_info'][serv_name]['cpu_util_use']
 
                 # 以下用于获取每一个服务对应的内存资源画像、限制和效果
-                field_name=serv_name+'_trans'+'_mem_portrait'
-                row[field_name]=portrait_info['resource_portrait'][serv_name]['mem_portrait']
-                field_name=serv_name+'_trans'+'_mem_util_limit'
-                row[field_name]=portrait_info['resource_portrait'][serv_name]['mem_util_limit']
-                field_name=serv_name+'_trans'+'_mem_util_use'
-                row[field_name]=portrait_info['resource_portrait'][serv_name]['mem_util_use']
+                # field_name=serv_name+'_trans'+'_mem_portrait'
+                # row[field_name]=portrait_info['resource_portrait'][serv_name]['mem_portrait']
+                # field_name = serv_name + '_trans' + '_mem_util_limit'
+                # row[field_name] = res['ext_runtime']['proc_resource_info'][serv_name]['mem_util_limit']
+                # field_name = serv_name + '_trans'+'_mem_util_use'
+                # row[field_name] = res['ext_runtime']['proc_resource_info'][serv_name]['mem_util_use']
                        
-            n_loop=res['n_loop']
+            n_loop = res['n_loop']
             if n_loop not in self.written_n_loop:  #以字典为参数，只有那些没有在字典里出现过的row才会被写入文件，
-                print('n_loop',n_loop)
+                print('n_loop', n_loop)
                 #print(' all_delay:',portrait_info['cur_latency'],'只考虑处理：',row['all_delay'])
-                print('总处理时延：',row['all_delay'])
+                print('总处理时延：', row['all_delay'])
                 #print("face_detection处理时延:",row['face_detection_proc_delay'],' 传输时延:',row['face_detection_trans_delay'])
-                print("face_detection处理时延:",row['face_detection_proc_delay'])
+                print("face_detection处理时延:", row['face_detection_proc_delay'])
                 #print("gender_classification处理时延:",row['gender_classification_proc_delay'],' 传输时延:',row['gender_classification_trans_delay'])
-                print("gender_classification处理时延:",row['gender_classification_proc_delay'])
-                print('reso:',row['reso'],' fps:',row['fps'])
-                face_role='node'
-                if row['face_detection_ip']=='114.212.81.11':
-                    face_role='cloud'
-                gender_role='node'
-                if row['gender_classification_ip']=='114.212.81.11':
-                    gender_role='cloud'
-                print('face_detection_ip:',face_role,' gender_classification_ip:',gender_role)
+                print("gender_classification处理时延:", row['gender_classification_proc_delay'])
+                print('reso:', row['reso'], ' fps:', row['fps'])
+                face_role = 'node'
+                if row['face_detection_ip'] == '114.212.81.11':
+                    face_role = 'cloud'
+                gender_role = 'node'
+                if row['gender_classification_ip'] == '114.212.81.11':
+                    gender_role = 'cloud'
+                print('face_detection_ip:', face_role, ' gender_classification_ip:', gender_role)
                 print('face_detection资源')
                 #print('cpu限制',row['face_detection_cpu_util_limit'],'cpu使用',row['face_detection_cpu_util_use'])
                 #print('mem限制',row['face_detection_mem_util_limit'],'mem使用',row['face_detection_mem_util_use'])
                 #print('face_detection资源需求:',portrait_info['resource_portrait']['face_detection']['resource_demand'])
-                print('cpu限制',row['face_detection_cpu_util_limit'])
-                print('mem限制',row['face_detection_mem_util_limit'])
+                print('cpu限制', row['face_detection_cpu_util_limit'])
+                print('mem限制', row['face_detection_mem_util_limit'])
                 print('gender_classification资源')
                 #print('cpu限制',row['gender_classification_cpu_util_limit'],'cpu使用',row['gender_classification_cpu_util_use'])
                 #print('mem限制',row['gender_classification_mem_util_limit'],'mem使用',row['gender_classification_mem_util_use'])
                 #print('gender_classification资源需求:',portrait_info['resource_portrait']['gender_classification']['resource_demand'])
-                print('cpu限制',row['gender_classification_cpu_util_limit'])
-                print('mem限制',row['gender_classification_mem_util_limit'])
+                print('cpu限制', row['gender_classification_cpu_util_limit'])
+                print('mem限制', row['gender_classification_mem_util_limit'])
                 print()
                 self.writer.writerow(row)
                 print("写入成功")
@@ -713,15 +715,15 @@ class KnowledgeBaseBuilder():
     # 方法：初始化一个csv文件，进行record_num次调用get_write并记录当前运行时情境和执行结果，期间完全不控制系统的调度策略
     # 返回值：csv的文件名
     def just_record(self,record_num):
-        filename=self.init_record_file()
-        record_sum=0
-        while(record_sum<record_num):
-            get_resopnse=self.get_write()
-            if(get_resopnse['status']==3):
-                updatetd_result=get_resopnse['updatetd_result']
-                for i in range(0,len(updatetd_result)):
+        filename = self.init_record_file()
+        record_sum = 0
+        while(record_sum < record_num):
+            get_resopnse = self.get_write()
+            if(get_resopnse['status'] == 3):
+                updatetd_result = get_resopnse['updatetd_result']
+                for i in range(0, len(updatetd_result)):
                     #print(updatetd_result[i])
-                    record_sum+=1
+                    record_sum += 1
 
         self.fp.close()
         print("记录结束，查看文件")
@@ -1248,10 +1250,11 @@ class KnowledgeBaseBuilder():
     # 方法：不赘述
     # 返回值：无
     def draw_picture(self, x_value, y_value, title_name, figure_broaden=False, xlabel=None, ylabel=None):
-        if figure_broaden:
-            plt.figure(figsize=[8, 3])  
-        else:
-            plt.figure(figsize=[5.5, 4.5])  
+        # if figure_broaden:
+        #     plt.figure(figsize=[8, 5])  
+        # else:
+        #     plt.figure(figsize=[5.5, 4.5])  
+        plt.figure(figsize=[8, 5])
         if xlabel:
             plt.xlabel(xlabel, fontdict={'fontsize': 13, 'family': 'SimSun'})
         if ylabel:
@@ -1268,7 +1271,7 @@ class KnowledgeBaseBuilder():
     # 方法：不赘述
     # 返回值：无
     def draw_delay_and_cons(self, x_value1, y_value1, y_value2, title_name):
-        plt.figure(figsize=[5.5, 4.5])  
+        plt.figure(figsize=[8, 5])  
         plt.xlabel("帧数", fontdict={'fontsize': 13, 'family': 'SimSun'})
         plt.ylabel("时延/s", fontdict={'fontsize': 13, 'family': 'SimSun'})
         plt.yticks(fontproperties='Times New Roman')
@@ -1298,24 +1301,25 @@ class KnowledgeBaseBuilder():
         # self.conf_names
         # self.serv_names
 
-        x_list=[]
+        x_list = []
         for i in df['n_loop']:
             x_list.append(i)
 
-        cons_delay=[]
+        cons_delay = []
         for x in df['n_loop']:
             cons_delay.append(self.query_body['user_constraint']['delay'])
 
         # 绘制总时延和约束时延
         self.draw_delay_and_cons(x_value1=x_list, y_value1=df['all_delay'], y_value2=cons_delay, title_name="执行时延随时间变化图")
 
+        bandwidth_list = []
+        for bandwidth in df['bandwidth']:
+            bandwidth_list.append(bandwidth)
+        self.draw_picture(x_list, bandwidth_list, title_name='带宽/时间', figure_broaden=True, xlabel='帧数', ylabel='带宽/ (kB/s)')
         
         for serv_name in self.serv_names:
-            # if serv_name=="face_alignment":  #专门研究人脸检测情况
-            # if serv_name=="face_detection":  #专门研究姿态估计情况
-                # continue
-            serv_role_name=serv_name+'_role'
-            serv_ip_name=serv_name+'_ip'
+            serv_role_name = serv_name+'_role'
+            serv_ip_name = serv_name+'_ip'
             serv_ip_list = df[serv_ip_name].tolist()
             serv_node_list = []
             for ip in serv_ip_list: 
@@ -1323,20 +1327,20 @@ class KnowledgeBaseBuilder():
                     serv_node_list.append('cloud')
                 else:
                     serv_node_list.append('edge')
-            serv_proc_delay_name=serv_name+'_proc_delay'
-            trans_ip_name=serv_name+'_trans_ip'
-            trans_delay_name=serv_name+'_trans_delay'
+            serv_proc_delay_name = serv_name+'_proc_delay'
+            trans_ip_name = serv_name+'_trans_ip'
+            trans_delay_name = serv_name+'_trans_delay'
             # 绘制各个服务的处理时延以及ip变化
                         # 以下用于获取每一个服务对应的内存资源画像、限制和效果
-            mem_portrait=serv_name+'_mem_portrait'
-            mem_util_limit=serv_name+'_mem_util_limit'
-            mem_util_use=serv_name+'_mem_util_use'
+            mem_portrait = serv_name+'_mem_portrait'
+            mem_util_limit = serv_name+'_mem_util_limit'
+            mem_util_use = serv_name+'_mem_util_use'
 
-            cpu_portrait=serv_name+'_cpu_portrait'
-            cpu_util_limit=serv_name+'_cpu_util_limit'
-            cpu_util_use=serv_name+'_cpu_util_use'
+            cpu_portrait = serv_name+'_cpu_portrait'
+            cpu_util_limit = serv_name+'_cpu_util_limit'
+            cpu_util_use = serv_name+'_cpu_util_use'
 
-            self.draw_picture(x_value=x_list,y_value=df[serv_ip_name],title_name=serv_ip_name+"/时间")
+            self.draw_picture(x_value=x_list,y_value=df[serv_ip_name],title_name=serv_ip_name+"/时间",figure_broaden=True)
             self.draw_picture(x_value=x_list,y_value=df[serv_proc_delay_name],title_name=serv_proc_delay_name+"/时间")
             self.draw_picture(x_value=x_list,y_value=df[trans_delay_name],title_name=trans_delay_name+"/时间")
 
@@ -1564,7 +1568,7 @@ if __name__ == "__main__":
 
     from RuntimePortrait import RuntimePortrait
 
-    myportrait=RuntimePortrait(pipeline=serv_names)
+    myportrait = RuntimePortrait(pipeline=serv_names)
     #从画像里收集服务在边缘端的资源上限
     # 描述每一种服务所需的中资源阈值，它限制了贝叶斯优化的时候采取怎样的内存取值范围
     '''
@@ -1591,53 +1595,53 @@ if __name__ == "__main__":
         }
     }
     '''
-    rsc_upper_bound={}
+    rsc_upper_bound = {}
     for serv_name in serv_names:
         serv_rsc_cons=myportrait.help_cold_start(service=serv_name)
-        rsc_upper_bound[serv_name]={}
-        rsc_upper_bound[serv_name]['cpu_limit']=serv_rsc_cons['cpu']['edge']
-        rsc_upper_bound[serv_name]['mem_limit']=serv_rsc_cons['mem']['edge']
+        rsc_upper_bound[serv_name] = {}
+        rsc_upper_bound[serv_name]['cpu_limit'] = serv_rsc_cons['cpu']['edge']
+        rsc_upper_bound[serv_name]['mem_limit'] = serv_rsc_cons['mem']['edge']
     print("画像提供的资源上限")
     print(rsc_upper_bound)
    
 
 
     # 贝叶斯优化时的取值范围，在以下范围内使得采样点尽可能平均
-    min_val=0.0
-    max_val=1.0
+    min_val = 0.0
+    max_val = 1.0
 
     # 在多大范围内取方差
-    bin_nums=100
+    bin_nums = 100
 
     # 取多少个典型内存限制进行贝叶斯优化
-    comb_num=10 #10
+    comb_num = 10 #10
     # 每一种配置下进行多少次采样
-    sample_bound=5
+    sample_bound = 5
     # 每一次贝叶斯优化时尝试多少次
-    n_trials=20 #20
+    n_trials = 20 #20
     #(将上述三个量相乘，就足以得到要采样的总次数，这个次数与建立知识库所需的时延一般成正比)
     
     # 是否进行稀疏采样(贝叶斯优化)
-    need_sparse_kb=0
+    need_sparse_kb = 0
     # 是否进行严格采样（遍历所有配置）
-    need_tight_kb=0
+    need_tight_kb = 0
     # 是否根据某个csv文件绘制画像 
-    need_to_draw=0
+    need_to_draw = 1
     # 是否需要基于初始采样结果建立一系列字典，也就是时延有关的知识库
-    need_to_build=0
+    need_to_build = 0
     # 是否需要将某个文件的内容更新到知识库之中
-    need_to_add=0
+    need_to_add = 0
     # 判断是否需要在知识库中存放新的边缘ip，利用已有的更新
-    need_new_ip=0
+    need_new_ip = 0
 
     #是否需要发起一次简单的查询并测试调度器的功能
-    need_to_test=1
+    need_to_test = 0
 
     #获取内存资源限制列表的时候，需要两步，第一步是下降，第二部是采取，两种方法都可以随机，也都可以不随机
-    dec_rand=0
-    sel_rand=0 
+    dec_rand = 0
+    sel_rand = 0 
 
-    task_name="gender_classify"
+    task_name = "gender_classify"
 
     record_name=KB_DATA_PATH+'/'+'0_'+datetime.datetime.now().strftime('%Y%m%d_%H_%M_%S')+task_name+"_"+"bayes"+str(need_sparse_kb)+\
               "dec_rand"+str(dec_rand)+"sel_rand"+str(sel_rand)+"mem_num"+str(comb_num)+\
@@ -1656,6 +1660,7 @@ if __name__ == "__main__":
                                     service_info_list=service_info_list,
                                     rsc_upper_bound=rsc_upper_bound)
     filepath=''
+    #是否需要发起一次简单的查询并测试调度器的功能
     if need_to_test==1:
         kb_builder.send_query() 
         filepath=kb_builder.just_record(record_num=350)
@@ -1666,7 +1671,7 @@ if __name__ == "__main__":
     # 关于是否需要绘制图像
     if need_to_draw==1:
         print('准备画画')
-        filepath='kb_data/20240326_22_58_46_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv'
+        filepath='kb_data/20240407_20_52_49_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv'
         kb_builder.anylze_explore_result(filepath=filepath)
         kb_builder.draw_picture_from_sample(filepath=filepath)
     

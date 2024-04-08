@@ -1,15 +1,12 @@
 import sys  
 import itertools
-from kb_user import KnowledgeBaseUser
 from logging_utils import root_logger
-
 from common import model_op,service_info_dict,conf_and_serv_info,ip_range,reso_range,fps_range
 import common
 import json
 from RuntimePortrait import RuntimePortrait
 from AccuracyPrediction import AccuracyPrediction
-
-
+from kb_user import KnowledgeBaseUser
 
 prev_conf = dict()
 prev_flow_mapping = dict()
@@ -77,7 +74,7 @@ def get_coldstart_plan_bayes(
     sorted_params=[]
 
     if len(params_in_delay_in_rsc_cons_total)>0:
-        sorted_params=sorted(params_in_delay_in_rsc_cons_total,key=lambda item:(item['num_cloud']-item['task_accuracy']))
+        sorted_params=sorted(params_in_delay_in_rsc_cons_total,key=lambda item:(item['num_cloud'], -item['task_accuracy']))
 
     elif len(params_in_delay_out_rsc_cons_total)>0:
         sorted_params=sorted(params_in_delay_out_rsc_cons_total,key=lambda item:(item['deg_violate']))

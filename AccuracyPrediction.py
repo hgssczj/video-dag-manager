@@ -98,7 +98,150 @@ class AccuracyPrediction():
             acc = acc_2_fps * acc_2_reso  # 将分辨率下的精度与帧率下的精度相乘，得到最终预测的精度
             
             return acc
+    
+    def if_acc_improved(self, service_name, service_conf, service_work_condition):
+        # 判断一个服务在当前工况下提升配置能否带来精度的明显提升
+        if service_name == 'face_detection':
+            # 当前配置下的精度
+            temp_acc = self.predict(service_name, service_conf, service_work_condition['obj_size'], service_work_condition['obj_speed'])
+            temp_fps = service_conf['fps']
+            temp_reso = service_conf['reso']
+            temp_fps_index = common.fps_range.index(temp_fps)
+            temp_reso_index = common.reso_range.index(temp_reso)
+            
+            improved_fps_index = min(temp_fps_index + 1, len(common.fps_range) - 1)
+            improved_reso_index = min(temp_reso_index + 1, len(common.reso_range) - 1)
+            improved_conf = {
+                'fps': common.fps_range[improved_fps_index],
+                'reso': common.reso_range[improved_reso_index],
+                'encoder': 'JPEG'
+            }
+            
+            improved_acc = self.predict(service_name, improved_conf, service_work_condition['obj_size'], service_work_condition['obj_speed'])
+            
+            if (improved_acc - temp_acc) > 0.05:  # 配置提升一档可提升5%以上
+                return True
+            
+        return False
+    
+    def if_acc_improved_with_fps(self, service_name, service_conf, service_work_condition):
+        if service_name == 'face_detection':
+            # 当前帧率、最高分辨率下的精度
+            temp_fps = service_conf['fps']
+            temp_fps_index = common.fps_range.index(temp_fps)
+            temp_conf = {
+                'fps': temp_fps,
+                'reso': '1080p',
+                'encoder': 'JPEG'
+            }
+            temp_acc = self.predict(service_name, temp_conf, service_work_condition['obj_size'], service_work_condition['obj_speed'])
+            
+            # 当前帧率加一档、最高分辨率下的精度
+            improved_fps_index = min(temp_fps_index + 1, len(common.fps_range) - 1)
+            improved_conf = {
+                'fps': common.fps_range[improved_fps_index],
+                'reso': '1080p',
+                'encoder': 'JPEG'
+            }
+            improved_acc = self.predict(service_name, improved_conf, service_work_condition['obj_size'], service_work_condition['obj_speed'])
+            
+            if (improved_acc - temp_acc) > 0.05:  # 配置提升一档可提升5%以上
+                return True
+            
+        return False
+    
+    def if_acc_improved_with_reso(self, service_name, service_conf, service_work_condition):
+        if service_name == 'face_detection':
+            # 当前分辨率、最高帧率下的精度
+            temp_reso = service_conf['reso']
+            temp_reso_index = common.reso_range.index(temp_reso)
+            temp_conf = {
+                'fps': 30,
+                'reso': temp_reso,
+                'encoder': 'JPEG'
+            }
+            temp_acc = self.predict(service_name, temp_conf, service_work_condition['obj_size'], service_work_condition['obj_speed'])
+            
+            # 当前帧率加一档、最高分辨率下的精度
+            improved_reso_index = min(temp_reso_index + 1, len(common.reso_range) - 1)
+            improved_conf = {
+                'fps': 30,
+                'reso': common.reso_range[improved_reso_index],
+                'encoder': 'JPEG'
+            }
+            improved_acc = self.predict(service_name, improved_conf, service_work_condition['obj_size'], service_work_condition['obj_speed'])
+            
+            if (improved_acc - temp_acc) > 0.05:  # 配置提升一档可提升5%以上
+                return True
+            
+        return False
+    
+    def get_conf_improve_bound(self, service_name, service_conf, service_work_condition):
+        # 给定一个服务提升精度的配置上界
+        if service_name == 'face_detection':
+            # 当前配置下的精度
+            temp_acc = self.predict(service_name, service_conf, service_work_condition['obj_size'], service_work_condition['obj_speed'])
+            temp_fps = service_conf['fps']
+            temp_reso = service_conf['reso']
+            temp_fps_index = common.fps_range.index(temp_fps)
+            temp_reso_index = common.reso_range.index(temp_reso)
+            
+            # 确定帧率的上界
+            new_fps_index = temp_fps_index + 1
+            while new_fps_index <= len(common.fps_range) - 1:
+                pre_conf = {
+                    'fps': common.fps_range[new_fps_index - 1],
+                    'reso': '1080p',
+                    'encoder': 'JPEG'
+                }
+                pre_acc = self.predict(service_name, pre_conf, service_work_condition['obj_size'], service_work_condition['obj_speed'])
+                
+                cur_conf = {
+                    'fps': common.fps_range[new_fps_index],
+                    'reso': '1080p',
+                    'encoder': 'JPEG'
+                }
+                cur_acc = self.predict(service_name, cur_conf, service_work_condition['obj_size'], service_work_condition['obj_speed'])
+                
+                if cur_acc - pre_acc >= 0.03:
+                    new_fps_index += 1
+                else:
+                    break
+            if new_fps_index >= len(common.fps_range):
+                new_fps_index = len(common.fps_range) - 1
+            
+            # 确定分辨率的上界
+            new_reso_index = temp_reso_index + 1
+            while new_reso_index <= len(common.reso_range) - 1:
+                pre_conf = {
+                    'fps': 30,
+                    'reso': common.reso_range[new_reso_index - 1],
+                    'encoder': 'JPEG'
+                }
+                pre_acc = self.predict(service_name, pre_conf, service_work_condition['obj_size'], service_work_condition['obj_speed'])
+                
+                cur_conf = {
+                    'fps': 30,
+                    'reso': common.reso_range[new_reso_index],
+                    'encoder': 'JPEG'
+                }
+                cur_acc = self.predict(service_name, cur_conf, service_work_condition['obj_size'], service_work_condition['obj_speed'])
+                
+                if cur_acc - pre_acc >= 0.03:
+                    new_reso_index += 1
+                else:
+                    break
+            if new_reso_index >= len(common.reso_range):
+                new_reso_index = len(common.reso_range) - 1
         
+            return {
+                'fps_upper_bound': common.fps_range[new_fps_index],
+                'reso_upper_bound': common.reso_range[new_reso_index]
+            } 
+            
+        return {}   
+            
+                
 
 if __name__ == "__main__":
     acc_pred = AccuracyPrediction()

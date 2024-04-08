@@ -25,6 +25,7 @@ from PortraitModel import PortraitModel
 import torch
 from RuntimePortrait import RuntimePortrait
 import scheduler_func.lat_first_kb_muledge
+import scheduler_func.lat_first_kb_muledge_wzl
 
 
 class Query():
@@ -349,26 +350,26 @@ def query_get_job_cbk():
     for query_id, query in query_manager.query_dict.items():
         print(query_id,query.get_node_addr())
         # 获取尚未生成job的query的job_info
-        if query.get_created_job()==False and query.get_node_addr()==node_addr: 
+        if not query.get_created_job() and query.get_node_addr() == node_addr: 
             query.set_created_job(True) #将其状态表示为已创建job
             jobs_info[query_id]=query.get_job_info()
             print('发现新job',jobs_info[query_id])
         # 获取已经生成job且已经有调度计划的query的调度计划
         # print(query.get_created_job(),query.get_node_addr())
-        if query.get_created_job()==True and query.get_node_addr()==node_addr and \
-            query_id in scheduler_func.lat_first_kb_muledge.prev_conf and\
-            query_id in scheduler_func.lat_first_kb_muledge.prev_flow_mapping and \
-            query_id in scheduler_func.lat_first_kb_muledge.prev_resource_limit:
+        if query.get_created_job() and query.get_node_addr() == node_addr and \
+            query_id in scheduler_func.lat_first_kb_muledge_wzl.prev_conf and\
+            query_id in scheduler_func.lat_first_kb_muledge_wzl.prev_flow_mapping and \
+            query_id in scheduler_func.lat_first_kb_muledge_wzl.prev_resource_limit:
             # print('开始更新调度计划')
-            jobs_plan[query_id]={
-                'job_uid':query_id,
-                'video_conf':scheduler_func.lat_first_kb_muledge.prev_conf[query_id],
-                'flow_mapping':scheduler_func.lat_first_kb_muledge.prev_flow_mapping[query_id],
-                'resource_limit':scheduler_func.lat_first_kb_muledge.prev_resource_limit[query_id]
+            jobs_plan[query_id] = {
+                'job_uid': query_id,
+                'video_conf': scheduler_func.lat_first_kb_muledge_wzl.prev_conf[query_id],
+                'flow_mapping': scheduler_func.lat_first_kb_muledge_wzl.prev_flow_mapping[query_id],
+                'resource_limit': scheduler_func.lat_first_kb_muledge_wzl.prev_resource_limit[query_id]
             }
-    info_and_plan={
-        'jobs_info':jobs_info,
-        'jobs_plan':jobs_plan
+    info_and_plan = {
+        'jobs_info': jobs_info,
+        'jobs_plan': jobs_plan
     }
     # 得到可用来生成job的一系列列表
     return flask.jsonify(info_and_plan)
@@ -494,33 +495,43 @@ def cloud_scheduler_loop_kb(query_manager=None):
             for qid, query in query_dict.items():
                 assert isinstance(query, Query)
                 query_id = query.query_id
-                work_condition=query.get_aggregate_work_condition()
+                work_condition=query.get_latest_work_condition()
+                # work_condition=query.get_aggregate_work_condition()
                 portrait_info=query.get_portrait_info()
-                appended_result_list=query.get_appended_result_list()
+                # appended_result_list=query.get_appended_result_list()
                 if query.video_id<99:  #如果是大于等于99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
                     print("video_id",query.video_id)
-                    node_addr = query.node_addr
+                    node_addr = query.node_addr  # 形如：192.168.1.9:4001
                     user_constraint = query.user_constraint
                     assert node_addr
 
-                    #runtime_info = query.get_work_condition()
-
-                    print("展示当前工况")
-                    print(work_condition)
-                    #修改：只有当runtimw_info不存在或者含有delay的时候才运行。
-                    # best_conf, best_flow_mapping, best_resource_limit
-                    bandwidth_dict=query_manager.bandwidth_dict.copy()
+                    # print("展示当前工况")
+                    # print(work_condition)
+                    # 只有当runtime_info不存在(视频流分析还未开始，进行冷启动)或者含有delay的时候(正常的视频流调度)才运行。
+                    bandwidth_dict = query_manager.bandwidth_dict.copy()
                     if not work_condition or 'delay' in work_condition :
-                        conf, flow_mapping,resource_limit = scheduler_func.lat_first_kb_muledge.scheduler(
+                        assert node_addr in bandwidth_dict
+                        # conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge.scheduler(
+                        #     job_uid=query_id,
+                        #     dag={"generator": "x", "flow": query.pipeline},
+                        #     system_status=system_status,
+                        #     work_condition=work_condition,
+                        #     portrait_info=portrait_info,
+                        #     user_constraint=user_constraint,
+                        #     appended_result_list=appended_result_list,
+                        #     bandwidth_dict=bandwidth_dict
+                        # )
+                        
+                        conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge_wzl.scheduler(
                             job_uid=query_id,
                             dag={"generator": "x", "flow": query.pipeline},
                             system_status=system_status,
                             work_condition=work_condition,
                             portrait_info=portrait_info,
                             user_constraint=user_constraint,
-                            appended_result_list=appended_result_list,
-                            bandwidth_dict=bandwidth_dict,
+                            bandwidth_dict=bandwidth_dict[node_addr]
                         )
+                        
                     print("下面展示即将更新的调度计划：")
                     print(type(query_id),query_id)
                     print(type(conf),conf)

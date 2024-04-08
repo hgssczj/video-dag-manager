@@ -10,18 +10,34 @@ PLAN_KEY_RESOURCE_LIMIT = "resource_limit"
 KB_PLAN_PATH='kb_plan'
 KB_DATA_PATH='kb_data'
 
-NO_BAYES_GOAL=0 #按照遍历配置组合的方式来建立知识库
-BEST_ALL_DELAY=1 #以最小化总时延为目标，基于贝叶斯优化建立知识库（密集，而不集中）
-BEST_STD_DELAY=2 #以最小化不同配置间时延的差别为目标，基于贝叶斯优化建立知识库（稀疏，而均匀）
+NO_BAYES_GOAL = 0  # 按照遍历配置组合的方式来建立知识库
+BEST_ALL_DELAY = 1  # 以最小化总时延为目标，基于贝叶斯优化建立知识库（密集，而不集中）
+BEST_STD_DELAY = 2  # 以最小化不同配置间时延的差别为目标，基于贝叶斯优化建立知识库（稀疏，而均匀）
 
 MAX_NUMBER=999999
 
-COLD_START=-1
-EXTREME_CASE=0
-IMPROVE_ACCURACY=1
-REASSIGN_RSC=2
-DOWNGRADE_CONF=3
-MOVE_CLOUD=4
+COLD_START = -1
+EXTREME_CASE = 0
+IMPROVE_ACCURACY = 1
+REASSIGN_RSC = 2
+
+
+NO_CHANGE = 10  # 所有配置均不变（视频流配置、资源、云边协同切分点）
+
+# 视频流配置相关
+IMPROVE_CONF = 13  # 提升视频流配置，严格大于
+DOWNGRADE_CONF = 3  # 降低视频流配置，严格小于
+MAINTAIN_CONF = 15  # 维持视频流配置
+MAINTAIN_OR_IMPROVE_CONF = 16  # 维持或提升视频流配置，大于等于
+
+# 云边协同方式相关
+MOVE_CLOUD = 4  # 挪到云端
+BACK_TO_HOST = 11  # 将服务拉回到本地
+EDGE_SIDE_COLLABORATION = 12  # 边边协同
+
+# 资源分配相关
+CHANGE_RSC_ALLOC_TO_CONS = 14  # 将服务的资源分配量更改为资源约束值，其他所有配置不变
+
 
 
 
@@ -125,7 +141,13 @@ fps_range=[1,5,10,20,30]
 encoder_range=['JPEG']
 
 ip_range=["192.168.1.9","114.212.81.11"]  # ["192.168.1.7","192.168.1.9","114.212.81.11"]
+cloud_ip = "114.212.81.11"
+edge_ip = "192.168.1.9"
 
+
+serv_names = ['face_detection', 'gender_classification']
+
+edge_cloud_cut_range = [i for i in range(len(serv_names) + 1)]
 
 mem_range=[0.001,0.002,0.003,0.004,0.005,0.006,0.007,0.008,0.009,0.01,
            0.011,0.012,0.013,0.014,0.015,0.016,0.017,0.018,0.019,0.02,
@@ -144,7 +166,8 @@ conf_and_serv_info={  #各种配置参数的可选值
     "encoder":encoder_range,
     
     "face_detection_ip":ip_range,
-    "gender_classification_ip":ip_range,   
+    "gender_classification_ip":ip_range,  
+    "edge_cloud_cut_point": edge_cloud_cut_range,
 
     "face_detection_mem_util_limit":mem_range,
     "face_detection_cpu_util_limit":cpu_range,

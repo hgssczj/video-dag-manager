@@ -123,6 +123,9 @@ class JobManager():
         # 模拟数据库：记录下发到本地的job
         self.job_dict = dict()
         # self.job_result_dict = dict()
+        
+        # 记录本地节点到云端的带宽
+        self.bandwidth_2_cloud = None
 
     def set_service_cloud_addr(self, addr):
         self.service_cloud_addr = addr
@@ -199,7 +202,8 @@ class JobManager():
     # 向云端获取可用于创建job的job_info
     def created_job_and_update_plan_and_get_bandwidth(self):
         if self.local_addr:
-            bandwidth=get_bandwidth()
+            bandwidth = get_bandwidth()
+            self.bandwidth_2_cloud = bandwidth
             resp = self.sess.post(url="http://{}/query/get_jobs_info_and_jobs_plan".format(self.query_addr),
                         json={"node_addr": self.local_addr,
                               'bandwidth':bandwidth})
@@ -392,10 +396,12 @@ class Job():
             plan_result = dict()
             plan_result['delay'] = dict()  # 保存DAG中每一步执行的时延
             runtime_dict = dict()
+            runtime_dict['data_trans_size'] = dict()
             plan_result['process_delay']=dict() #记录当前帧处理过程中每一个task对应的计算时延，process_delay加上网络传输时延才等于delay
             proc_resource_info_dict = dict()
+            data_to_cloud = 0  # 记录本次执行边缘端与云端之间的通信数据量
             for taskname in self.pipeline:
-                print("开始执行服务",taskname)
+                print("开始执行服务", taskname)
                 root_logger.info("to forward taskname={}".format(taskname))
 
                 input_ctx = output_ctx
@@ -404,11 +410,15 @@ class Job():
                     taskname
                 ))
 
+                temp_data_trans_size = 0
                 # 根据flow_mapping，执行task（本地不保存结果）
                 # root_logger.info("flow_mapping ={}".format(self.flow_mapping))
                 choice = cur_plan[common.PLAN_KEY_FLOW_MAPPING][taskname]
                 # root_logger.info("get choice of '{}' in flow_mapping, choose: {}".format(taskname, choice))
-
+                if choice['node_role'] == 'cloud':  # 如果在云端执行，则计算向云端发送的数据量，单位为字节
+                    data_to_cloud += len(json.dumps(input_ctx).encode('utf-8'))
+                temp_data_trans_size += len(json.dumps(input_ctx).encode('utf-8'))
+                
                 # 首先进行资源限制
                 url = self.manager.get_limit_resource_url(taskname, choice)
                 root_logger.info("获取限制资源的url {}".format(url))
@@ -438,7 +448,13 @@ class Job():
                     time.sleep(1)
                     output_ctx = self.invoke_service(serv_url=url, taskname=taskname, input_ctx=input_ctx)
                 ed_time = time.time()
+                
+                if choice['node_role'] == 'cloud':  # 如果在云端执行，则计算云端返回的数据量，单位为字节
+                    data_to_cloud += len(json.dumps(output_ctx).encode('utf-8'))
 
+                temp_data_trans_size += len(json.dumps(output_ctx).encode('utf-8'))
+                runtime_dict['data_trans_size'][taskname] = temp_data_trans_size  # 记录各个阶段之间传输的数据量，单位：字节
+                
                 # 运行时感知：应用无关
                 root_logger.info("got service result: {}, (delta_t={})".format(
                                   output_ctx.keys(), ed_time - st_time))
@@ -466,32 +482,40 @@ class Job():
             n += 1
             print("流水线初步完成，进行收尾处理")
             total_frame_delay = 0
+            total_frame_process_delay = 0
             for taskname in plan_result['delay']:
                 plan_result['delay'][taskname] = \
                     plan_result['delay'][taskname] / ((cam_frame_id - curr_cam_frame_id + 1) * 1.0)
                 total_frame_delay += plan_result['delay'][taskname]
-            runtime_dict['end_pipe'] = {
-                "delay": total_frame_delay,
-                "frame_id": cam_frame_id,
-                "n_loop": n
-            }
-            runtime_dict['task_conf'] = cur_plan[common.PLAN_KEY_VIDEO_CONF]  # 将当前任务的可配置参数也报告给运行时情境
-            runtime_dict['frame'] = frame_encoded  # 将视频帧编码后上云，是为了计算目标速度
-            runtime_dict['cap_fps'] = cap_fps  # 视频的原始帧率，为了计算目标速度
-            #完成以上处理后，total_frame_delay是总时延，而plan_result里完整包含了当前帧各阶段的真实时延，应该作为runtime_info的一部分
+            
             for taskname in plan_result['process_delay']:
                 plan_result['process_delay'][taskname] = \
                     plan_result['process_delay'][taskname] / ((cam_frame_id - curr_cam_frame_id + 1) * 1.0)
-            # self.update_runtime(taskname='end_pipe', output_ctx={"delay": total_frame_delay})  # 将DAG执行的总时延也作为情境汇报
+                total_frame_process_delay += plan_result['process_delay'][taskname]
 
+            runtime_dict['end_pipe'] = {
+                "delay": total_frame_delay,
+                "process_delay": total_frame_process_delay,
+                "frame_id": cam_frame_id,
+                "n_loop": n
+            }
+            runtime_dict['process_delay'] = plan_result['process_delay']
+            runtime_dict['exe_plan'] = cur_plan  # 将当前任务的执行计划也报告给运行时情境，之所以这么做是为了避免并发导致的云、边执行计划不一致
+            runtime_dict['frame'] = frame_encoded  # 将视频帧编码后上云，是为了计算目标速度
+            runtime_dict['cap_fps'] = cap_fps  # 视频的原始帧率，为了计算目标速度
             # DAG执行结束之后再次更新运行时情境，主要用于运行时情境画像，为知识库建立提供数据
             runtime_dict['user_constraint'] = self.user_constraint
-            # self.update_runtime(taskname='runtime_portrait', output_ctx=runtime_dict)
+            runtime_dict['bandwidth'] = self.manager.bandwidth_2_cloud  # 本次执行任务时边缘到云的带宽
+            runtime_dict['data_to_cloud'] = data_to_cloud  # 本次执行累计向云端发送的数据量
 
             output_ctx["frame_id"] = cam_frame_id
             output_ctx["n_loop"] = n
             output_ctx["delay"] = total_frame_delay
+            output_ctx["proc_delay"] = total_frame_process_delay
+            if self.pipeline[-1] == 'gender_classification':
+                output_ctx['obj_n'] = len(output_ctx['bbox'])
             frame_result.update(output_ctx)
+            frame_result['bandwidth'] = self.manager.bandwidth_2_cloud['kB/s']
             # 将当前帧的运行时情境和调度策略同步推送到云端query manager
             frame_result[common.SYNC_RESULT_KEY_PLAN] = cur_plan
             # frame_result[common.SYNC_RESULT_KEY_RUNTIME] = self.get_runtime()
@@ -499,7 +523,7 @@ class Job():
             # 将plan_result放入frame_result[common.SYNC_RESULT_KEY_RUNTIME]
             frame_result[common.SYNC_RESULT_KEY_RUNTIME]['plan_result']=plan_result
             frame_result[common.SYNC_RESULT_KEY_RUNTIME]['proc_resource_info'] = proc_resource_info_dict
-
+            
             curr_cam_frame_id = cam_frame_id
             curr_conf_frame_id = conf_frame_id
 
@@ -507,7 +531,7 @@ class Job():
             #    注意：本地不保存结果
             print("开始情境同步")
             self.manager.sync_job_result(job_uid=self.get_job_uid(),
-                                           job_result={
+                                           job_result= {
                                                 common.SYNC_RESULT_KEY_APPEND: frame_result,
                                             }
                                         )
@@ -595,6 +619,6 @@ if __name__ == "__main__":
         job_manager.start_new_job()
         
         # 不需要睡眠，因为created_job_and_update_plan中获取带宽本身会导致休眠
-        # sleep_sec = 2
-        # root_logger.warning(f"---- sleeping for {sleep_sec} sec ----")
-        # time.sleep(sleep_sec)
+        sleep_sec = 2
+        root_logger.warning(f"---- sleeping for {sleep_sec} sec ----")
+        time.sleep(sleep_sec)

@@ -16,15 +16,15 @@ src = None
 # 本地视频流
 #改造为从云端获取视频流
 video_info_list = [
-    {"id": 0, "type": "student in classroom", "path": "input/input.mov", "url": "http://192.168.1.92:7912/video0"},
-    {"id": 1, "type": "people in meeting-room", "path": "input/input1.mp4",  "url": "http://192.168.1.92:7912/video1"},
-    {"id": 3, "type": "traffic flow outdoor", "path": "input/traffic-720p.mp4", "url": "http://192.168.1.92:7912/video3"},
-    {"id": 4, "type": "cold_start_face_detect", "path": "input/cold_start_4.mp4", "url": "http://192.168.1.92:7912/video4"},
-    {"id": 5, "type": "cut people in meeting-room", "path": "input/test-cut1.mp4", "url": "http://192.168.1.92:7912/video99"},
-    {"id": 100, "type": "cut people in meeting-room", "path": "input/test-cut1.mp4", "url": "http://192.168.1.92:7912/video99"},
-    {"id": 101, "type": "traffic flow outdoor", "path": "input/traffic-720p.mp4", "url": "http://192.168.1.92:7912/video3"},
-    {"id": 102,"type": "people in meeting-room", "path": "input/input1.mp4", "url": "http://192.168.1.92:7912/video1"},
-    {"id": 103, "type": "cold_start_face_detect", "path": "input/cold_start_4.mp4", "url": "http://192.168.1.92:7912/video4"}
+    {"id": 0, "type": "student in classroom", "path": "input/input.mov", "url": "http://192.168.1.92:7913/video0"},
+    {"id": 1, "type": "people in meeting-room", "path": "input/input1.mp4",  "url": "http://192.168.1.92:7913/video1"},
+    {"id": 3, "type": "traffic flow outdoor", "path": "input/traffic-720p.mp4", "url": "http://192.168.1.92:7913/video3"},
+    {"id": 4, "type": "cold_start_face_detect", "path": "input/cold_start_4.mp4", "url": "http://192.168.1.92:7913/video4"},
+    {"id": 5, "type": "cut people in meeting-room", "path": "input/test-cut1.mp4", "url": "http://192.168.1.92:7913/video99"},
+    {"id": 100, "type": "cut people in meeting-room", "path": "input/test-cut1.mp4", "url": "http://192.168.1.92:7913/video99"},
+    {"id": 101, "type": "traffic flow outdoor", "path": "input/traffic-720p.mp4", "url": "http://192.168.1.92:7913/video3"},
+    {"id": 102,"type": "people in meeting-room", "path": "input/input1.mp4", "url": "http://192.168.1.92:7913/video1"},
+    {"id": 103, "type": "cold_start_face_detect", "path": "input/cold_start_4.mp4", "url": "http://192.168.1.92:7913/video4"}
     # id为100是为了验证知识库的正确性，避免因为99导致调度器不工作
 ]
 
@@ -83,7 +83,7 @@ def start_video_stream(port):
 
 if __name__ == '__main__':
 
-    start_video_stream(7912)
+    start_video_stream(7913)
 
 '''
 import cv2

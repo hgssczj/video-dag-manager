@@ -1,6 +1,8 @@
 from PortraitModel import PortraitModel
 import torch
 import numpy as np
+import subprocess
+import re
 
 class LoadTest():
     def __init__(self):
@@ -44,52 +46,49 @@ class LoadTest():
             pred = predictions.numpy()
             print(pred, pred[0])
 
+def ping_win(host):
+    # 这里是windows系统下的操作方式
+    # 执行ping命令
+    process = subprocess.Popen(['ping', '-n', '2', host], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    # 读取输出
+    stdout, stderr = process.communicate()
+
+    # 解析输出，提取往返时延
+    if process.returncode == 0:
+        # 使用正则表达式提取往返时延，可以先在命令行执行ping观察输出形式，再对应修改正则表达式
+        pattern = r"平均 = (\d+)ms"
+        match = re.search(pattern, stdout.decode('gb2312'))
+        if match:
+            return float(match.group(1))  # 返回平均往返时延
+    else:
+        print("Ping失败:", stderr.decode('gb2312'))
+
+
+def ping_unix(host):
+    # 这里是类unix系统下的操作方式
+    # 执行ping命令
+    process = subprocess.Popen(['ping', '-c', '4', host], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    # 读取输出
+    stdout, stderr = process.communicate()
+
+    # 解析输出，提取往返时延
+    if process.returncode == 0:
+        # 使用正则表达式提取往返时延，可以先在命令行执行ping观察输出形式，再对应修改正则表达式
+        pattern = r"min/avg/max/mdev = (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)"
+        match = re.search(pattern, stdout.decode('utf-8'))
+        if match:
+            return float(match.group(2))  # 返回平均往返时延
+    else:
+        print("Ping失败:", stderr.decode('utf-8'))
+
+
 if __name__ == '__main__':
-    a = LoadTest()
-    a.predict()
-    resource_info = {
-        '114.212.81.11': 
-            {'device_state': 
-                {
-                    'cpu_ratio': 40.9, 
-                    'gpu_compute_utilization': 
-                        {
-                            '0': 0, 
-                            '1': 0, 
-                            '2': 0, 
-                            '3': 0
-                        }, 
-                        'gpu_mem_total':  
-                        {'0': 24.0, '1': 24.0, '2': 24.0, '3': 24.0}, 
-                        'gpu_mem_utilization': 
-                            {'0': 1.4111836751302085, '1': 1.2761433919270835, '2': 1.2761433919270835, '3': 1.2761433919270835}, 
-                        'mem_ratio': 14.9, 
-                        'mem_total': 251.56013107299805, 
-                        'n_cpu': 48, 
-                        'net_ratio(MBps)': 0.11047, 
-                        'swap_ratio': 0.0
-                }, 
-                'node_role': 'cloud', 
-                'service_state': {
-                    'face_detection': {
-                        'cpu_util_limit': 1.0, 'mem_util_limit': 1.0
-                    }, 
-                    'gender_classification': 
-                        {'cpu_util_limit': 1.0, 'mem_util_limit': 1.0
-                    }
-                }
-            }, 
-            
-        '172.27.132.253': 
-            {'device_state': {}, 
-            'node_role': 'edge', 
-            'service_state': {
-                'face_detection': {
-                    'cpu_util_limit': 1.0, 'mem_util_limit': 1.0
-                }, 
-            'gender_classification': {
-                'cpu_util_limit': 1.0, 'mem_util_limit': 1.0
-                }
-            }
-        }
-    }
+    host = '114.212.81.11'
+    # 调用ping函数并获取往返时延
+    rtt = ping_win(host)
+    if rtt is not None:
+        print(f"{host} 的平均往返时延为 {rtt} 毫秒")
+    else:
+        print("无法获取往返时延")
