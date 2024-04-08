@@ -1317,6 +1317,12 @@ class KnowledgeBaseBuilder():
             bandwidth_list.append(bandwidth)
         self.draw_picture(x_list, bandwidth_list, title_name='带宽/时间', figure_broaden=True, xlabel='帧数', ylabel='带宽/ (kB/s)')
         
+        
+        face_detection_cpu_util_limit = None
+        face_detection_serv_node = None
+        gender_classification_cpu_util_limit = None
+        gender_classification_serv_node = None
+        
         for serv_name in self.serv_names:
             serv_role_name = serv_name+'_role'
             serv_ip_name = serv_name+'_ip'
@@ -1340,9 +1346,15 @@ class KnowledgeBaseBuilder():
             cpu_util_limit = serv_name+'_cpu_util_limit'
             cpu_util_use = serv_name+'_cpu_util_use'
 
-            self.draw_picture(x_value=x_list,y_value=df[serv_ip_name],title_name=serv_ip_name+"/时间",figure_broaden=True)
-            self.draw_picture(x_value=x_list,y_value=df[serv_proc_delay_name],title_name=serv_proc_delay_name+"/时间")
-            self.draw_picture(x_value=x_list,y_value=df[trans_delay_name],title_name=trans_delay_name+"/时间")
+            # self.draw_picture(x_value=x_list, y_value=serv_node_list, title_name=serv_name+"执行节点随时间变化图", figure_broaden=True, xlabel='帧数', ylabel='执行节点')
+            if serv_name == 'face_detection':
+                face_detection_serv_node = serv_node_list
+            else:
+                gender_classifity_serv_node = serv_node_list
+                
+            # self.draw_picture(x_value=x_list,y_value=df[serv_ip_name],title_name=serv_ip_name+"/时间",figure_broaden=True)
+            # self.draw_picture(x_value=x_list,y_value=df[serv_proc_delay_name],title_name=serv_proc_delay_name+"/时间")
+            # self.draw_picture(x_value=x_list,y_value=df[trans_delay_name],title_name=trans_delay_name+"/时间")
 
             # self.draw_picture(x_value=x_list, y_value=df[mem_portrait], title_name=mem_portrait+"/时间")
             # self.draw_picture(x_value=x_list, y_value=df[mem_util_limit], title_name=mem_util_limit+"/时间")
@@ -1351,9 +1363,37 @@ class KnowledgeBaseBuilder():
             # self.draw_picture(x_value=x_list, y_value=df[mem_util_use], title_name=mem_util_use+"/时间")
 
             # self.draw_picture(x_value=x_list, y_value=df[cpu_portrait], title_name=cpu_portrait+"/时间")
-            self.draw_picture(x_value=x_list, y_value=df[cpu_util_limit], title_name=serv_name+" CPU分配量随时间变化图", xlabel='帧数', ylabel='CPU分配量')
+            if serv_name == 'face_detection':
+                face_detection_cpu_util_limit = df[cpu_util_limit]
+            else:
+                gender_classifity_cpu_util_limit = df[cpu_util_limit]
+            # self.draw_picture(x_value=x_list, y_value=df[cpu_util_limit], title_name=serv_name+" CPU分配量随时间变化图", xlabel='帧数', ylabel='CPU分配量')
             # self.draw_picture(x_value=x_list, y_value=df[cpu_util_use], title_name=serv_name+" CPU使用量随时间变化图", xlabel='帧数', ylabel='CPU使用量')
-            
+        
+        plt.figure(figsize=[8, 5])  
+        plt.xlabel("帧数", fontdict={'fontsize': 13, 'family': 'SimSun'})
+        plt.ylabel("执行节点", fontdict={'fontsize': 13, 'family': 'SimSun'})
+        plt.yticks(fontproperties='Times New Roman')
+        plt.xticks(fontproperties='Times New Roman')
+        plt.plot(x_list, face_detection_serv_node, label="face_detection")
+        plt.plot(x_list, gender_classifity_serv_node, label="gender_classification")
+        plt.title('执行节点随时间变化图', fontdict={'fontsize': 15, 'family': 'SimSun'})
+        plt.grid(ls="--", alpha=0.4)  # 绘制虚线网格
+        plt.legend(prop={'family': 'SimSun', 'size': 9})
+        plt.show()
+        
+        plt.figure(figsize=[8, 5])  
+        plt.xlabel("帧数", fontdict={'fontsize': 13, 'family': 'SimSun'})
+        plt.ylabel("CPU分配量", fontdict={'fontsize': 13, 'family': 'SimSun'})
+        plt.yticks(fontproperties='Times New Roman')
+        plt.xticks(fontproperties='Times New Roman')
+        plt.plot(x_list, face_detection_cpu_util_limit, label="face_detection")
+        plt.plot(x_list, gender_classifity_cpu_util_limit, label="gender_classification")
+        plt.title('CPU分配量随时间变化图', fontdict={'fontsize': 15, 'family': 'SimSun'})
+        plt.grid(ls="--", alpha=0.4)  # 绘制虚线网格
+        plt.legend(prop={'family': 'SimSun', 'size': 9})
+        plt.show()
+        
         conf_draw_dict = {
             'reso': {
                 'title_name': '分辨率',
