@@ -416,8 +416,8 @@ class RuntimePortrait():
                 
         
         ###### 4. 其他信息
-        portrait_info['bandwidth'] = cur_runtime_info['bandwidth']  # 云边之间的数据传输量
-        portrait_info['data_to_cloud'] = cur_runtime_info['data_to_cloud']  # 云边之间的带宽
+        portrait_info['bandwidth'] = cur_runtime_info['bandwidth']  # 云边之间的带宽
+        portrait_info['data_to_cloud'] = cur_runtime_info['data_to_cloud']  # 云边之间的数据传输量
         portrait_info['exe_plan'] = cur_runtime_info['exe_plan']
         portrait_info['data_trans_size'] = cur_runtime_info['data_trans_size']  # 各个服务输入和输出的数据量
         portrait_info['frame'] = cur_runtime_info['frame']

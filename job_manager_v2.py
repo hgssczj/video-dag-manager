@@ -201,7 +201,7 @@ class JobManager():
     
     # 向云端获取可用于创建job的job_info
     def created_job_and_update_plan_and_get_bandwidth(self):
-        if self.local_addr:
+        if self.local_addr:  # node_ip:tracker_port 4001
             bandwidth = get_bandwidth()
             self.bandwidth_2_cloud = bandwidth
             resp = self.sess.post(url="http://{}/query/get_jobs_info_and_jobs_plan".format(self.query_addr),

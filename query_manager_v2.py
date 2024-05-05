@@ -495,12 +495,12 @@ def cloud_scheduler_loop_kb(query_manager=None):
             for qid, query in query_dict.items():
                 assert isinstance(query, Query)
                 query_id = query.query_id
-                work_condition=query.get_latest_work_condition()
-                # work_condition=query.get_aggregate_work_condition()
-                portrait_info=query.get_portrait_info()
-                # appended_result_list=query.get_appended_result_list()
-                if query.video_id<99:  #如果是大于等于99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
-                    print("video_id",query.video_id)
+                work_condition = query.get_latest_work_condition()
+                # work_condition = query.get_aggregate_work_condition()
+                portrait_info = query.get_portrait_info()
+                # appended_result_list = query.get_appended_result_list()
+                if query.video_id < 99:  # 如果是大于等于99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
+                    print("video_id", query.video_id)
                     node_addr = query.node_addr  # 形如：192.168.1.9:4001
                     user_constraint = query.user_constraint
                     assert node_addr
