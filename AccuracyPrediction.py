@@ -240,18 +240,93 @@ class AccuracyPrediction():
             } 
             
         return {}   
-            
+        
+    def get_middle_conf(self, service_name, acc_constraint, obj_size=None, obj_speed=None):
+        # 此函数用于获取指定服务在指定工况下的中配置列表
+        # 中配置的定义：满足精度约束的最低配置，其中任何一种具体的配置降低一档都会导致其不再满足精度约束
+        middle_conf_list = []  # 中配置列表
+        middle_plus_conf_list = []  # 比中配置高一档的配置列表，用于在提升配置时给出上界
+        
+        assert service_name == 'face_detection'
+        temp_obj_size = obj_size
+        temp_obj_speed = obj_speed
+        
+        if temp_obj_speed is None or temp_obj_speed == 0:  # 当不存在速度字段时，默认速度为第二档
+            temp_obj_speed = 300
+        
+        if temp_obj_size is None or temp_obj_size == 0:  # 当不存在目标大小字段时，默认大小为第二档
+            temp_obj_size = 70000
+        
+        # 遍历所有配置组合确定中配置
+        # TODO: 目前采取的方式遍历，不够高效，后续可优化
+        for i in range(len(common.reso_range)):
+            for j in range(len(common.fps_range)):
+                
+                temp_service_conf = {
+                    'reso': common.reso_range[i],
+                    'fps': common.fps_range[j]
+                }
+                temp_acc = self.predict(service_name, temp_service_conf, temp_obj_size, temp_obj_speed)
+                if temp_acc >= acc_constraint:
+                    if i == 0 and j == 0:  # 若当前配置为最低配置且满足精度约束，则中配置只有最低配置
+                        middle_conf_list = [(common.fps_range[j], common.reso_range[i])]
+                        
+                        middle_plus_reso_index = min(i+1, len(common.reso_range)-1)
+                        middle_plus_fps_index = min(j+1, len(common.fps_range)-1)
+                        middle_plus_conf_list = [(common.fps_range[middle_plus_fps_index], common.reso_range[middle_plus_reso_index])]
+                        
+                        return middle_conf_list, middle_plus_conf_list
+                    
+                    else:
+                        # 判断分辨率降一档是否会导致不满足精度约束
+                        flag_1 = True
+                        if i >= 1:
+                            temp_service_conf = {
+                                'reso': common.reso_range[i-1],
+                                'fps': common.fps_range[j]
+                            }
+                            temp_acc = self.predict(service_name, temp_service_conf, temp_obj_size, temp_obj_speed)
+                            if temp_acc >= acc_constraint:  # 分辨率降一档仍然满足精度约束，则当前配置不是中配置
+                                flag_1 = False
+                        
+                        # 判断帧率降一档是否会导致不满足精度约束
+                        flag_2 = True
+                        if j >= 1:
+                            temp_service_conf = {
+                                'reso': common.reso_range[i],
+                                'fps': common.fps_range[j-1]
+                            }
+                            temp_acc = self.predict(service_name, temp_service_conf, temp_obj_size, temp_obj_speed)
+                            if temp_acc >= acc_constraint:
+                                flag_2 = False  # 帧率降一档仍然满足精度约束，则当前配置不是中配置
+                            
+                        if flag_1 and flag_2:  # 所有配置都不能再降低，则为中配置
+                            middle_conf_list.append((common.fps_range[j], common.reso_range[i]))
+                            
+                            middle_plus_reso_index = min(i+1, len(common.reso_range)-1)
+                            middle_plus_fps_index = min(j+1, len(common.fps_range)-1)
+                            middle_plus_conf_list.append((common.fps_range[middle_plus_fps_index], common.reso_range[middle_plus_reso_index]))
+                            
+        assert len(middle_conf_list) != 0  # middle_conf_list长度为0说明最高配置也无法满足精度约束
+        return middle_conf_list, middle_plus_conf_list
                 
 
 if __name__ == "__main__":
     acc_pred = AccuracyPrediction()
     
     service_name = 'face_detection'
-    service_conf = {
-        # 配置字段
-        'fps': 1,
-        'reso': '900p'
-    }
+    # service_conf = {
+    #     # 配置字段
+    #     'fps': 1,
+    #     'reso': '900p'
+    # }
     
-    print(acc_pred.predict(service_name, service_conf, obj_size=79000, obj_speed=200))
+    # print(acc_pred.predict(service_name, service_conf, obj_size=79000, obj_speed=200))
+    
+    middle_conf_list, middle_plus_conf_list = acc_pred.get_middle_conf(service_name, 0.6, obj_size=79000, obj_speed=200)
+    print(middle_conf_list, middle_plus_conf_list)
+    
+    a = (5, '480p')
+    print(a in middle_conf_list)
+    
         

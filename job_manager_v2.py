@@ -78,8 +78,8 @@ def sfg_get_next_init_task(
             new_conf_frame_id = conf_frame_id
             break
 
-    print("cam_fps={} conf_fps={}".format(cam_fps, conf_fps))
-    print("new_cam_frame_id={} new_conf_frame_id={}".format(new_cam_frame_id, new_conf_frame_id))
+    root_logger.info("cam_fps={} conf_fps={}".format(cam_fps, conf_fps))
+    root_logger.info("new_cam_frame_id={} new_conf_frame_id={}".format(new_cam_frame_id, new_conf_frame_id))
 
 
     # 根据video_conf['reso']调整大小
@@ -132,7 +132,7 @@ class JobManager():
     
     # 接入query manager，汇报自身信息
     def join_query_controller(self, query_addr, tracker_port):
-        print('准备加入云端')
+        root_logger.info('准备加入云端')
         self.query_addr = query_addr
         node_ip=get_ip_address()
         self.local_addr=node_ip+":"+str(tracker_port)
@@ -209,13 +209,13 @@ class JobManager():
                               'bandwidth':bandwidth})
             
             if resp.json():  #如果本地ip已经初始化，且r1.json存在，就说明获取job_info成功了
-                print('准备新建job或更新调度计划')
+                root_logger.info('准备新建job或更新调度计划')
                 info_and_plan=resp.json()
                 jobs_info=info_and_plan['jobs_info']
                 jobs_plan=info_and_plan['jobs_plan']
                 # 建立新job
                 for job_uid,job_info in jobs_info.items():
-                    print('建立新job',job_uid)
+                    root_logger.info('建立新job:{}'.format(job_uid))
                     self.submit_job(
                         job_uid=job_uid,
                         node_addr=job_info['node_addr'],
@@ -225,8 +225,8 @@ class JobManager():
                     )
                 # 更新调度计划
                 for job_uid,job_plan in jobs_plan.items():
-                    print('更新新调度计划',job_uid)
-                    print(job_plan)
+                    root_logger.info('更新新调度计划:{}'.format(job_uid))
+                    root_logger.info(job_plan)
                     self.update_job_plan(
                         job_uid=job_uid,
                         video_conf=job_plan['video_conf'],
@@ -401,7 +401,7 @@ class Job():
             proc_resource_info_dict = dict()
             data_to_cloud = 0  # 记录本次执行边缘端与云端之间的通信数据量
             for taskname in self.pipeline:
-                print("开始执行服务", taskname)
+                root_logger.info("开始执行服务:{}".format(taskname))
                 root_logger.info("to forward taskname={}".format(taskname))
 
                 input_ctx = output_ctx
@@ -459,10 +459,10 @@ class Job():
                 root_logger.info("got service result: {}, (delta_t={})".format(
                                   output_ctx.keys(), ed_time - st_time))
                 plan_result['delay'][taskname] = ed_time - st_time
-                print("展示云端所发资源信息:") #把各阶段时延都保存到plan_result内以便同步到云端
-                print(output_ctx.keys())
-                print(output_ctx['proc_resource_info'])
-                plan_result['process_delay'][taskname]=output_ctx['proc_resource_info']['compute_latency']
+                root_logger.info("展示云端所发资源信息:") #把各阶段时延都保存到plan_result内以便同步到云端
+                root_logger.info(output_ctx.keys())
+                root_logger.info(output_ctx['proc_resource_info'])
+                plan_result['process_delay'][taskname] = output_ctx['proc_resource_info']['compute_latency']
                 #下面的注释不用管
                 # 运行时感知：应用相关
                 # wrapped_ctx = output_ctx.copy()
@@ -476,11 +476,11 @@ class Job():
                 output_ctx['task_conf'] = cur_plan[common.PLAN_KEY_VIDEO_CONF]
                 proc_resource_info_dict[taskname] = output_ctx['proc_resource_info']
                 runtime_dict[taskname] = output_ctx
-                print("完成情境获取")
+                root_logger.info("完成情境获取")
                 # self.update_runtime(taskname=taskname, output_ctx=output_ctx)
 
             n += 1
-            print("流水线初步完成，进行收尾处理")
+            root_logger.info("流水线初步完成，进行收尾处理")
             total_frame_delay = 0
             total_frame_process_delay = 0
             for taskname in plan_result['delay']:
@@ -500,6 +500,7 @@ class Job():
                 "n_loop": n
             }
             runtime_dict['process_delay'] = plan_result['process_delay']
+            runtime_dict['delay'] = plan_result['delay']
             runtime_dict['exe_plan'] = cur_plan  # 将当前任务的执行计划也报告给运行时情境，之所以这么做是为了避免并发导致的云、边执行计划不一致
             runtime_dict['frame'] = frame_encoded  # 将视频帧编码后上云，是为了计算目标速度
             runtime_dict['cap_fps'] = cap_fps  # 视频的原始帧率，为了计算目标速度
@@ -516,6 +517,7 @@ class Job():
                 output_ctx['obj_n'] = len(output_ctx['bbox'])
             frame_result.update(output_ctx)
             frame_result['bandwidth'] = self.manager.bandwidth_2_cloud['kB/s']
+            frame_result['data_trans_size'] = runtime_dict['data_trans_size']
             # 将当前帧的运行时情境和调度策略同步推送到云端query manager
             frame_result[common.SYNC_RESULT_KEY_PLAN] = cur_plan
             # frame_result[common.SYNC_RESULT_KEY_RUNTIME] = self.get_runtime()
@@ -529,7 +531,7 @@ class Job():
 
             # 3、通过job manager同步结果到query manager
             #    注意：本地不保存结果
-            print("开始情境同步")
+            root_logger.info("开始情境同步")
             self.manager.sync_job_result(job_uid=self.get_job_uid(),
                                            job_result= {
                                                 common.SYNC_RESULT_KEY_APPEND: frame_result,

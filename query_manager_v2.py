@@ -26,12 +26,13 @@ import torch
 from RuntimePortrait import RuntimePortrait
 import scheduler_func.lat_first_kb_muledge
 import scheduler_func.lat_first_kb_muledge_wzl
+import scheduler_func.lat_first_kb_muledge_wzl_1
 
 
 class Query():
     CONTENT_ELE_MAXN = 50
 
-    def __init__(self, query_id, node_addr, video_id, pipeline, user_constraint,job_info):
+    def __init__(self, query_id, node_addr, video_id, pipeline, user_constraint, job_info):
         self.query_id = query_id
         # 查询指令信息
         self.node_addr = node_addr
@@ -54,13 +55,13 @@ class Query():
         self.plan_list = []
         
         # 运行时情境画像模块
-        self.runtime_portrait = RuntimePortrait(pipeline)
+        self.runtime_portrait = RuntimePortrait(pipeline, user_constraint)
 
     # ---------------------------------------
     # ---- 属性 ----
     def set_plan(self, video_conf, flow_mapping, resource_limit):
         while len(self.plan_list) >= QueryManager.LIST_BUFFER_SIZE_PER_QUERY:
-            print("len(self.plan_list)={}".format(len(self.plan_list)))
+            root_logger.info("len(self.plan_list)={}".format(len(self.plan_list)))
             del self.plan_list[0]
         self.plan_list.append(self.get_plan())
 
@@ -196,7 +197,7 @@ class QueryManager():
 
         self.video_info[node_addr][video_id].update({"type": video_type})
 
-    def submit_query(self, query_id, node_addr, video_id, pipeline, user_constraint,job_info):
+    def submit_query(self, query_id, node_addr, video_id, pipeline, user_constraint, job_info):
         # 在本地启动新的job
         assert query_id not in self.query_dict.keys()
         query = Query(query_id=query_id,
@@ -296,7 +297,7 @@ def user_submit_query_cbk():
     user_constraint = para['user_constraint']
 
     if node_addr not in query_manager.video_info:
-        print('目前云端video_info为',query_manager.video_info)
+        root_logger.info('目前云端video_info为:{}'.format(query_manager.video_info))
         return flask.jsonify({"status": 1, "error": "cannot found {}".format(node_addr)})
 
     # TODO：在云端注册任务实例，维护job执行结果、调度信息
@@ -308,16 +309,16 @@ def user_submit_query_cbk():
         'pipeline': pipeline,
         'user_constraint': user_constraint
     }
-    print('新query的job_info')
-    print(new_job_info)
+    root_logger.info('新query的job_info')
+    root_logger.info(new_job_info)
     query_manager.submit_query(query_id=new_job_info['job_uid'],
                                 node_addr=new_job_info['node_addr'],
                                 video_id=new_job_info['video_id'],
                                 pipeline=new_job_info['pipeline'],
                                 user_constraint=new_job_info['user_constraint'],
                                 job_info=new_job_info)
-    print('完成一次提交，新的字典为')
-    print(query_manager.query_dict)
+    root_logger.info('完成一次提交，新的字典为')
+    root_logger.info(query_manager.query_dict)
     '''
     # 要等任务已经被领取了才算任务提交成功
     while True:
@@ -342,25 +343,25 @@ def query_get_job_cbk():
     bandwidth = para['bandwidth']
     # 在query_manager里用一个字典保存每一个边缘当前的带宽。
     query_manager.bandwidth_dict[node_addr]=bandwidth
-    print('当前任务字典query_dict')
-    print(query_manager.query_dict)
-    print('当前带宽字典bandwidth_dict')
-    print(query_manager.bandwidth_dict)
+    root_logger.info('当前任务字典query_dict')
+    root_logger.info(query_manager.query_dict)
+    root_logger.info('当前带宽字典bandwidth_dict')
+    root_logger.info(query_manager.bandwidth_dict)
 
     for query_id, query in query_manager.query_dict.items():
-        print(query_id,query.get_node_addr())
+        root_logger.info('{},{},{}'.format(query_id, query.get_node_addr(), node_addr))
         # 获取尚未生成job的query的job_info
         if not query.get_created_job() and query.get_node_addr() == node_addr: 
             query.set_created_job(True) #将其状态表示为已创建job
             jobs_info[query_id]=query.get_job_info()
-            print('发现新job',jobs_info[query_id])
+            root_logger.info('发现新job:{}'.format(jobs_info[query_id]))
         # 获取已经生成job且已经有调度计划的query的调度计划
         # print(query.get_created_job(),query.get_node_addr())
         if query.get_created_job() and query.get_node_addr() == node_addr and \
             query_id in scheduler_func.lat_first_kb_muledge_wzl.prev_conf and\
             query_id in scheduler_func.lat_first_kb_muledge_wzl.prev_flow_mapping and \
             query_id in scheduler_func.lat_first_kb_muledge_wzl.prev_resource_limit:
-            # print('开始更新调度计划')
+            root_logger.info('开始更新调度计划')
             jobs_plan[query_id] = {
                 'job_uid': query_id,
                 'video_conf': scheduler_func.lat_first_kb_muledge_wzl.prev_conf[query_id],
@@ -382,9 +383,9 @@ def update_prev_plan_cbk():
     para = flask.request.json
 
     job_uid=para['job_uid']
-    scheduler_func.lat_first_kb_muledge.prev_conf[job_uid]=para['video_conf']
-    scheduler_func.lat_first_kb_muledge.prev_flow_mapping[job_uid]=para['flow_mapping']
-    scheduler_func.lat_first_kb_muledge.prev_resource_limit[job_uid]=para['resource_limit']
+    scheduler_func.lat_first_kb_muledge_wzl.prev_conf[job_uid]=para['video_conf']
+    scheduler_func.lat_first_kb_muledge_wzl.prev_flow_mapping[job_uid]=para['flow_mapping']
+    scheduler_func.lat_first_kb_muledge_wzl.prev_resource_limit[job_uid]=para['resource_limit']
 
     return flask.jsonify({"statys":0,"msg":"prev plan has been updated"})
 
@@ -456,14 +457,14 @@ def node_video_info():
 @flask_cors.cross_origin()
 def node_join_cbk():
     para = flask.request.json
-    print('发现新边端')
+    root_logger.info('发现新边端')
     #root_logger.info("from {}: got {}".format(flask.request.remote_addr, para))
     node_ip = para['node_ip']
     node_port = para['node_port']
     node_addr = node_ip + ":" + str(node_port)
     video_id = para['video_id']
     video_type = para['video_type']
-    print(node_ip,node_port,node_addr)
+    root_logger.info(node_ip,node_port,node_addr)
 
     query_manager.add_video(node_addr=node_addr, video_id=video_id, video_type=video_type)
 
@@ -500,7 +501,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
                 portrait_info = query.get_portrait_info()
                 # appended_result_list = query.get_appended_result_list()
                 if query.video_id < 99:  # 如果是大于等于99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
-                    print("video_id", query.video_id)
+                    root_logger.info("video_id:{}".format(query.video_id))
                     node_addr = query.node_addr  # 形如：192.168.1.9:4001
                     user_constraint = query.user_constraint
                     assert node_addr
@@ -522,23 +523,32 @@ def cloud_scheduler_loop_kb(query_manager=None):
                         #     bandwidth_dict=bandwidth_dict
                         # )
                         
-                        conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge_wzl.scheduler(
+                        # conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge_wzl.scheduler(
+                        #     job_uid=query_id,
+                        #     dag={"generator": "x", "flow": query.pipeline},
+                        #     system_status=system_status,
+                        #     work_condition=work_condition,
+                        #     portrait_info=portrait_info,
+                        #     user_constraint=user_constraint,
+                        #     bandwidth_dict=bandwidth_dict[node_addr]
+                        # )
+                        
+                        conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge_wzl_1.scheduler(
                             job_uid=query_id,
                             dag={"generator": "x", "flow": query.pipeline},
                             system_status=system_status,
-                            work_condition=work_condition,
                             portrait_info=portrait_info,
                             user_constraint=user_constraint,
                             bandwidth_dict=bandwidth_dict[node_addr]
                         )
                         
-                    print("下面展示即将更新的调度计划：")
-                    print(type(query_id),query_id)
-                    print(type(conf),conf)
-                    print(type(flow_mapping),flow_mapping)
-                    print(type(resource_limit),resource_limit)
+                    root_logger.info("下面展示即将更新的调度计划：")
+                    root_logger.info(type(query_id),query_id)
+                    root_logger.info(type(conf),conf)
+                    root_logger.info(type(flow_mapping),flow_mapping)
+                    root_logger.info(type(resource_limit),resource_limit)
                 else:
-                    print("query.video_id:",query.video_id,"不值得调度")
+                    root_logger.info("query.video_id:{}, 不值得调度".format(query.video_id))
         except Exception as e:
             root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
 

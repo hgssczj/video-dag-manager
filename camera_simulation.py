@@ -24,7 +24,8 @@ video_info_list = [
     {"id": 100, "type": "cut people in meeting-room", "path": "input/test-cut1.mp4", "url": "http://192.168.1.92:7913/video99"},
     {"id": 101, "type": "traffic flow outdoor", "path": "input/traffic-720p.mp4", "url": "http://192.168.1.92:7913/video3"},
     {"id": 102,"type": "people in meeting-room", "path": "input/input1.mp4", "url": "http://192.168.1.92:7913/video1"},
-    {"id": 103, "type": "cold_start_face_detect", "path": "input/cold_start_4.mp4", "url": "http://192.168.1.92:7913/video4"}
+    {"id": 103, "type": "cold_start_face_detect", "path": "input/cold_start_4.mp4", "url": "http://192.168.1.92:7913/video4"},
+    {"id": 104, "type": "people walking through the hallway", "path": "input/face_detection_1.mp4", "url": "http://192.168.1.92:7913/video5"},
     # id为100是为了验证知识库的正确性，避免因为99导致调度器不工作
 ]
 
@@ -68,6 +69,12 @@ def read_video3():
 # @flask_cors.cross_origin()
 def read_video4():
     return flask.Response(get_video_frame("input/cold_start_4.mp4"),
+                          mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@video_source_app.route('/video5')
+# @flask_cors.cross_origin()
+def read_video5():
+    return flask.Response(get_video_frame("input/face_detection_1.mp4"),
                           mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @video_source_app.route('/video99')

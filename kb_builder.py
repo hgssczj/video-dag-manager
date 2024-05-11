@@ -225,6 +225,8 @@ class KnowledgeBaseBuilder():
             fieldnames.append(field_name)
             field_name = serv_name+'_trans_delay'
             fieldnames.append(field_name)
+            field_name = serv_name+'_trans_data_size'
+            fieldnames.append(field_name)
 
             # 以下用于获取每一个服务对应的cpu资源画像、限制和效果
             # field_name = serv_name + '_cpu_portrait'
@@ -274,7 +276,7 @@ class KnowledgeBaseBuilder():
     def write_in_file(self,r2,r3,r4):   #pipeline指定了任务类型   
         system_status = r2.json()
         result = r3.json()
-        portrait_info=r4.json()
+        # portrait_info=r4.json()
         '''
         print("system_status")
         print(system_status)
@@ -508,6 +510,7 @@ class KnowledgeBaseBuilder():
                 serv_proc_delay_name = serv_name + '_proc_delay'
                 trans_ip_name = serv_name + '_trans_ip'
                 trans_delay_name = serv_name + '_trans_delay'
+                trans_data_size_name = serv_name + '_trans_data_size'
 
                 row[serv_role_name] = res['ext_plan']['flow_mapping'][serv_name]['node_role']
                 row[serv_ip_name] = res['ext_plan']['flow_mapping'][serv_name]['node_ip']
@@ -515,7 +518,8 @@ class KnowledgeBaseBuilder():
                 # row['all_delay'] += row[serv_proc_delay_name]
                 row[trans_ip_name] = row[serv_ip_name]
                 row[trans_delay_name] = res['ext_runtime']['plan_result']['delay'][serv_name] - row[serv_proc_delay_name]
-
+                row[trans_data_size_name] = res['data_trans_size'][serv_name]
+                
                 # 要从runtime_info里获取资源信息。暂时只提取runtime_portrait列表中的第一个画像
                 # 以下用于获取每一个服务对应的cpu资源画像、限制和效果
                 # field_name=serv_name+'_cpu_portrait'
@@ -619,10 +623,10 @@ class KnowledgeBaseBuilder():
             return {"status":2,"des":"fail to post one query request"}
         
         # (4) 查看当前运行时情境
-        r4 = self.sess.get(url="http://{}/query/get_portrait_info/{}".format(self.query_addr, self.query_id))  
-        #print(r4)
-        if not r4.json():
-            return {"status":2,"des":"fail to post one query request"}
+        # r4 = self.sess.get(url="http://{}/query/get_portrait_info/{}".format(self.query_addr, self.query_id))  
+        # #print(r4)
+        # if not r4.json():
+        #     return {"status":2,"des":"fail to post one query request"}
         '''
         else:
             print("收到运行时情境为:")
@@ -630,7 +634,7 @@ class KnowledgeBaseBuilder():
         '''
         
         # 如果r1 r2 r3都正常
-        updatetd_result=self.write_in_file(r2=r2,r3=r3,r4=r4)
+        updatetd_result=self.write_in_file(r2=r2,r3=r3,r4=None)
 
         return {"status":3,"des:":"succeed to record a row","updatetd_result":updatetd_result}
     
@@ -676,7 +680,7 @@ class KnowledgeBaseBuilder():
     # 方法：在指定参数的配置下，反复执行post_get_write获取sample_bound个不重复的结果，并计算平均用时avg_delay
     #      之后将当前配置作为键、avg_delay作为值，以键值对的形式将该配置的采样结果保存在字典中，以供贝叶斯优化时的计算   
     # 返回值：当前conf,flow_mapping,resource_limit所对应的sample_bound个采样结果的平均时延
-    def collect_for_sample(self,conf,flow_mapping,resource_limit):
+    def collect_for_sample(self, conf, flow_mapping, resource_limit):
         sample_num=0
         sample_result=[]
         all_delay=0
@@ -1595,10 +1599,16 @@ serv_names=["face_detection","gender_classification"]
 #'''
 query_body = {
         "node_addr": "192.168.1.9:4001",
-        "video_id": 4,     
+        "video_id": 103,     
         "pipeline":  ["face_detection", "gender_classification"],#制定任务类型
         "user_constraint": {
-            "delay": 0.3, #用户约束暂时设置为0.3
+            "delay": 0.3,  # 用户时延约束暂时设置为0.3
+            "accuracy": 0.6,  # 用户精度约束暂时设置为0.6
+            'rsc_constraint': {
+                "114.212.81.11": {"cpu": 1.0, "mem": 1000}, 
+                "192.168.1.7": {"cpu": 1.0, "mem": 1000},
+                "192.168.1.9": {"cpu": 0.7, "mem": 1000}
+            }
         }
     }  
 #'''
@@ -1608,7 +1618,7 @@ if __name__ == "__main__":
 
     from RuntimePortrait import RuntimePortrait
 
-    myportrait = RuntimePortrait(pipeline=serv_names)
+    myportrait = RuntimePortrait(pipeline=serv_names, user_constraint=query_body['user_constraint'])
     #从画像里收集服务在边缘端的资源上限
     # 描述每一种服务所需的中资源阈值，它限制了贝叶斯优化的时候采取怎样的内存取值范围
     '''
@@ -1664,9 +1674,9 @@ if __name__ == "__main__":
     # 是否进行稀疏采样(贝叶斯优化)
     need_sparse_kb = 0
     # 是否进行严格采样（遍历所有配置）
-    need_tight_kb = 0
+    need_tight_kb = 1
     # 是否根据某个csv文件绘制画像 
-    need_to_draw = 1
+    need_to_draw = 0
     # 是否需要基于初始采样结果建立一系列字典，也就是时延有关的知识库
     need_to_build = 0
     # 是否需要将某个文件的内容更新到知识库之中
@@ -1758,7 +1768,7 @@ if __name__ == "__main__":
     # 建立基于遍历各类配置的知识库
     if need_tight_kb==1:
         kb_builder.send_query() 
-        kb_builder.sample_and_record(sample_bound=10) #表示对于所有配置组合每种组合采样sample_bound次。
+        kb_builder.sample_and_record(sample_bound=5) #表示对于所有配置组合每种组合采样sample_bound次。
 
     # 关于是否需要建立知识库：可以根据txt文件中的内容来根据采样结果建立知识库
     if need_to_build==1:

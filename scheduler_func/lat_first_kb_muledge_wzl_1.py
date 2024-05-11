@@ -17,6 +17,30 @@ prev_resource_limit = dict()
 prev_runtime_info = dict()
 
 
+def generate_combination(length):
+    if length == 1:
+        return [[0, 0], [-1, 0]]
+    else:
+        smaller_arrays = generate_combination(length - 1)
+        arrays = []
+        for array in smaller_arrays:
+            arrays.append(array + [0, 0])
+            arrays.append(array + [-1, 0])
+        return arrays
+
+def get_combination(list_dict, depth, length):
+    if depth == length:
+        return list_dict[depth]
+    else:
+        deeper_lists = get_combination(list_dict, depth+1, length)
+        temp_lists = list_dict[depth]
+        res_lists = []
+        for temp_list in temp_lists:
+            for deeper_list in deeper_lists:
+                res_lists.append(temp_list + deeper_list)
+        
+        return res_lists
+    
 def macro_judge(
     job_uid=None,
     work_condition=None,
@@ -35,208 +59,192 @@ def macro_judge(
         return {
             'cold_start_flag': True,
             'macro_plans': [],
-            'conf_upper_bound': None
         }
     
     # 从画像信息中提取调度策略而不是从云端保存的历史调度策略中获取，这是为了避免云边之间并发导致的策略不一致
     old_conf = portrait_info['exe_plan'][common.PLAN_KEY_VIDEO_CONF]
     old_flow_mapping = portrait_info['exe_plan'][common.PLAN_KEY_FLOW_MAPPING]
     old_resource_limit = portrait_info['exe_plan'][common.PLAN_KEY_RESOURCE_LIMIT]
+    macro_plans = []
     
-    ########################## 1. 判断是否满足时延约束和资源约束 ##########################
+    ########################## 1. 确定各类配置的调整方向和范围 ##########################
+    conf_adjust_plans = []  # 配置调整的方向列表，每个元素为一个列表:[帧率调整方向, 分辨率调整方向]
+    conf_adjust_direction = 0  # 配置应该提高还是降低
+    conf_upper_bound = dict()  # 配置提高的上界
+    conf_lower_bound = dict()  # 配置降低的下界
     
-    # 判断是否满足时延约束
-    pre_data_to_cloud = portrait_info['data_to_cloud']
-    pre_bandwidth = portrait_info['bandwidth']
-    
-    in_delay_cons = True
-    # 只考虑边缘和云端之间的传输时延
-    pre_edge_to_cloud_trans_delay = pre_data_to_cloud / (pre_bandwidth['kB/s'] * 1000)  # 上一帧处理时的传输时延
-    if (all_proc_delay + pre_edge_to_cloud_trans_delay) > user_constraint['delay']:
-        in_delay_cons = False
-    
-    # 判断是否满足资源约束
-    in_rsc_cons = True
-    cpu_in_rsc_cons = True
-    mem_in_rsc_cons = True
-    for device_ip in rsc_constraint.keys():
-        # 只针对非云设备计算违反资源约束程度
-        if model_op[device_ip]['node_role'] != 'cloud':
-            cpu_alloc = 0
-            mem_alloc = 0
-            
-            for serv_name in old_resource_limit.keys():
-                if old_flow_mapping[serv_name]['node_ip'] == device_ip:
-                    # 必须用round保留小数点，因为python对待浮点数不精确，0.35加上0.05会得到0.39999……
-                    cpu_alloc = round(cpu_alloc + old_resource_limit[serv_name]['cpu_util_limit'], 2)
-                    mem_alloc = round(mem_alloc + old_resource_limit[serv_name]['mem_util_limit'], 2)
-            cpu_alloc_ratio = float(cpu_alloc) / float(rsc_constraint[device_ip]['cpu'])
-            mem_alloc_ratio = float(mem_alloc) / float(rsc_constraint[device_ip]['mem'])
-
-            if cpu_alloc_ratio > 1:
-                cpu_in_rsc_cons = False
-            if mem_alloc_ratio > 1:
-                mem_in_rsc_cons = False
-    in_rsc_cons = cpu_in_rsc_cons and mem_in_rsc_cons
-    
-    ########################## 2. 进行宏观建议制定 ##########################
     acc_predict_model = AccuracyPrediction()
-    macro_plans = []  
-    # macro_plans中每一个元素为一个列表, 形式为：[帧率, 分辨率, CPU, 内存, 云边协同切分方式] 各自的调整方向
-    # 其中，1表示提高（对于CPU和内存，1表示自适应调整），0表示不变（对于CPU和内存，0表示不变），-1表示降低（对于CPU和内存，-1表示设置资源分配量为约束值）
-    conf_upper_bound = None  # 试图提升精度时的配置上界
+    middle_conf_list, middle_plus_conf_list = acc_predict_model.get_middle_conf(serv_names[0], user_constraint['accuracy'], work_condition['obj_size'], work_condition['obj_speed'])
+    old_reso = old_conf['reso']
+    old_fps = old_conf['fps']
+    old_accuracy = acc_predict_model.predict(
+        serv_names[0],
+        {
+            'reso': old_reso,
+            'fps': old_fps
+        },
+        work_condition['obj_size'], 
+        work_condition['obj_speed']
+    )
+    acc_constraint = user_constraint['accuracy']
     
-    if in_delay_cons and in_rsc_cons:
-        ############# 2.1 满足时延约束且满足资源约束 #############
-        if_fps_improve_acc = acc_predict_model.if_acc_improved_with_fps(serv_names[0], old_conf, work_condition)
-        if_reso_improve_acc = acc_predict_model.if_acc_improved_with_reso(serv_names[0], old_conf, work_condition)
-        if_acc_can_improved = if_fps_improve_acc or if_reso_improve_acc
-        cur_edge_to_cloud_trans_delay = pre_data_to_cloud / (bandwidth_dict['kB/s'] * 1000)  # 所有配置不变，在当前带宽状态下预估的云边传输时延
-        # 若提升配置可以明显提升精度
-        if if_acc_can_improved:
-            if (all_proc_delay + cur_edge_to_cloud_trans_delay) > user_constraint['delay']:
-                macro_plans.append([0, 0, 1, 1, -1])  # 降低云边协同切分配置（将服务拉回到本地）
-                # macro_plans.append([common.EDGE_SIDE_COLLABORATION])  # 降低云边协同切分配置（边边协同）
-                macro_plans.append([-1, -1, 1, 1, 0])  # 降低视频流配置
-                macro_plans.append([-1, -1, 1, 1, -1])  # 降低云边协同切分配置（将服务拉回到本地）且降低视频流配置
-                # macro_plans.append([common.EDGE_SIDE_COLLABORATION, common.DOWNGRADE_CONF])  # 降低云边协同切分配置（边边协同）且降低视频流配置
-            else:
-                conf_upper_bound = acc_predict_model.get_conf_improve_bound(serv_names[0], old_conf, work_condition)  # 配置提升的上界
-                fps_value = 1 if if_fps_improve_acc else 0
-                reso_value = 1 if if_reso_improve_acc else 0
-                macro_plans.append([fps_value, reso_value, 1, 1, 1])  # 提升视频流配置且提升云边协同切分配置（将服务部署到云端）
-                # macro_plans.append([common.IMPROVE_CONF, common.EDGE_SIDE_COLLABORATION])  # 提升配置且提升云边协同切分配置（边边协同）
-                macro_plans.append([fps_value, reso_value, 1, 1, 0])  # 提升视频流配置
-        else:
-            if (all_proc_delay + cur_edge_to_cloud_trans_delay) > user_constraint['delay']:
-                macro_plans.append([0, 0, 1, 1, -1])  # 降低云边协同切分配置（将服务拉回到本地）
-                # macro_plans.append([common.EDGE_SIDE_COLLABORATION])  # 降低云边协同切分配置（边边协同）
-                macro_plans.append([-1, -1, 1, 1, 0])  # 降低视频流配置
-                macro_plans.append([-1, -1, 1, 1, -1])  # 降低云边协同切分配置（将服务拉回到本地）且降低视频流配置
-                # macro_plans.append([common.EDGE_SIDE_COLLABORATION, common.DOWNGRADE_CONF])  # 降低云边协同切分配置（边边协同）且降低视频流配置
-            else:
-                macro_plans.append([0, 0, 0, 0, 0])
-                
-    elif in_delay_cons and not in_rsc_cons:
-        ############# 2.2 满足时延约束但不满足资源约束 #############
-        # 首先判断资源实际使用量与资源约束之间的关系
-        rsc_util_exceed_flag = False  # 资源使用量是否超出了约束
-        cpu_rsc_util_exceed_flag = False  # CPU资源使用量是否超出了约束
-        mem_rsc_util_exceed_flag = False  # 内存资源使用量是否超出了约束
-        for device_ip in rsc_constraint.keys():
-            if model_op[device_ip]['node_role'] != 'cloud':
-                cpu_util = 0
-                mem_util = 0
-
-                for serv_name in serv_names:
-                    if portrait_info['resource_portrait'][serv_name]['node_ip'] == device_ip:
-                        cpu_util += portrait_info['resource_portrait'][serv_name]['cpu_util_use']
-                        mem_util += portrait_info['resource_portrait'][serv_name]['mem_util_use']
-                
-                if cpu_util >= 0.95*rsc_constraint[device_ip]['cpu']:
-                    cpu_rsc_util_exceed_flag = True
-                if mem_util >= 0.95*rsc_constraint[device_ip]['mem']:
-                    mem_rsc_util_exceed_flag = True
-                rsc_util_exceed_flag = rsc_util_exceed_flag or cpu_rsc_util_exceed_flag or mem_rsc_util_exceed_flag
-                
-        
-        if rsc_util_exceed_flag:
-            cur_edge_to_cloud_trans_delay = pre_data_to_cloud / (bandwidth_dict['kB/s'] * 1000)  # 所有配置不变，在当前带宽状态下预估的云边传输时延
-            if (all_proc_delay + cur_edge_to_cloud_trans_delay) > user_constraint['delay']:
-                macro_plans.append([0, 0, 1, 1, -1])  # 降低云边协同切分配置（将服务拉回到本地）
-                # macro_plans.append([common.EDGE_SIDE_COLLABORATION])  # 降低云边协同切分配置（边边协同）
-                macro_plans.append([-1, -1, 1, 1, 0])  # 降低视频流配置
-                macro_plans.append([-1, -1, 1, 1, -1])  # 降低云边协同切分配置（将服务拉回到本地）且降低视频流配置
-                # macro_plans.append([common.EDGE_SIDE_COLLABORATION, common.DOWNGRADE_CONF])  # 降低云边协同切分配置（边边协同）且降低视频流配置
-            else:
-                cpu_value = -1 if cpu_rsc_util_exceed_flag else 0
-                mem_value = -1 if mem_rsc_util_exceed_flag else 0
-                if_fps_improve_acc = acc_predict_model.if_acc_improved_with_fps(serv_names[0], old_conf, work_condition)
-                if_reso_improve_acc = acc_predict_model.if_acc_improved_with_reso(serv_names[0], old_conf, work_condition)
-                fps_value = 1 if if_fps_improve_acc else 0
-                reso_value = 1 if if_reso_improve_acc else 0
-                macro_plans.append([0, 0, cpu_value, mem_value, 0])  # 将服务的资源分配量更改为资源约束值，其他所有配置不变
-                conf_upper_bound = acc_predict_model.get_conf_improve_bound(serv_names[0], old_conf, work_condition)  # 配置提升的上界
-                macro_plans.append([fps_value, reso_value, 1, 1, 1])  # 提升视频流配置（根据C）、提高云边协同切分配置（上云）
-                # macro_plans.append([common.IMPROVE_CONF, common.EDGE_SIDE_COLLABORATION])  # 提升视频流配置（根据C）、提高云边协同切分配置（边边协同）
-                macro_plans.append([fps_value, reso_value, 1, 1, 0])  # 提升配置（根据C）
-                macro_plans.append([0, 0, 1, 1, 1])  # 配置不变、提高云边协同切分配置（上云）
-                # macro_plans.append([common.MAINTAIN_CONF, common.EDGE_SIDE_COLLABORATION])  # 配置不变、提高云边协同切分配置（边边协同）
-                macro_plans.append([-1, -1, 1, 1, 0])  # 降低配置
-                macro_plans.append([-1, -1, 1, 1, 1])  # 降低配置、提高云边协同切分配置（上云）
-                # macro_plans.append([common.DOWNGRADE_CONF, common.EDGE_SIDE_COLLABORATION])  # 降低配置、提高云边协同切分配置（边边协同）
-        else:
-            cur_edge_to_cloud_trans_delay = pre_data_to_cloud / (bandwidth_dict['kB/s'] * 1000)  # 所有配置不变，在当前带宽状态下预估的云边传输时延
-            if (all_proc_delay + cur_edge_to_cloud_trans_delay) > user_constraint['delay']:
-                macro_plans.append([0, 0, 1, 1, -1])  # 降低云边协同切分配置（将服务拉回到本地）
-                # macro_plans.append([common.EDGE_SIDE_COLLABORATION])  # 降低云边协同切分配置（边边协同）
-                macro_plans.append([-1, -1, 1, 1, 0])  # 降低视频流配置
-                macro_plans.append([-1, -1, 1, 1, -1])  # 降低云边协同切分配置（将服务拉回到本地）且降低视频流配置
-                # macro_plans.append([common.EDGE_SIDE_COLLABORATION, common.DOWNGRADE_CONF])  # 降低云边协同切分配置（边边协同）且降低视频流配置
-            else:
-                cpu_value = -1 if cpu_rsc_util_exceed_flag else 0
-                mem_value = -1 if mem_rsc_util_exceed_flag else 0
-                macro_plans.append([0, 0, cpu_value, mem_value, 0])  # 将服务的资源分配量更改为资源约束值，其他所有配置不变
-    
-    elif not in_delay_cons and in_rsc_cons:
-        ############# 2.3 不满足时延约束但满足资源约束 #############
-        cur_edge_to_cloud_trans_delay = pre_data_to_cloud / (bandwidth_dict['kB/s'] * 1000)  # 所有配置不变，在当前带宽状态下预估的云边传输时延
-        if (all_proc_delay + cur_edge_to_cloud_trans_delay) > user_constraint['delay']:
-            macro_plans.append([0, 0, 1, 1, -1])  # 降低云边协同切分配置（将服务拉回到本地）
-            # macro_plans.append([common.EDGE_SIDE_COLLABORATION])  # 降低云边协同切分配置（边边协同）
-            macro_plans.append([-1, -1, 1, 1, 0])  # 降低视频流配置
-            macro_plans.append([-1, -1, 1, 1, -1])  # 降低云边协同切分配置（将服务拉回到本地）且降低视频流配置
-            # macro_plans.append([common.EDGE_SIDE_COLLABORATION, common.DOWNGRADE_CONF])  # 降低云边协同切分配置（边边协同）且降低视频流配置
-        else:
-            macro_plans.append([0, 0, 0, 0, 0])  # 不改变调度策略
-    
+    if (old_fps, old_reso) in middle_conf_list:  # 若当前配置已经为中配置，则所有配置无需再调整
+        conf_adjust_direction = 0
+        conf_adjust_plans = [[0, 0]]
     else:
-        ############# 2.4 不满足时延约束也不满足资源约束 #############
-        cur_edge_to_cloud_trans_delay = pre_data_to_cloud / (bandwidth_dict['kB/s'] * 1000)  # 所有配置不变，在当前带宽状态下预估的云边传输时延
-        if (all_proc_delay + cur_edge_to_cloud_trans_delay) > user_constraint['delay']:
-            # macro_plans.append([common.EDGE_SIDE_COLLABORATION])  # 降低云边协同切分配置（边边协同）
-            macro_plans.append([0, 0, 1, 1, -1])  # 降低云边协同切分配置（将服务拉回到本地）
-            macro_plans.append([-1, -1, 1, 1, 0])  # 降低视频流配置
-            # macro_plans.append([common.EDGE_SIDE_COLLABORATION, common.DOWNGRADE_CONF])  # 降低云边协同切分配置（边边协同）且降低视频流配置
-            macro_plans.append([-1, -1, 1, 1, -1])  # 降低云边协同切分配置（将服务拉回到本地）且降低视频流配置
-        else:
-            # 首先判断资源实际使用量与资源约束之间的关系
-            rsc_util_exceed_flag = False  # 资源使用量是否超出了约束
-            cpu_rsc_util_exceed_flag = False  # CPU资源使用量是否超出了约束
-            mem_rsc_util_exceed_flag = False  # 内存资源使用量是否超出了约束
-            for device_ip in rsc_constraint.keys():
-                if model_op[device_ip]['node_role'] != 'cloud':
-                    cpu_util = 0
-                    mem_util = 0
-
-                    for serv_name in serv_names:
-                        if portrait_info['resource_portrait'][serv_name]['node_ip'] == device_ip:
-                            cpu_util += portrait_info['resource_portrait'][serv_name]['cpu_util_use']
-                            mem_util += portrait_info['resource_portrait'][serv_name]['mem_util_use']
-                    
-                    if cpu_util >= 0.95*rsc_constraint[device_ip]['cpu']:
-                        cpu_rsc_util_exceed_flag = True
-                    if mem_util >= 0.95*rsc_constraint[device_ip]['mem']:
-                        mem_rsc_util_exceed_flag = True
-                    rsc_util_exceed_flag = rsc_util_exceed_flag or cpu_rsc_util_exceed_flag or mem_rsc_util_exceed_flag
+        for i in range(len(middle_conf_list)):  # 遍历所有的中配置，每一个中配置都为当前配置指定调整的方向
+            middle_conf = middle_conf_list[i]
+            temp_reso = middle_conf[0]
+            temp_fps = middle_conf[1]
+            temp_conf_adjust_plan = []
             
-            cpu_value = -1 if cpu_rsc_util_exceed_flag else 0
-            mem_value = -1 if mem_rsc_util_exceed_flag else 0 
-            if rsc_util_exceed_flag:
-                
-                macro_plans.append([0, 0, cpu_value, mem_value, 0])  # 将服务的资源分配量更改为资源约束值，其他所有配置不变
-                macro_plans.append([0, 0, 1, 1, 1])  # 提高云边协同切分点设置（上云）、配置大于等于当前配置
-                # macro_plans.append([common.EDGE_SIDE_COLLABORATION, common.MAINTAIN_OR_IMPROVE_CONF])  # 提高云边协同切分点设置（边边协同）、配置大于等于当前配置
-                macro_plans.append([-1, -1, 1, 1, 0])  # 降低配置
-                macro_plans.append([-1, -1, 1, 1, 1])  # 降低配置、提高云边协同切分点设置（上云）
-                # macro_plans.append([common.DOWNGRADE_CONF, common.EDGE_SIDE_COLLABORATION])  # 降低配置、提高云边协同切分点设置（边边协同）
+            if old_fps == temp_fps:  # 帧率的调整方向
+                temp_conf_adjust_plan.append(0)
+            elif old_fps > temp_fps:
+                temp_conf_adjust_plan.append(-1)
             else:
-                macro_plans.append([0, 0, cpu_value, mem_value, 0])  # 调整资源分配量为资源约束值，其他配置不变
+                temp_conf_adjust_plan.append(1)
+            
+            if int(old_reso[:-1]) == int(temp_reso[:-1]):  # 分辨率的调整方向
+                temp_conf_adjust_plan.append(0)
+            elif int(old_reso[:-1]) > int(temp_reso[:-1]):
+                temp_conf_adjust_plan.append(-1)
+            else:
+                temp_conf_adjust_plan.append(1)
+            
+            conf_adjust_plans.append(temp_conf_adjust_plan)
+            temp_conf_adjust_plan_str = str(temp_conf_adjust_plan[0]) + '_' + str(temp_conf_adjust_plan[1])
+            
+            if old_accuracy < acc_constraint:  # 提高配置，给出配置提升的上界：当前中配置高一档
+                conf_adjust_direction = 1
+                conf_upper_bound[temp_conf_adjust_plan_str] = middle_plus_conf_list[i]
+            else:
+                conf_adjust_direction = -1  # 降低配置，给出配置降低的下界：当前中配置
+                conf_lower_bound[temp_conf_adjust_plan_str] = middle_conf
+    
+    
+    ########################## 2. 确定云边协同切分点的调整方向 ##########################
+    edge_cloud_cut_plans = []  # 云边协同切分点调整的方向列表
+    
+    cur_cut_point_index = len(serv_names)  # 当前调度策略中云边协同切分点的位置：第一个被卸载到云端执行的服务的索引
+    for i in range(len(serv_names)):
+        if old_flow_mapping[serv_names[i]]['node_role'] == 'cloud':
+            cur_cut_point_index = i
+            break
+    
+    if cur_cut_point_index == len(serv_names):  # 若当前全部在边端执行，则调整方向为不变或提高。注意，这里只是建议，实际由调度器在求解时根据时延（执行时延和预估的传输时延）决定
+        edge_cloud_cut_plans.append(0)
+        edge_cloud_cut_plans.append(1)
+    else:  # 若当前有服务在云端执行，则根据当前预估的传输时延与前一调度周期内实际传输时延的比较给出调整建议
+        ### 前一调度周期内的传输时延
+        # 计算方式一；以前一调度周期内云和边之间的数据传输量除以带宽来计算
+        pre_data_to_cloud = portrait_info['data_to_cloud']
+        pre_bandwidth = portrait_info['bandwidth']
+        pre_edge_to_cloud_trans_delay = pre_data_to_cloud / (pre_bandwidth['kB/s'] * 1000)  # 上一帧处理时的传输时延
+        
+        # 计算方式二；以前一调度周期内云和边之间实际的传输时延来计算
+        # pre_edge_to_cloud_trans_delay = 0
+        # for i in range(len(serv_names)):
+        #     if old_flow_mapping[serv_names[i]]['node_role'] == 'cloud':
+        #         pre_edge_to_cloud_trans_delay += (portrait_info['delay'][serv_names[i]] - portrait_info['process_delay'][serv_names[i]])
+        
+        ### 当前调度周期内预估的传输时延
+        # TODO: 这里理想的做法是查找传输时延知识库来确定传输时延，查不到再使用以下方法预估
+        cur_edge_to_cloud_trans_delay = pre_data_to_cloud / (bandwidth_dict['kB/s'] * 1000)
+        
+        if cur_edge_to_cloud_trans_delay <= 1.1 * pre_edge_to_cloud_trans_delay:  # 若当前预估的传输时延小于等于前一调度周期内实际传输时延，则云边协同切分点保持不变或提高
+            edge_cloud_cut_plans.append(0)
+            edge_cloud_cut_plans.append(1)
+        else:  # 若当前预估的传输时延高于前一调度周期内实际传输时延，则云边协同切分点保持不变或降低
+            edge_cloud_cut_plans.append(0)  
+            edge_cloud_cut_plans.append(-1)
+    
+    
+    ########################## 3. 确定各个服务资源的调整方向 ##########################
+    cut_rsc_plans = []  # 云边协同切分点与各个服务资源的调整方向列表，每个元素为一个列表:[云边协同切分点调整方向, 服务1CPU调整方向, 服务1内存调整方向, 服务2CPU调整方向, 服务2内存调整方向...]
+    
+    for edge_cloud_cut_plan in edge_cloud_cut_plans:
+        temp_cut_rsc_plan = []
+        temp_cut_rsc_plan.append(edge_cloud_cut_plan)
+        
+        if edge_cloud_cut_plan == 0:
+            ### 1.确定计算资源的调整方向
+            # 求出当前在边端执行的所有服务的CPU使用率之和
+            cpu_total_alloc = 0
+            device_ip = None
+            for serv_name in serv_names:
+                if old_flow_mapping[serv_name]['node_role'] != 'cloud':
+                    device_ip = old_flow_mapping[serv_name]['node_ip']
+                    cpu_total_alloc += old_resource_limit[serv_name]['cpu_util_limit']
+            
+            if device_ip is None or cpu_total_alloc == 0:  # 此时所有服务均在云端执行，则所有服务的资源分配方式不变
+                for i in range(len(serv_names)):
+                    temp_cut_rsc_plan.append(0)
+                    temp_cut_rsc_plan.append(0)
+                
+                assert len(temp_cut_rsc_plan) == (1 + 2 * len(serv_names))
+                cut_rsc_plans.append(temp_cut_rsc_plan)
+            else:
+                if cpu_total_alloc > rsc_constraint[device_ip]['cpu']:  # 在边端执行的服务超出了计算资源约束
+                    edge_rsc_adjust_comb = generate_combination(cur_cut_point_index)  # 在边端执行的服务的资源调整方向组合，每个服务的计算资源可能不变也可能降低
+                    cloud_rsc_adjust_plan = []  # 在云端执行的服务的资源调整方向为不变
+                    for i in range(cur_cut_point_index, len(serv_names)):
+                        cloud_rsc_adjust_plan += [0, 0]
+                    for edge_rsc_adjust_plan in edge_rsc_adjust_comb:
+                        temp_cut_rsc_plan_1 = temp_cut_rsc_plan + edge_rsc_adjust_plan + cloud_rsc_adjust_plan
+                        
+                        assert len(temp_cut_rsc_plan_1) == (1 + 2 * len(serv_names))
+                        cut_rsc_plans.append(temp_cut_rsc_plan_1)
+                
+                else:  # 在边端执行的服务满足计算资源约束
+                    edge_rsc_adjust_dict = dict()
+                    for i in range(cur_cut_point_index):  # 判断各个在边端执行的服务的强中弱，并给出调整建议
+                        temp_cpu_limit = old_resource_limit[serv_names[i]]["cpu_util_limit"]
+                        
+                        temp_cpu_demand = portrait_info['resource_info'][serv_names[i]]['resource_demand']['cpu']['edge']
+                        temp_cpu_demand_upper_bound = temp_cpu_demand['upper_bound']
+                        temp_cpu_demand_lower_bound = temp_cpu_demand['lower_bound']
+                        
+                        if temp_cpu_limit < temp_cpu_demand_lower_bound:  # 处于弱资源的服务，调整建议为不变或提高资源
+                            edge_rsc_adjust_dict[i] = [[0, 0], [1, 0]]
+                        elif temp_cpu_limit >= temp_cpu_demand_lower_bound and temp_cpu_limit <= temp_cpu_demand_upper_bound:  # 处于中资源的服务，调整建议为不变
+                            edge_rsc_adjust_dict[i] = [[0, 0]]
+                        else:  # 处于强资源的服务，调整建议为不变或降低
+                            edge_rsc_adjust_dict[i] = [[0, 0], [-1, 0]]
+                    
+                    edge_rsc_adjust_plans = get_combination(edge_rsc_adjust_dict, 0, cur_cut_point_index-1)
+                    
+                    cloud_rsc_adjust_plan = []  # 在云端执行的服务的资源调整方向为不变
+                    for i in range(cur_cut_point_index, len(serv_names)):
+                        cloud_rsc_adjust_plan += [0, 0]
+                    
+                    for edge_rsc_adjust_plan in edge_rsc_adjust_plans:
+                        temp_cut_rsc_plan_1 = edge_rsc_adjust_plan + cloud_rsc_adjust_plan
+                        
+                        assert len(temp_cut_rsc_plan_1) == (1 + 2 * len(serv_names))
+                        cut_rsc_plans.append(temp_cut_rsc_plan_1)
+                
+        else:  # 若云边协同切分点发生了变化，则各个服务的资源应该自适应的调整，宏观指导难以给出各个服务资源明确的调整方向
+            for i in range(len(serv_names)):
+                temp_cut_rsc_plan.append(2)  # 服务的计算资源自适应的调整
+                temp_cut_rsc_plan.append(0)  # 由于目前不考虑内存，服务的存储资源可始终设置为1.0并保持不变
+
+            assert len(temp_cut_rsc_plan) == (1 + 2 * len(serv_names))
+            cut_rsc_plans.append(temp_cut_rsc_plan)
+    
+    for conf_adjust_plan in conf_adjust_plans:
+        for cut_rsc_plan in cut_rsc_plans:
+            temp_macro_plan = conf_adjust_plan + cut_rsc_plan
+            assert len(temp_macro_plan) == (3 + 2 * len(serv_names))
+            macro_plans.append(temp_macro_plan)
     
     return {
             'cold_start_flag': False,
             'macro_plans': macro_plans,
-            'conf_upper_bound': conf_upper_bound
+            'conf_adjust_direction': conf_adjust_direction,  # 配置调整的方向
+            # 配置调整的边界
+            'conf_upper_bound': conf_upper_bound,
+            'conf_lower_bound': conf_lower_bound
         }
 
 
@@ -271,46 +279,46 @@ def get_coldstart_plan_bayes(
     # (2)依次尝试不同的n_trail，
     # 分别存储查到的满足约束和不满足约束的解。查找在找到一个绝佳解的时候停止。
     n_trials_range = [100,200,300,400,500]  # 尝试的贝叶斯优化查找次数
-    params_in_delay_in_rsc_cons_total = []  # 既满足时延约束也满足资源约束的解
-    params_in_delay_out_rsc_cons_total = []  # 满足时延约束但不满足资源约束的解
-    params_out_delay_cons_total = []  # 不满足时延约束的解
+    params_in_acc_in_rsc_cons_total = []  # 既满足精度约束也满足资源约束的解
+    params_in_acc_out_rsc_cons_total = []  # 满足精度约束但不满足资源约束的解
+    params_out_acc_cons_total = []  # 不满足精度约束的解
     
     for n_trials in n_trials_range:
-        params_in_delay_in_rsc_cons, params_in_delay_out_rsc_cons, params_out_delay_cons, _ = cold_starter.get_plan_in_cons(n_trials=n_trials)
-        params_in_delay_in_rsc_cons_total.extend(params_in_delay_in_rsc_cons)
-        params_in_delay_out_rsc_cons_total.extend(params_in_delay_out_rsc_cons)
-        params_out_delay_cons_total.extend(params_out_delay_cons)
+        params_in_acc_in_rsc_cons, params_in_acc_out_rsc_cons, params_out_acc_cons, _ = cold_starter.get_plan_in_cons_1(n_trials=n_trials)
+        params_in_acc_in_rsc_cons_total.extend(params_in_acc_in_rsc_cons)
+        params_in_acc_out_rsc_cons_total.extend(params_in_acc_out_rsc_cons)
+        params_out_acc_cons_total.extend(params_out_acc_cons)
         
-        # 看看完全满足约束的解中，是否能出现一个绝佳解。绝佳解定义为精度高于0.9，所以按照精度从大到小排序
-        sorted_params_temp = sorted(params_in_delay_in_rsc_cons, key=lambda item:(-item['task_accuracy']))
-        if len(sorted_params_temp) > 0 and sorted_params_temp[0]['task_accuracy'] > 0.9:
+        # 看看完全满足约束的解中，是否能出现一个绝佳解。绝佳解定义为时延低于0.1，所以按照时延从小到大排序
+        sorted_params_temp = sorted(params_in_acc_in_rsc_cons, key=lambda item:(item['pred_delay_total']))
+        if len(sorted_params_temp) > 0 and sorted_params_temp[0]['pred_delay_total'] < 0.1:
             root_logger.info("找到一个绝佳解，停止继续搜索")
             break
     
     # （3）按照以下方式对得到的解进行处理：注意，对查到的解进行处理之后的调度策略是知识库中不存在的，这相当于一种探索，执行之后将其对应的结果写入到知识库中，实现对知识库的不断丰富
     '''
-        (1).对于能满足时延和约束的解
-        希望task_accuracy尽可能大
+        (1).对于能满足精度和约束的解
+        希望时延尽可能低
 
-        (2).对于能满足时延约束但不能满足资源约束的解
+        (2).对于能满足精度约束但不能满足资源约束的解
         选择资源约束违反程度最小的，然后尝试在该设备上对资源进行均分，无法均分则挪到云端
 
-        (3).对于不能满足时延约束的解
-        选择时延违反程度最小的，然后将该解的配置降到最低。
+        (3).对于不能满足精度约束的解
+        选择精度违反程度最小的，然后将该解的配置降到最低。
     '''
     sorted_params = []
     post_process_index = -1  # 记录后处理进行的方式
-    if len(params_in_delay_in_rsc_cons_total) > 0:
+    if len(params_in_acc_in_rsc_cons_total) > 0:
         post_process_index = 0
-        sorted_params = sorted(params_in_delay_in_rsc_cons_total, key=lambda item:(-item['task_accuracy']))
+        sorted_params = sorted(params_in_acc_in_rsc_cons_total, key=lambda item:(item['pred_delay_total']))
 
-    elif len(params_in_delay_out_rsc_cons_total) > 0:
+    elif len(params_in_acc_out_rsc_cons_total) > 0:
         post_process_index = 1
-        sorted_params = sorted(params_in_delay_out_rsc_cons_total, key=lambda item:(item['deg_violate']))
+        sorted_params = sorted(params_in_acc_out_rsc_cons_total, key=lambda item:(item['deg_violate']))
 
-    elif len(params_out_delay_cons_total) > 0:
+    elif len(params_out_acc_cons_total) > 0:
         post_process_index = 2
-        sorted_params = sorted(params_out_delay_cons_total, key=lambda item:(item['pred_delay_total']))
+        sorted_params = sorted(params_out_acc_cons_total, key=lambda item:(-item['task_accuracy']))
     
     else:
         #如果找不到任何一类可用解，说明知识库严重不可用
@@ -343,10 +351,10 @@ def get_coldstart_plan_bayes(
     }
     '''
 
-    if post_process_index == 0:  # 对于能满足时延和资源约束的最优解，无需处理直接返回
+    if post_process_index == 0:  # 对于能满足精度和资源约束的最优解，无需处理直接返回
         return ans_found, conf, flow_mapping, resource_limit
     
-    elif post_process_index == 1:  # 对于能满足时延但不能满足资源约束的解，首先尝试将资源按照约束值均分给各个服务，若无法均分则挪到云端
+    elif post_process_index == 1:  # 对于能满足精度但不能满足资源约束的解，首先尝试将资源按照约束值均分给各个服务，若无法均分则挪到云端
         serv_offload_cloud_idx = len(serv_names)  # 如果要将一些任务挪到云端，这个索引作为起始索引。初始为服务的总长，如果减小了，说明有必要挪到云端
         cloud_ip = ''
         for device_ip in rsc_constraint.keys():
@@ -403,9 +411,8 @@ def get_coldstart_plan_bayes(
                 resource_limit[serv_name]['cpu_util_limit'] = 1.0
                 resource_limit[serv_name]['mem_util_limit'] = 1.0
 
-    elif post_process_index == 2:  # 对于无法满足时延约束解，将其配置降到最低
-        conf['fps'] = fps_range[0]
-        conf['reso'] = reso_range[0]
+    elif post_process_index == 2:  # 对于无法满足精度约束解，不处理直接返回
+        return ans_found, conf, flow_mapping, resource_limit
     
     # 最终会得到一个真正的最优解
     root_logger.info("In get_coldstart_plan_bayes(), 冷启动正式最优解:")
@@ -595,7 +602,6 @@ def scheduler(
     job_uid=None,
     dag=None,
     system_status=None,
-    work_condition=None,
     portrait_info=None,
     user_constraint=None,
     bandwidth_dict=None
@@ -632,10 +638,12 @@ def scheduler(
         all_proc_delay = portrait_info['cur_process_latency']
         root_logger.info('感知到总处理时延是:{}'.format(all_proc_delay))
     
+    # 获取当前工况
+    assert 'work_condition' in portrait_info
+    work_condition = portrait_info['work_condition']
+    
     # 获得设备的资源约束rsc_constraint
-    with open('static_data.json', 'r', encoding='utf-8') as f:  
-        static_data = json.load(f)
-    rsc_constraint = static_data['rsc_constraint']
+    rsc_constraint = user_constraint['rsc_constraint']
     
     
     ############### 1. 获取宏观调度建议列表 ###############

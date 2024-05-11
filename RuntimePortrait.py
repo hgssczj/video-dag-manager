@@ -6,10 +6,12 @@ import requests
 import field_codec_utils
 import cv2
 import math
+from AccuracyPrediction import AccuracyPrediction
+import DelayPredictModel
 
 class RuntimePortrait():
     CONTENT_ELE_MAXN = 50
-    def __init__(self, pipeline):
+    def __init__(self, pipeline, user_constraint):
         self.service_cloud_addr = "114.212.81.11:4500"
         self.sess = requests.Session()
         
@@ -18,10 +20,15 @@ class RuntimePortrait():
         self.current_work_condition = dict()  # 此变量用于存储当前工况，key为工况类型'obj_n'、'obj_size'等
         self.work_condition_list = []  # 此变量用于存储历史工况，每一个元素为一个dict，字典的key为工况类型'obj_n'、'obj_size'等
         self.runtime_info_list = []  # 此变量用于存储完整的历史运行时情境信息，便于建立画像使用
+        self.slide_win_size = 15  # 构建画像的滑动窗口为：前一调度周期内最多15帧的结果
+        self.scheduling_info_list = []  # 存放每一次执行结果对应的调度策略字符串，用于在构建画像时确定滑动窗口
         
         # 加载与当前pipeline对应的运行时情境画像模型
         self.pipeline = pipeline
+        self.user_constraint = user_constraint
         self.portrait_model_dict = dict()  # 此变量用于保存pipeline中各个服务的画像预估模型
+        self.delay_predictor = DelayPredictModel.DelayPredictor(self.pipeline)  # 时延预估器，预估pipeline中各个服务在指定配置、指定工况、资源充足时的执行时延和传输时延
+        self.acc_predictor = AccuracyPrediction()  # 精度预估器
         
         assert(len(self.pipeline) >= 1)
         for service in self.pipeline:
@@ -48,10 +55,11 @@ class RuntimePortrait():
             mem_server_model = PortraitModel()
             mem_server_model.load_state_dict(torch.load(mem_server_model_file))
             self.portrait_model_dict[service]['mem']['server'] = mem_server_model
-            
+        
         # 获取当前系统资源，为画像提供计算依据
         self.server_total_mem = 270110633984
         self.edge_total_mem = 8239902720
+        
     
     def update_runtime(self, runtime_info):
         # 更新云端的运行时情境信息
@@ -64,7 +72,47 @@ class RuntimePortrait():
         
         # 2.更新工况信息，便于前端展示(绘制折线图等)
         self.update_work_condition(runtime_info)
+        
+        # 3.更新调度信息，便于获取画像时确定滑动窗口
+        assert 'exe_plan' in runtime_info
+        self.update_scheduling_info(runtime_info['exe_plan'])
 
+    def update_scheduling_info(self, exe_plan):
+        # 1.根据当前调度策略生成字符串
+        scheduling_info_str = ''
+        
+        assert 'video_conf' in exe_plan
+        for conf_key, conf_value in exe_plan['video_conf'].items():
+            scheduling_info_str += conf_key
+            scheduling_info_str += '_'
+            scheduling_info_str += str(conf_value)
+        scheduling_info_str += '_'
+        
+        assert 'flow_mapping' in exe_plan
+        for serv_name, node_info_dict in exe_plan['flow_mapping'].items():
+            scheduling_info_str += serv_name
+            scheduling_info_str += '_'
+            scheduling_info_str += node_info_dict['node_ip']
+        scheduling_info_str += '_'
+        
+        assert 'resource_limit' in exe_plan
+        for serv_name, resource_limit_dict in exe_plan['resource_limit'].items():
+            scheduling_info_str += serv_name
+            for resource_type, resource_value in resource_limit_dict.items():
+                scheduling_info_str += '_'
+                scheduling_info_str += resource_type
+                scheduling_info_str += '_'
+                scheduling_info_str += str(resource_value)
+    
+        
+        # 2.保存当前调度策略字符串
+        self.scheduling_info_list.append(scheduling_info_str)
+        if len(self.scheduling_info_list) > RuntimePortrait.CONTENT_ELE_MAXN:
+            del self.scheduling_info_list[0]
+        
+        # 确保调度策略保存的数量与画像基础信息保存的数量相同，确保在构建画像时二者是对应的
+        assert len(self.scheduling_info_list) == len(self.runtime_info_list)
+    
     def update_work_condition(self, runtime_info):
         # 更新工况信息，便于前端展示(绘制折线图等)
         for taskname in runtime_info:
@@ -269,6 +317,7 @@ class RuntimePortrait():
             self.set_work_condition(new_work_condition)
         return self.current_work_condition
 
+    '''
     def get_portrait_info(self):
         portrait_info = dict()
         
@@ -424,7 +473,224 @@ class RuntimePortrait():
         portrait_info['process_delay'] = cur_runtime_info['process_delay']
         
         return portrait_info
+    '''
     
+    def get_portrait_info(self):
+        portrait_info = dict()
+        
+        if len(self.runtime_info_list) == 0:  # 若self.runtime_info_list为空，则说明目前云端没有存储任何运行结果，无法给出画像的信息
+            return portrait_info
+
+        cur_runtime_info = self.runtime_info_list[-1]  # 以最近的运行时情境为依据获取画像信息
+        assert(isinstance(cur_runtime_info, dict))
+        
+        ###################### 1.获取滑动窗口内的工况等情境信息 ######################
+        ########### 1.1 确定滑动窗口范围 ###########
+        right_index = len(self.scheduling_info_list) - 1  # 滑动窗口的左右索引
+        left_index = right_index
+        count = 0
+        while left_index >= 0 and count <= self.slide_win_size and self.scheduling_info_list[right_index] == self.scheduling_info_list[left_index]:
+            left_index -= 1
+            count += 1
+        
+        left_index += 1
+        assert left_index >= 0 and right_index >= left_index
+        
+        ########### 1.2 获取滑动窗口内情境信息 ###########
+        sw_runtime_dict = dict()  # 保存滑动窗口内情境信息
+        for k, v in self.runtime_pkg_list.items():
+            v1 = v[left_index: right_index + 1]
+            if len(v1) > 0:
+                sw_runtime_dict[k] = sum(v1) * 1.0 / len(v1)
+            else:
+                sw_runtime_dict[k] = sum(v1)
+        portrait_info['work_condition'] = sw_runtime_dict
+        
+        
+        ###################### 2.获取画像类别 ######################
+        ########### 2.1 确定配置画像 ###########
+        pre_video_conf = cur_runtime_info['exe_plan']['video_conf']  # 前一调度周期内的视频流配置
+        
+        assert 'obj_size' in sw_runtime_dict and 'obj_speed' in sw_runtime_dict
+        sw_obj_size = int(sw_runtime_dict['obj_size'])
+        sw_obj_speed = int(sw_runtime_dict['obj_speed'])
+        acc_predicted = self.acc_predictor.predict(self.pipeline[0], pre_video_conf, sw_obj_size, sw_obj_speed)  # 在当前工况、当前配置下预测的精度
+        
+        acc_constraint = self.user_constraint['accuracy']  # 精度约束
+        assert acc_constraint <= 0.95
+        
+        if acc_predicted < acc_constraint:
+            portrait_info['conf_portrait'] = 0  # 低于精度约束，则配置画像类别为弱
+        # elif acc_predicted - acc_constraint <= 0.05:
+        #     portrait_info['conf_portrait'] = 1  # 高于精度约束且只高于精度约束一点，则配置画像类别为中
+            # TODO:目前直接使用一个小的固定阈值作为中配置的精度范围；
+            # 若老板不认可，则可以按照以下思路实现：假设有一批配置，这些配置都满足精度约束，但这些配置如果降低一档其中某种具体的配置，那么就不再满足精度约束，将这批配置中最大的精度作为中配置的精度上限
+        else:
+            portrait_info['conf_portrait'] = 3  # 高于精度约束，则配置画像类别为强或中，具体类别放到调度罗盘模块进行判定。这是因为强和中的区分需要通过很多细粒度的判断，画像只是为了给出粗略的判断，要尽量避免在画像的部分进行很多细粒度的操作
+        
+        
+        ########### 2.2 确定资源画像 ###########
+        delay_constraint = self.user_constraint['delay']  # 时延约束
+        pre_flow_mapping = cur_runtime_info['exe_plan']['flow_mapping']
+        
+        ##### 2.2.1 确定当前工况、当前配置在理想资源情况下的时延 #####
+        ideal_proc_delay = 0
+        ideal_trans_delay = 0
+        
+        for service in self.pipeline:
+            temp_fps = pre_video_conf['fps']
+            temp_node_role = pre_flow_mapping[service]['node_role']
+            temp_node_role = 'server' if temp_node_role == 'cloud' else 'edge'
+            
+            if service == 'face_detection':
+                temp_reso = pre_video_conf['reso']
+                temp_proc_delay = self.delay_predictor.predict({
+                    'delay_type': 'proc_delay',
+                    'predict_info': {
+                        'service_name': service,  
+                        'fps': temp_fps,  
+                        'reso': temp_reso,
+                        'node_role': temp_node_role
+                    }
+                })
+                ideal_proc_delay += temp_proc_delay
+                
+            elif service == 'gender_classification':
+                temp_obj_n = self.runtime_pkg_list['obj_n'][-1]
+                
+                temp_proc_delay = self.delay_predictor.predict({
+                    'delay_type': 'proc_delay',
+                    'predict_info': {
+                        'service_name': service,  
+                        'fps': temp_fps,  
+                        'obj_n': temp_obj_n,
+                        'node_role': temp_node_role
+                    }
+                })
+                ideal_proc_delay += temp_proc_delay
+            
+            if temp_node_role == 'server':
+                temp_trans_data_size = self.runtime_info_list[-1]['data_trans_size'][service]
+                assert temp_trans_data_size != 0
+                ideal_trans_delay += self.delay_predictor.predict({
+                        'delay_type': 'trans_delay',
+                        'predict_info': {
+                            'fps': pre_video_conf['fps'],  
+                            'trans_data_size': temp_trans_data_size,
+                        }
+                    })
+        
+        ideal_delay = ideal_proc_delay + ideal_trans_delay
+        
+        ##### 2.2.2 确定当前实际情况下的时延 #####
+        act_proc_delay = 0
+        act_trans_delay = 0
+        
+        for service in self.pipeline:
+            act_proc_delay += self.runtime_info_list[-1]['process_delay'][service]
+            
+            temp_node_role = pre_flow_mapping[service]['node_role']
+            if temp_node_role == 'cloud':
+                act_trans_delay += (self.runtime_info_list[-1]['delay'][service] - self.runtime_info_list[-1]['process_delay'][service])
+        
+        act_delay = act_proc_delay + act_trans_delay
+        
+        ##### 2.2.3 确定资源画像类别 #####
+        if act_delay >= 1.02 * ideal_delay:
+            portrait_info['resource_portrait'] = 0  # 若实际执行时延高于理想时延，则资源画像为弱
+        else:
+            portrait_info['resource_portrait'] = 3  # 若实际执行时延等于理想时延，则资源画像为中或强，这一点在画像中无法具体判断，需要在中间模块中进一步判断
+        
+        
+        ###### 3. 判断时延是否满足约束
+        assert('end_pipe' in cur_runtime_info)
+        cur_latency = cur_runtime_info['end_pipe']['delay']
+        cur_process_latency = cur_runtime_info['end_pipe']['process_delay']
+        assert('user_constraint' in cur_runtime_info)
+        cur_user_latency_constraint = cur_runtime_info['user_constraint']['delay']
+        if_overtime = True if cur_latency > cur_user_latency_constraint else False
+        
+        ###### 4. 获取当前系统中每个设备上本query可以使用的资源量
+        r = self.sess.get(url="http://{}/get_cluster_info".format(self.service_cloud_addr))
+        resource_info = r.json()
+        portrait_info['available_resource'] = dict()
+        
+        for ip_addr in resource_info:
+            portrait_info['available_resource'][ip_addr] = dict()
+            temp_available_cpu = 1.0
+            temp_available_mem = 1.0
+            temp_node_service_state = resource_info[ip_addr]["service_state"]
+            for service in temp_node_service_state:
+                if service not in self.pipeline:
+                    temp_available_cpu -= temp_node_service_state[service]["cpu_util_limit"]
+                    temp_available_mem -= temp_node_service_state[service]["mem_util_limit"]
+
+            portrait_info['available_resource'][ip_addr]['node_role'] = resource_info[ip_addr]['node_role']
+            portrait_info['available_resource'][ip_addr]['available_cpu'] = temp_available_cpu
+            portrait_info['available_resource'][ip_addr]['available_mem'] = temp_available_mem
+            #print("In Query get_portrait_info(), resource_info:{}".format(resource_info))
+            if resource_info[ip_addr]['node_role'] == 'cloud':
+                self.server_total_mem = resource_info[ip_addr]['device_state']['mem_total'] * 1024 * 1024 * 1024
+            else:
+                self.edge_total_mem = resource_info[ip_addr]['device_state']['mem_total'] * 1024 * 1024 * 1024
+        
+        assert(self.server_total_mem is not None)
+        assert(self.edge_total_mem is not None)
+        
+        
+        ###### 5. 获取当前query中各个服务的资源信息
+        portrait_info['resource_info'] = dict()
+        for service in self.pipeline:
+            # 获取当前服务的执行节点
+            portrait_info['resource_info'][service] = dict()
+            portrait_info['resource_info'][service]['node_ip'] = cur_runtime_info[service]['proc_resource_info']['node_ip']
+            portrait_info['resource_info'][service]['node_role'] = cur_runtime_info[service]['proc_resource_info']['node_role']
+            
+            # 获取当前服务的资源限制和实际资源使用量
+            temp_cpu_limit = cur_runtime_info[service]['proc_resource_info']['cpu_util_limit']
+            temp_cpu_use = cur_runtime_info[service]['proc_resource_info']['cpu_util_use']
+            temp_mem_limit = cur_runtime_info[service]['proc_resource_info']['mem_util_limit']
+            temp_mem_use = cur_runtime_info[service]['proc_resource_info']['mem_util_use']
+            portrait_info['resource_info'][service]['cpu_util_limit'] = temp_cpu_limit
+            portrait_info['resource_info'][service]['cpu_util_use'] = temp_cpu_use
+            portrait_info['resource_info'][service]['mem_util_limit'] = temp_mem_limit
+            portrait_info['resource_info'][service]['mem_util_use'] = temp_mem_use
+            
+            # 获取当前服务的配置
+            temp_task_conf = cur_runtime_info[service]['task_conf']
+            temp_fps = temp_task_conf['fps']
+            temp_reso = temp_task_conf['reso']
+            temp_reso = common.reso_2_index_dict[temp_reso]  # 将分辨率由字符串映射为整数
+            
+            # 获取当前服务的工况
+            if service == 'face_detection':
+                temp_obj_num = len(cur_runtime_info[service]['faces'])
+            elif service == 'gender_classification':
+                temp_obj_num = len(cur_runtime_info[service]['gender_result'])
+            
+            # 使用模型预测当前的中资源阈值
+            temp_task_info = {
+                'service_name': service,
+                'fps': temp_fps,
+                'reso': temp_reso,
+                'obj_num': temp_obj_num
+            }
+            
+            temp_resource_demand = self.predict_resource_threshold(temp_task_info)
+            
+            # 保存服务的资源需求量
+            portrait_info['resource_info'][service]['resource_demand'] = temp_resource_demand
+        
+        ###### 6. 其他信息
+        portrait_info['bandwidth'] = cur_runtime_info['bandwidth']  # 云边之间的带宽
+        portrait_info['data_to_cloud'] = cur_runtime_info['data_to_cloud']  # 云边之间的数据传输量
+        portrait_info['exe_plan'] = cur_runtime_info['exe_plan']
+        portrait_info['data_trans_size'] = cur_runtime_info['data_trans_size']  # 各个服务输入和输出的数据量
+        portrait_info['frame'] = cur_runtime_info['frame']
+        portrait_info['process_delay'] = cur_runtime_info['process_delay']
+        portrait_info['delay'] = cur_runtime_info['delay']
+        
+      
     def predict_resource_threshold(self, task_info):
         # 预测某个服务在当前配置、当前工况下的资源阈值
         service = task_info['service_name']

@@ -24,7 +24,7 @@ class  KnowledgeBaseUser():
     
     #冷启动计划者，初始化时需要conf_names,serv_names,service_info_list,user_constraint一共四个量
     #在初始化过程中，会根据这些参数，制造conf_list，serv_ip_list，serv_cpu_list以及serv_meme_list
-    def __init__(self, conf_names, serv_names, service_info_list, user_constraint, rsc_constraint, rsc_upper_bound, rsc_down_bound, work_condition, portrait_info, bandwidth_dict):
+    def __init__(self, conf_names, serv_names, service_info_list, user_constraint, rsc_constraint, rsc_upper_bound, rsc_down_bound, work_condition, portrait_info, bandwidth_dict, conf_adjust_direction=None, conf_upper_bound=None, conf_lower_bound=None):
         self.conf_names = conf_names
         self.serv_names = serv_names
         self.service_info_list = service_info_list
@@ -35,6 +35,9 @@ class  KnowledgeBaseUser():
         self.work_condition = work_condition
         self.portrait_info = portrait_info
         self.bandwidth_dict = bandwidth_dict
+        self.conf_adjust_direction = conf_adjust_direction
+        self.conf_upper_bound = conf_upper_bound
+        self.conf_lower_bound = conf_lower_bound
 
         # 工况和画像均为空，则此时知识库用于冷启动；否则用于正常调度
         self.cold_start_flag = True if not self.work_condition and not self.portrait_info else False
@@ -359,7 +362,54 @@ class  KnowledgeBaseUser():
 
         return conf, flow_mapping, resource_limit
     
-    # 该objective是一个动态多目标优化过程，能够求出帕累托最优解
+    # 由trial给出下一组要尝试的参数并返回
+    def get_next_params_1(self, trial):
+        conf = {}
+        flow_mapping = {}
+        resource_limit = {}
+
+        for conf_name in self.conf_names:   # conf_names含有流水线上所有任务需要的配置参数的总和(分辨率、帧率等)，但是不包括其所在的ip
+            conf[conf_name] = trial.suggest_categorical(conf_name, conf_and_serv_info[conf_name])
+
+        edge_cloud_cut_choice = trial.suggest_categorical('edge_cloud_cut_choice', conf_and_serv_info["edge_cloud_cut_point"])
+        for serv_name in self.serv_names:
+            with open(KB_DATA_PATH+'/'+ serv_name+'_conf_info'+'.json', 'r') as f:  
+                conf_info = json.load(f)  
+                if self.serv_names.index(serv_name) < edge_cloud_cut_choice:  # 服务索引小于云边协同切分点，在边执行
+                    flow_mapping[serv_name] = model_op[common.edge_ip]
+                else:  # 服务索引大于等于云边协同切分点，在云执行
+                    flow_mapping[serv_name] = model_op[common.cloud_ip]
+                
+                serv_cpu_limit = serv_name + "_cpu_util_limit"
+                serv_mem_limit = serv_name + "_mem_util_limit"
+                resource_limit[serv_name] = {}
+                if flow_mapping[serv_name]["node_role"] == "cloud":  #对于云端没必要研究资源约束下的情况
+                    resource_limit[serv_name]["cpu_util_limit"] = 1.0
+                    resource_limit[serv_name]["mem_util_limit"] = 1.0
+                    # 根据flow_mapping中的node_ip可以从rsc_constraint中获得该设备上的资源约束，通过serv_name可以获得rsc_upper_bound上的约束，
+                    # 二者取最小的，用于限制从conf_info中获取的可取值范围，从而限制查找值。
+                else:
+                    device_ip = flow_mapping[serv_name]["node_ip"]
+                    cpu_upper_limit = min(self.rsc_constraint[device_ip]['cpu'], self.rsc_upper_bound[serv_name]['cpu_limit'])
+                    cpu_down_limit = max(0.0, self.rsc_down_bound[serv_name]['cpu_limit'])
+                    mem_upper_limit = min(self.rsc_constraint[device_ip]['mem'], self.rsc_upper_bound[serv_name]['mem_limit'])
+                    mem_down_limit = max(0.0, self.rsc_down_bound[serv_name]['mem_limit'])
+
+
+                    cpu_choice_range = [item for item in conf_info[serv_cpu_limit] if item <= cpu_upper_limit and item >= cpu_down_limit]
+                    mem_choice_range = [1.0]
+                    # 要防止资源约束导致取值范围为空的情况s
+                    if len(cpu_choice_range) == 0:
+                        cpu_choice_range = [item for item in conf_info[serv_cpu_limit]]
+                    if len(mem_choice_range) == 0:
+                        mem_choice_range = [1.0]
+                    resource_limit[serv_name]["cpu_util_limit"] = trial.suggest_categorical(serv_cpu_limit, cpu_choice_range)
+                    resource_limit[serv_name]["mem_util_limit"] = trial.suggest_categorical(serv_mem_limit, mem_choice_range)
+
+        return conf, flow_mapping, resource_limit
+    
+    
+    # 该objective是一个动态多目标优化过程，能够求出帕累托最优解（时延和资源）
     def objective(self, trial):
         conf = {}
         flow_mapping = {}
@@ -463,6 +513,111 @@ class  KnowledgeBaseUser():
                 
                 
 
+        # 返回的总优化目标数量应该有：1+2*ips个
+        return mul_objects
+
+
+    # 该objective是一个动态多目标优化过程，能够求出帕累托最优解（精度和资源）
+    def objective_1(self, trial):
+        conf = {}
+        flow_mapping = {}
+        resource_limit = {}
+
+        for conf_name in self.conf_names:   # conf_names含有流水线上所有任务需要的配置参数的总和(分辨率、帧率等)，但是不包括其所在的ip
+            conf[conf_name] = trial.suggest_categorical(conf_name, conf_and_serv_info[conf_name])
+
+        edge_cloud_cut_choice = trial.suggest_categorical('edge_cloud_cut_choice', conf_and_serv_info["edge_cloud_cut_point"])
+        for serv_name in self.serv_names:
+            with open(KB_DATA_PATH+'/'+ serv_name+'_conf_info'+'.json', 'r') as f:  
+                conf_info = json.load(f)  
+                if self.serv_names.index(serv_name) < edge_cloud_cut_choice:  # 服务索引小于云边协同切分点，在边执行
+                    flow_mapping[serv_name] = model_op[common.edge_ip]
+                else:  # 服务索引大于等于云边协同切分点，在云执行
+                    flow_mapping[serv_name] = model_op[common.cloud_ip]
+                
+                serv_cpu_limit = serv_name + "_cpu_util_limit"
+                serv_mem_limit = serv_name + "_mem_util_limit"
+                resource_limit[serv_name] = {}
+                if flow_mapping[serv_name]["node_role"] == "cloud":  #对于云端没必要研究资源约束下的情况
+                    resource_limit[serv_name]["cpu_util_limit"] = 1.0
+                    resource_limit[serv_name]["mem_util_limit"] = 1.0
+                    # 根据flow_mapping中的node_ip可以从rsc_constraint中获得该设备上的资源约束，通过serv_name可以获得rsc_upper_bound上的约束，
+                    # 二者取最小的，用于限制从conf_info中获取的可取值范围，从而限制查找值。
+                else:
+                    device_ip = flow_mapping[serv_name]["node_ip"]
+                    cpu_upper_limit = min(self.rsc_constraint[device_ip]['cpu'], self.rsc_upper_bound[serv_name]['cpu_limit'])
+                    cpu_down_limit = max(0.0, self.rsc_down_bound[serv_name]['cpu_limit'])
+                    mem_upper_limit = min(self.rsc_constraint[device_ip]['mem'], self.rsc_upper_bound[serv_name]['mem_limit'])
+                    mem_down_limit = max(0.0, self.rsc_down_bound[serv_name]['mem_limit'])
+
+
+                    cpu_choice_range = [item for item in conf_info[serv_cpu_limit] if item <= cpu_upper_limit and item >= cpu_down_limit]
+                    mem_choice_range = [1.0]  # 不再更改内存分配量，统一设置为1.0
+                    # 要防止资源约束导致取值范围为空的情况
+                    if len(cpu_choice_range) == 0:
+                        cpu_choice_range = [item for item in conf_info[serv_cpu_limit]]
+                    if len(mem_choice_range) == 0:
+                        mem_choice_range = [1.0]
+                    resource_limit[serv_name]["cpu_util_limit"] = trial.suggest_categorical(serv_cpu_limit, cpu_choice_range)
+                    resource_limit[serv_name]["mem_util_limit"] = trial.suggest_categorical(serv_mem_limit, mem_choice_range)
+       
+        
+        mul_objects = []
+        # 这是一个多目标优化问题，所以既要满足时延约束，又要满足资源约束。以下是获取时延约束的情况，要让最后的结果尽可能小。首先加入时延优化目标：
+        # 以下返回的结果已经经过了工况处理，按照线性化乘以了obj_n。在不考虑传输时延的时候，结果是比较准确不会波动的。
+        status, pred_delay_list, pred_delay_total = self.get_pred_delay(conf=conf, flow_mapping=flow_mapping, resource_limit=resource_limit, edge_cloud_cut_choice=edge_cloud_cut_choice)
+
+        # 对于conf, flow_mapping=flow_mapping, resource_limit=resource_limit，还要求精度
+        # 首先判断当前服务是都有精度
+        task_accuracy = 1.0
+        acc_pre = AccuracyPrediction()
+        obj_size = None if 'obj_size' not in self.work_condition else self.work_condition['obj_size']
+        obj_speed = None if 'obj_speed' not in self.work_condition else self.work_condition['obj_speed']
+        for serv_name in serv_names:
+            if service_info_dict[serv_name]["can_seek_accuracy"]:
+                task_accuracy *= acc_pre.predict(service_name=serv_name, service_conf={
+                    'fps':conf['fps'],
+                    'reso':conf['reso']
+                }, obj_size=obj_size, obj_speed=obj_speed)
+
+        
+        if status == 0:  # 返回0说明相应配置压根不存在，此时返回MAX_NUMBER。贝叶斯优化的目标是让返回值尽可能小，这种MAX_NUMBER的情况自然会被尽量避免
+            mul_objects.append(MAX_NUMBER)
+        else:  #如果成功找到了一个可行的策略，按照如下方式计算返回值，目的是得到尽可能靠近约束时延0.7倍且小于约束时延的配置
+            acc_constraint = self.user_constraint["accuracy"]
+            if task_accuracy >= acc_constraint:
+                mul_objects.append(task_accuracy - acc_constraint)
+            else:
+                mul_objects.append(10*(acc_constraint - task_accuracy))
+        
+        # 然后加入各个设备上的优化目标：我需要获取每一个设备上的cpu约束，以及mem约束。
+        
+        for device_ip in self.rsc_constraint.keys():
+            cpu_util = 0
+            mem_util = 0
+            # 检查该device_ip上消耗了多少资源
+            for serv_name in resource_limit.keys():
+                if flow_mapping[serv_name]['node_ip'] == device_ip:
+                    cpu_util += resource_limit[serv_name]['cpu_util_limit']
+                    mem_util += resource_limit[serv_name]['mem_util_limit']
+            
+            # 如果cpu_util和mem_util取值都为0，说明用户根本没有在这个ip上消耗资源，此时显然是满足优化目标的，直接返回两个0即可
+            if cpu_util == 0 and mem_util == 0:
+                mul_objects.append(0)
+                mul_objects.append(0)
+            
+            # 否则，说明在这个ip上消耗资源了。
+            # 此时，如果是在云端，资源消耗根本不算什么,但是应该尽可能不选择云端才对。所以此处应该返回相对较大的结果。
+            # 那么应该返回多少比较合适呢？先设置为1看看。
+            elif model_op[device_ip]['node_role'] == 'cloud':
+                mul_objects.append(1.0)
+                mul_objects.append(1.0)
+
+            # 只有在ip为边端且消耗了资源的情况下，才需要尽可能让资源最小化。这里的0.5是为了减小资源约束相对于时延的占比权重
+            else: 
+                mul_objects.append(0.5*cpu_util)
+                mul_objects.append(0.5*mem_util)
+                
         # 返回的总优化目标数量应该有：1+2*ips个
         return mul_objects
 
@@ -593,7 +748,135 @@ class  KnowledgeBaseUser():
         }
               
         return params_in_delay_in_rsc_cons, params_in_delay_out_rsc_cons, params_out_delay_cons, next_plan
- 
+    
+    
+    # get_plan_in_cons：
+    # 用途：基于贝叶斯优化，调用多目标优化的贝叶斯模型，得到一系列帕累托最优解
+    # 方法：通过贝叶斯优化，在有限轮数内选择一个最优的结果
+    # 返回值：满足精度和资源约束的解；满足精度约束不满足资源约束的解；不满足精度约束的解；贝叶斯优化模型建议的下一组参数值
+    def get_plan_in_cons_1(self, n_trials):
+        # 开始多目标优化，由于时延和资源为优化问题的约束条件，因此将其作为多目标优化的目标
+        study = optuna.create_study(directions=['minimize' for _ in range(1+2*len(self.rsc_constraint.keys()))])  
+        study.optimize(self.objective_1, n_trials=n_trials)
+
+        ans_params = []
+        trials = sorted(study.best_trials, key=lambda t: t.values) # 对字典best_trials按values从小到达排序  
+        
+        # 此处的帕累托最优解可能重复，因此首先要提取内容，将其转化为字符串记录在ans_params中，然后从ans_params里删除重复项
+        for trial in trials:
+            conf = {}
+            flow_mapping = {}
+            resource_limit = {}
+            for conf_name in self.conf_names:   # conf_names含有流水线上所有任务需要的配置参数的总和，但是不包括其所在的ip
+                # conf_list会包含各类配置参数取值范围,例如分辨率、帧率等
+                conf[conf_name] = trial.params[conf_name]
+            edge_cloud_cut_choice = trial.params['edge_cloud_cut_choice']
+            
+            for serv_name in self.serv_names:
+                if self.serv_names.index(serv_name) < edge_cloud_cut_choice:  # 服务索引小于云边协同切分点，在边执行
+                    flow_mapping[serv_name] = model_op[common.edge_ip]
+                else:  # 服务索引大于等于云边协同切分点，在云执行
+                    flow_mapping[serv_name] = model_op[common.cloud_ip]
+
+                serv_cpu_limit = serv_name + "_cpu_util_limit"
+                serv_mem_limit = serv_name + "_mem_util_limit"
+                resource_limit[serv_name] = {}
+
+                if flow_mapping[serv_name]["node_role"] == "cloud":
+                    resource_limit[serv_name]["cpu_util_limit"] = 1.0
+                    resource_limit[serv_name]["mem_util_limit"] = 1.0
+                else:
+                    resource_limit[serv_name]["cpu_util_limit"] = trial.params[serv_cpu_limit]
+                    resource_limit[serv_name]["mem_util_limit"] = trial.params[serv_mem_limit]
+            
+            ans_item = {}
+            ans_item['conf'] = conf
+            ans_item['flow_mapping'] = flow_mapping
+            ans_item['resource_limit'] = resource_limit
+            ans_item['edge_cloud_cut_choice'] = edge_cloud_cut_choice
+            
+            ans_params.append(json.dumps(ans_item))
+            '''
+            {   'reso': '720p', 'fps': 10, 'encoder': 'JPEG'}
+            {   'face_detection': {'model_id': 0, 'node_ip': '172.27.151.145', 'node_role': 'host'}, 
+                'face_alignment': {'model_id': 0, 'node_ip': '172.27.151.145', 'node_role': 'host'}}
+            {   'face_detection': {'cpu_util_limit': 0.2, 'mem_util_limit': 0.45}, 
+                'face_alignment': {'cpu_util_limit': 0.1, 'mem_util_limit': 0.45}}
+            '''
+
+        # 从ans_params里删除重复项，并选择真正status不为0的有效帕累托最优解返回。同时存储该配置对应的预估时延
+        ans_params_set = list(set(ans_params))
+        # 保存满足时延约束的解
+        params_in_acc_in_rsc_cons = []
+        params_in_acc_out_rsc_cons = []
+        params_out_acc_cons = []
+        for param in ans_params_set:
+            ans_dict = json.loads(param)
+            conf = ans_dict['conf']
+            flow_mapping = ans_dict['flow_mapping']
+            resource_limit = ans_dict['resource_limit']
+            edge_cloud_cut_choice = ans_dict['edge_cloud_cut_choice']
+            status, pred_delay_list, pred_delay_total = self.get_pred_delay(conf=conf,
+                                                                            flow_mapping=flow_mapping,
+                                                                            resource_limit=resource_limit,
+                                                                            edge_cloud_cut_choice=edge_cloud_cut_choice)
+            
+            # 求出精度
+            task_accuracy = 1.0
+            acc_pre = AccuracyPrediction()
+            obj_size = None if 'obj_size' not in self.work_condition else self.work_condition['obj_size']
+            obj_speed = None if 'obj_speed' not in self.work_condition else self.work_condition['obj_speed']
+            for serv_name in serv_names:
+                if service_info_dict[serv_name]["can_seek_accuracy"]:
+                    task_accuracy *= acc_pre.predict(service_name=serv_name, service_conf={
+                        'fps':conf['fps'],
+                        'reso':conf['reso']
+                    }, obj_size=obj_size, obj_speed=obj_speed)
+                    
+            if status != 0:  # 如果status不为0，才说明这个配置是有效的，否则是无效的
+                deg_violate = 0 #违反资源约束的程度
+                for device_ip in self.rsc_constraint.keys():
+                    # 只针对非云设备计算违反资源约束程度
+                    if model_op[device_ip]['node_role'] != 'cloud':
+                        cpu_util = 0
+                        mem_util = 0
+                        for serv_name in resource_limit.keys():
+                            if flow_mapping[serv_name]['node_ip'] == device_ip:
+                                # 必须用round保留小数点，因为python对待浮点数不精确，0.35加上0.05会得到0.39999……
+                                cpu_util = round(cpu_util + resource_limit[serv_name]['cpu_util_limit'], 2)
+                                mem_util = round(mem_util + resource_limit[serv_name]['mem_util_limit'], 2)
+                        cpu_util_ratio = float(cpu_util) / float(self.rsc_constraint[device_ip]['cpu'])
+                        mem_util_ratio = float(mem_util) / float(self.rsc_constraint[device_ip]['mem'])
+                        
+                        if cpu_util_ratio > 1:
+                            deg_violate += cpu_util_ratio
+                        if mem_util_ratio > 1:
+                            deg_violate += mem_util_ratio
+                    
+                ans_dict['pred_delay_list'] = pred_delay_list
+                ans_dict['pred_delay_total'] = pred_delay_total
+                ans_dict['deg_violate'] = deg_violate
+                ans_dict['task_accuracy'] = task_accuracy
+
+                # 根据配置是否满足时延约束，将其分为两类
+                if task_accuracy >= self.user_constraint["accuracy"] and ans_dict['deg_violate'] == 0:
+                    params_in_acc_in_rsc_cons.append(ans_dict)
+                elif task_accuracy >= self.user_constraint["accuracy"] and ans_dict['deg_violate'] > 0:
+                    params_in_acc_out_rsc_cons.append(ans_dict)
+                else:
+                    params_out_acc_cons.append(ans_dict)
+        
+        # 构建贝叶斯优化模型建议的下一组参数值
+        next_trial = study.ask()
+        next_conf, next_flow_mapping, next_resource_limit = self.get_next_params_1(next_trial)
+        next_plan = {
+            'video_conf': next_conf,
+            'flow_mapping': next_flow_mapping,
+            'resource_limit': next_resource_limit
+        }
+              
+        return params_in_acc_in_rsc_cons, params_in_acc_out_rsc_cons, params_out_acc_cons, next_plan
+    
 
 service_info_list=[
     {
