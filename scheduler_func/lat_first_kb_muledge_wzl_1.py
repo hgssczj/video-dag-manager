@@ -3,7 +3,7 @@ import itertools
 import json
 import os
 from logging_utils import root_logger
-from common import model_op,service_info_dict,conf_and_serv_info,ip_range,reso_range,fps_range, edge_cloud_cut_range
+from common import model_op,service_info_dict,conf_and_serv_info,ip_range,reso_range,fps_range, edge_cloud_cut_range, cpu_range, mem_range
 import common
 from RuntimePortrait import RuntimePortrait
 from AccuracyPrediction import AccuracyPrediction
@@ -94,8 +94,8 @@ def macro_judge(
     else:
         for i in range(len(middle_conf_list)):  # 遍历所有的中配置，每一个中配置都为当前配置指定调整的方向
             middle_conf = middle_conf_list[i]
-            temp_reso = middle_conf[0]
-            temp_fps = middle_conf[1]
+            temp_fps = middle_conf[0]
+            temp_reso = middle_conf[1]
             temp_conf_adjust_plan = []
             
             if old_fps == temp_fps:  # 帧率的调整方向
@@ -238,6 +238,7 @@ def macro_judge(
             assert len(temp_macro_plan) == (3 + 2 * len(serv_names))
             macro_plans.append(temp_macro_plan)
     
+    root_logger.info('New macro plans:{}'.format(macro_plans))
     return {
             'cold_start_flag': False,
             'macro_plans': macro_plans,
@@ -291,7 +292,7 @@ def get_coldstart_plan_bayes(
         
         # 看看完全满足约束的解中，是否能出现一个绝佳解。绝佳解定义为时延低于0.1，所以按照时延从小到大排序
         sorted_params_temp = sorted(params_in_acc_in_rsc_cons, key=lambda item:(item['pred_delay_total']))
-        if len(sorted_params_temp) > 0 and sorted_params_temp[0]['pred_delay_total'] < 0.1:
+        if len(sorted_params_temp) > 0 and sorted_params_temp[0]['pred_delay_total'] < 0.2:
             root_logger.info("找到一个绝佳解，停止继续搜索")
             break
     
@@ -436,7 +437,7 @@ def get_scheduler_plan_bayes(
     portrait_info=None,
     bandwidth_dict=None,
     macro_plan=None,
-    conf_upper_bound=None
+    macro_plan_dict=None
 ):
     #################### 1. 获取历史调度策略 ####################
     # 从画像信息中提取调度策略而不是从云端保存的历史调度策略中获取，这是为了避免云边之间并发导致的策略不一致
@@ -450,50 +451,92 @@ def get_scheduler_plan_bayes(
             break
     
     #################### 2. 根据宏观调度指导进行范围限制 ####################
-    ########### 2.1 对帧率范围进行限制 ###########
-    new_fps_range = []
+    ########### 2.1 对帧率、分辨率范围进行限制 ###########
     old_fps_index = fps_range.index(old_conf['fps'])
-    if macro_plan[0] == 0:
-        new_fps_range = [old_conf['fps']]
-    elif macro_plan[0] == 1:
-        assert conf_upper_bound is not None
-        fps_upper_bound = fps_range.index(conf_upper_bound['fps_upper_bound'])
-        assert fps_upper_bound >= old_fps_index
-        new_fps_range = fps_range[old_fps_index: fps_upper_bound+1]
-    else:
-        new_fps_range = fps_range[:old_fps_index]
-    conf_and_serv_info['fps'] = new_fps_range
-    
-    ########### 2.2 对分辨率范围进行限制 ###########
-    new_reso_range = []
     old_reso_index = reso_range.index(old_conf['reso'])
-    if macro_plan[1] == 0:
+    if macro_plan_dict['conf_adjust_direction'] == 0:  # 若配置无需改变，则限定配置查找范围为当前配置
+        new_fps_range = [old_conf['fps']]
+        conf_and_serv_info['fps'] = new_fps_range
+        
         new_reso_range = [old_conf['reso']]
-    elif macro_plan[1] == 1:
-        assert conf_upper_bound is not None
-        reso_upper_bound = reso_range.index(conf_upper_bound['reso_upper_bound'])
-        assert reso_upper_bound >= old_reso_index
-        new_reso_range = reso_range[old_reso_index: reso_upper_bound+1]
-    else:
-        new_reso_range = reso_range[:old_reso_index]
-    conf_and_serv_info['reso'] = new_reso_range
+        conf_and_serv_info['reso'] = new_reso_range
     
-    ########### 2.3 对云边协同方式进行限制 ###########
+    else:  # 若配置需要改变，则依据宏观建议限定的上下界来限定范围
+        adjust_str = str(macro_plan[0]) + '_' + str(macro_plan[1])
+        if macro_plan_dict['conf_adjust_direction'] == 1:
+            assert adjust_str in macro_plan_dict['conf_upper_bound']
+            new_fps_bound, new_reso_bound = macro_plan_dict['conf_upper_bound'][adjust_str]
+        else:
+            assert adjust_str in macro_plan_dict['conf_lower_bound']
+            new_fps_bound, new_reso_bound = macro_plan_dict['conf_lower_bound'][adjust_str]
+        
+        assert new_fps_bound in fps_range
+        new_fps_index = fps_range.index(new_fps_bound)
+        fps_min_index = min(old_fps_index, new_fps_index)
+        fps_max_index = max(old_fps_index, new_fps_index)
+        new_fps_range = fps_range[fps_min_index, fps_max_index+1]
+        conf_and_serv_info['fps'] = new_fps_range
+        
+        assert new_reso_bound in reso_range
+        new_reso_index = reso_range.index(new_reso_bound)
+        reso_min_index = min(old_reso_index, new_reso_index)
+        reso_max_index = max(old_reso_index, new_reso_index)
+        new_reso_range = reso_range[reso_min_index, reso_max_index+1]
+        conf_and_serv_info['reso'] = new_reso_range
+        
+    
+    ########### 2.2 对云边协同方式进行限制 ###########
     new_edge_cloud_cut_range = []
-    if macro_plan[4] == 0:
+    if macro_plan[2] == 0:
         new_edge_cloud_cut_range = [old_edge_cloud_cut_choice]
-    elif macro_plan[4] == 1:
-        assert old_edge_cloud_cut_choice != 0
-        new_edge_cloud_cut_range = [i for i in range(old_edge_cloud_cut_choice)]
+    elif macro_plan[2] == 1:
+        if old_edge_cloud_cut_choice == 0:
+            new_edge_cloud_cut_range = [0]
+        else:
+            new_edge_cloud_cut_range = [i for i in range(old_edge_cloud_cut_choice)]
     else:
-        assert old_edge_cloud_cut_choice != len(serv_names)
-        new_edge_cloud_cut_range = [i for i in range(old_edge_cloud_cut_choice + 1, len(serv_names) + 1)]
+        if old_edge_cloud_cut_choice == len(serv_names):
+            new_edge_cloud_cut_range = [len(serv_names)]
+        else:
+            new_edge_cloud_cut_range = [i for i in range(old_edge_cloud_cut_choice + 1, len(serv_names) + 1)]
     conf_and_serv_info['edge_cloud_cut_point'] = new_edge_cloud_cut_range
     
     
+    ########### 2.3 对资源调整范围进行限制 ###########
+    for i in range(len(serv_names)):
+        temp_str = serv_names[i] + '_cpu_util_limit'
+        if macro_plan[3 + 2*i] == 2:
+            conf_and_serv_info[temp_str] = cpu_range
+        else:
+            temp_cpu_limit = old_resource_limit[serv_names[i]]["cpu_util_limit"]
+            if temp_cpu_limit == 1.0:  # 暂时认为只有在云端才会设置cpu利用率为1.0，因此在云端执行的服务CPU调整范围为[1.0]
+                conf_and_serv_info[temp_str] = [1.0]
+            else:
+                temp_cpu_limit_index = cpu_range.index(temp_cpu_limit)
+                if macro_plan[3 + 2*i] == 0:
+                    conf_and_serv_info[temp_str] = [temp_cpu_limit]
+                elif macro_plan[3 + 2*i] == 1:
+                    if temp_cpu_limit_index == len(cpu_range) - 1:
+                        conf_and_serv_info[temp_str] = [temp_cpu_limit]
+                    else:
+                        conf_and_serv_info[temp_str] = cpu_range[temp_cpu_limit_index+1: len(cpu_range)]
+                else:
+                    if temp_cpu_limit_index == 0:
+                        conf_and_serv_info[temp_str] = [temp_cpu_limit]
+                    else:
+                        conf_and_serv_info[temp_str] = cpu_range[0: temp_cpu_limit_index]
+
+        temp_str = serv_names[i] + '_mem_util_limit'
+        conf_and_serv_info[temp_str] = mem_range
+    
     ########### 2.4 对特殊情况进行判断 ###########
     ###### 2.4.1 宏观调度计划认为调度策略无需修改
-    if macro_plan[0] == 0 and macro_plan[1] == 0 and macro_plan[2] == 0 and macro_plan[3] == 0 and macro_plan[4] == 0:
+    not_need_modify = True
+    for plan in macro_plan:
+        if plan != 0:
+            not_need_modify = False
+            break
+    if not_need_modify:
         return 1, old_conf, old_flow_mapping, old_resource_limit, None
     
     ########### 2.5 查表 ###########
@@ -518,24 +561,24 @@ def get_scheduler_plan_bayes(
     # (2)依次尝试不同的n_trail，
     # 分别存储查到的满足约束和不满足约束的解。查找在找到一个绝佳解的时候停止。
     n_trials_range = [100,200,300,400,500]  # 尝试的贝叶斯优化查找次数
-    params_in_delay_in_rsc_cons_total = []  # 既满足时延约束也满足资源约束的解
+    params_in_acc_in_rsc_cons_total = []  # 既满足时延约束也满足资源约束的解
     
     for n_trials in n_trials_range:
-        params_in_delay_in_rsc_cons, _, _, next_plan = plan_builder.get_plan_in_cons(n_trials=n_trials)
-        params_in_delay_in_rsc_cons_total.extend(params_in_delay_in_rsc_cons)
+        params_in_acc_in_rsc_cons, _, _, next_plan = plan_builder.get_plan_in_cons_1(n_trials=n_trials)
+        params_in_acc_in_rsc_cons_total.extend(params_in_acc_in_rsc_cons)
         
-        # 看看完全满足约束的解中，是否能出现一个绝佳解。绝佳解定义为精度高于0.9，所以按照精度从大到小排序
-        sorted_params_temp = sorted(params_in_delay_in_rsc_cons, key=lambda item:(-item['task_accuracy']))
-        if len(sorted_params_temp) > 0 and sorted_params_temp[0]['task_accuracy'] > 0.9:
+        # 看看完全满足约束的解中，是否能出现一个绝佳解。绝佳解定义为时延低于0.2，所以按照时延从小到大排序
+        sorted_params_temp = sorted(params_in_acc_in_rsc_cons, key=lambda item:(item['pred_delay_total']))
+        if len(sorted_params_temp) > 0 and sorted_params_temp[0]['pred_delay_total'] < 0.2:
             root_logger.info("找到一个绝佳解，停止继续搜索")
             break
     
     # （3）与冷启动不同，正式调度要求必须找到在当前宏观建议下既满足时延约束又满足资源约束的解，同时task_accuracy尽可能大
     sorted_params = []
-    if len(params_in_delay_in_rsc_cons_total) == 0:
+    if len(params_in_acc_in_rsc_cons_total) == 0:
         return ans_found, conf, flow_mapping, resource_limit, next_plan
     else:
-        sorted_params = sorted(params_in_delay_in_rsc_cons_total, key=lambda item:(-item['task_accuracy']))
+        sorted_params = sorted(params_in_acc_in_rsc_cons_total, key=lambda item:(item['pred_delay_total']))
 
     best_params = sorted_params[0]
     ans_found = 1
@@ -547,13 +590,20 @@ def get_scheduler_plan_bayes(
     conf_and_serv_info['fps'] = fps_range
     conf_and_serv_info['reso'] = reso_range
     conf_and_serv_info['edge_cloud_cut_point'] = edge_cloud_cut_range
+    for i in range(len(serv_names)):
+        temp_str = serv_names[i] + '_cpu_util_limit'
+        conf_and_serv_info[temp_str] = cpu_range
+        
+        temp_str = serv_names[i] + '_mem_util_limit'
+        conf_and_serv_info[temp_str] = mem_range
+    
     return ans_found, conf, flow_mapping, resource_limit, next_plan
 
-# 返回极端情况下的调度策略：最低配置、所有服务上云
+# 返回极端情况下的调度策略：保障一定精度下的最低配置、所有服务上云
 def get_extreme_case(
     serv_names=None,
 ):
-    conf = dict({"reso": "360p", "fps": 1, "encoder": "JPEG"})
+    conf = dict({"reso": "480p", "fps": 5, "encoder": "JPEG"})
     flow_mapping = dict()
     resource_limit = dict()
     cloud_ip = ''
@@ -639,8 +689,10 @@ def scheduler(
         root_logger.info('感知到总处理时延是:{}'.format(all_proc_delay))
     
     # 获取当前工况
-    assert 'work_condition' in portrait_info
-    work_condition = portrait_info['work_condition']
+    work_condition = dict()
+    if portrait_info:
+        assert 'work_condition' in portrait_info
+        work_condition = portrait_info['work_condition']
     
     # 获得设备的资源约束rsc_constraint
     rsc_constraint = user_constraint['rsc_constraint']
@@ -733,7 +785,7 @@ def scheduler(
                 bandwidth_dict=bandwidth_dict
             )
         
-        ############### 2.2 按照建议的优先级依次尝试 ###############
+        ############### 2.2 TODO: 按照两重贝叶斯优化的方式确定最优解 ###############
         if_find_solution = False  # 能否根据宏观建议列表找到一个满足约束的解
         next_try_plan = None  # 在优先级最高的宏观建议下，查表的贝叶斯优化模型下一个建议的调度计划，当所有宏观调度计划均在知识库中查找失败时使用此调度计划
         for macro_plan in macro_plan_dict['macro_plans']:
@@ -748,7 +800,7 @@ def scheduler(
                                                                                     portrait_info=portrait_info,
                                                                                     bandwidth_dict=bandwidth_dict,
                                                                                     macro_plan=macro_plan,
-                                                                                    conf_upper_bound=macro_plan_dict['conf_upper_bound']
+                                                                                    macro_plan_dict=macro_plan_dict
                                                                                     )
             
             if next_try_plan is None:

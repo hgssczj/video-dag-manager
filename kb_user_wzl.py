@@ -203,7 +203,9 @@ class  KnowledgeBaseUser():
                 
                 edge_to_cloud_data -= pre_frame_str_size
                 edge_to_cloud_data += temp_frame_str_size
-            pred_delay_total += edge_to_cloud_data / (self.bandwidth_dict['kB/s'] * 1000)
+            
+            trans_delay = edge_to_cloud_data / (self.bandwidth_dict['kB/s'] * 1000) * conf['fps'] / 30  # 与处理时延、总体时延相同，传输时延也需要考虑帧率的影响
+            pred_delay_total += trans_delay
         
         
         status = 1
@@ -396,13 +398,23 @@ class  KnowledgeBaseUser():
                     mem_down_limit = max(0.0, self.rsc_down_bound[serv_name]['mem_limit'])
 
 
-                    cpu_choice_range = [item for item in conf_info[serv_cpu_limit] if item <= cpu_upper_limit and item >= cpu_down_limit]
+                    cpu_choice_range = []
+                    for item in conf_info[serv_cpu_limit]:  # CPU资源取值在xxx_conf_info.json里
+                        if item in conf_and_serv_info[serv_cpu_limit]:  # CPU资源取值在宏观调控限制的范围里
+                            if item <= cpu_upper_limit and item >= cpu_down_limit:  # CPU资源取值在资源预估器预估的范围里
+                                cpu_choice_range.append(item)  # 需要同时满足上述三个条件才可以作为贝叶斯优化查找的选项
+                    
                     mem_choice_range = [1.0]
+                    
                     # 要防止资源约束导致取值范围为空的情况s
                     if len(cpu_choice_range) == 0:
-                        cpu_choice_range = [item for item in conf_info[serv_cpu_limit]]
+                        for item in conf_info[serv_cpu_limit]:  # CPU资源取值在xxx_conf_info.json里
+                            if item in conf_and_serv_info[serv_cpu_limit]:  # CPU资源取值在宏观调控限制的范围里
+                                cpu_choice_range.append(item)  # 需要同时满足上述三个条件才可以作为贝叶斯优化查找的选项
+                    
                     if len(mem_choice_range) == 0:
                         mem_choice_range = [1.0]
+                    assert len(cpu_choice_range) != 0 and len(mem_choice_range) != 0
                     resource_limit[serv_name]["cpu_util_limit"] = trial.suggest_categorical(serv_cpu_limit, cpu_choice_range)
                     resource_limit[serv_name]["mem_util_limit"] = trial.suggest_categorical(serv_mem_limit, mem_choice_range)
 
@@ -550,14 +562,23 @@ class  KnowledgeBaseUser():
                     mem_upper_limit = min(self.rsc_constraint[device_ip]['mem'], self.rsc_upper_bound[serv_name]['mem_limit'])
                     mem_down_limit = max(0.0, self.rsc_down_bound[serv_name]['mem_limit'])
 
-
-                    cpu_choice_range = [item for item in conf_info[serv_cpu_limit] if item <= cpu_upper_limit and item >= cpu_down_limit]
+                    cpu_choice_range = []
+                    for item in conf_info[serv_cpu_limit]:  # CPU资源取值在xxx_conf_info.json里
+                        if item in conf_and_serv_info[serv_cpu_limit]:  # CPU资源取值在宏观调控限制的范围里
+                            if item <= cpu_upper_limit and item >= cpu_down_limit:  # CPU资源取值在资源预估器预估的范围里
+                                cpu_choice_range.append(item)  # 需要同时满足上述三个条件才可以作为贝叶斯优化查找的选项
+                    
                     mem_choice_range = [1.0]  # 不再更改内存分配量，统一设置为1.0
+                    
                     # 要防止资源约束导致取值范围为空的情况
                     if len(cpu_choice_range) == 0:
-                        cpu_choice_range = [item for item in conf_info[serv_cpu_limit]]
+                        for item in conf_info[serv_cpu_limit]:  # CPU资源取值在xxx_conf_info.json里
+                            if item in conf_and_serv_info[serv_cpu_limit]:  # CPU资源取值在宏观调控限制的范围里
+                                cpu_choice_range.append(item)  # 需要同时满足上述三个条件才可以作为贝叶斯优化查找的选项
+                    
                     if len(mem_choice_range) == 0:
                         mem_choice_range = [1.0]
+                    assert len(cpu_choice_range) != 0 and len(mem_choice_range) != 0
                     resource_limit[serv_name]["cpu_util_limit"] = trial.suggest_categorical(serv_cpu_limit, cpu_choice_range)
                     resource_limit[serv_name]["mem_util_limit"] = trial.suggest_categorical(serv_mem_limit, mem_choice_range)
        
@@ -580,15 +601,16 @@ class  KnowledgeBaseUser():
                     'reso':conf['reso']
                 }, obj_size=obj_size, obj_speed=obj_speed)
 
+        acc_constraint = self.user_constraint["accuracy"]
+        if task_accuracy >= acc_constraint:
+            mul_objects.append(task_accuracy - acc_constraint)
+        else:
+            mul_objects.append(10*(acc_constraint - task_accuracy))
         
         if status == 0:  # 返回0说明相应配置压根不存在，此时返回MAX_NUMBER。贝叶斯优化的目标是让返回值尽可能小，这种MAX_NUMBER的情况自然会被尽量避免
             mul_objects.append(MAX_NUMBER)
-        else:  #如果成功找到了一个可行的策略，按照如下方式计算返回值，目的是得到尽可能靠近约束时延0.7倍且小于约束时延的配置
-            acc_constraint = self.user_constraint["accuracy"]
-            if task_accuracy >= acc_constraint:
-                mul_objects.append(task_accuracy - acc_constraint)
-            else:
-                mul_objects.append(10*(acc_constraint - task_accuracy))
+        else:  
+            mul_objects.append(pred_delay_total)
         
         # 然后加入各个设备上的优化目标：我需要获取每一个设备上的cpu约束，以及mem约束。
         
@@ -618,7 +640,7 @@ class  KnowledgeBaseUser():
                 mul_objects.append(0.5*cpu_util)
                 mul_objects.append(0.5*mem_util)
                 
-        # 返回的总优化目标数量应该有：1+2*ips个
+        # 返回的总优化目标数量应该有：2+2*ips个
         return mul_objects
 
         
@@ -756,7 +778,7 @@ class  KnowledgeBaseUser():
     # 返回值：满足精度和资源约束的解；满足精度约束不满足资源约束的解；不满足精度约束的解；贝叶斯优化模型建议的下一组参数值
     def get_plan_in_cons_1(self, n_trials):
         # 开始多目标优化，由于时延和资源为优化问题的约束条件，因此将其作为多目标优化的目标
-        study = optuna.create_study(directions=['minimize' for _ in range(1+2*len(self.rsc_constraint.keys()))])  
+        study = optuna.create_study(directions=['minimize' for _ in range(2+2*len(self.rsc_constraint.keys()))])  
         study.optimize(self.objective_1, n_trials=n_trials)
 
         ans_params = []
@@ -858,7 +880,7 @@ class  KnowledgeBaseUser():
                 ans_dict['deg_violate'] = deg_violate
                 ans_dict['task_accuracy'] = task_accuracy
 
-                # 根据配置是否满足时延约束，将其分为两类
+                # 根据配置是否满足精度约束，将其分为三类
                 if task_accuracy >= self.user_constraint["accuracy"] and ans_dict['deg_violate'] == 0:
                     params_in_acc_in_rsc_cons.append(ans_dict)
                 elif task_accuracy >= self.user_constraint["accuracy"] and ans_dict['deg_violate'] > 0:

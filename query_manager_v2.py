@@ -358,15 +358,15 @@ def query_get_job_cbk():
         # 获取已经生成job且已经有调度计划的query的调度计划
         # print(query.get_created_job(),query.get_node_addr())
         if query.get_created_job() and query.get_node_addr() == node_addr and \
-            query_id in scheduler_func.lat_first_kb_muledge_wzl.prev_conf and\
-            query_id in scheduler_func.lat_first_kb_muledge_wzl.prev_flow_mapping and \
-            query_id in scheduler_func.lat_first_kb_muledge_wzl.prev_resource_limit:
+            query_id in scheduler_func.lat_first_kb_muledge_wzl_1.prev_conf and\
+            query_id in scheduler_func.lat_first_kb_muledge_wzl_1.prev_flow_mapping and \
+            query_id in scheduler_func.lat_first_kb_muledge_wzl_1.prev_resource_limit:
             root_logger.info('开始更新调度计划')
             jobs_plan[query_id] = {
                 'job_uid': query_id,
-                'video_conf': scheduler_func.lat_first_kb_muledge_wzl.prev_conf[query_id],
-                'flow_mapping': scheduler_func.lat_first_kb_muledge_wzl.prev_flow_mapping[query_id],
-                'resource_limit': scheduler_func.lat_first_kb_muledge_wzl.prev_resource_limit[query_id]
+                'video_conf': scheduler_func.lat_first_kb_muledge_wzl_1.prev_conf[query_id],
+                'flow_mapping': scheduler_func.lat_first_kb_muledge_wzl_1.prev_flow_mapping[query_id],
+                'resource_limit': scheduler_func.lat_first_kb_muledge_wzl_1.prev_resource_limit[query_id]
             }
     info_and_plan = {
         'jobs_info': jobs_info,
@@ -383,9 +383,9 @@ def update_prev_plan_cbk():
     para = flask.request.json
 
     job_uid=para['job_uid']
-    scheduler_func.lat_first_kb_muledge_wzl.prev_conf[job_uid]=para['video_conf']
-    scheduler_func.lat_first_kb_muledge_wzl.prev_flow_mapping[job_uid]=para['flow_mapping']
-    scheduler_func.lat_first_kb_muledge_wzl.prev_resource_limit[job_uid]=para['resource_limit']
+    scheduler_func.lat_first_kb_muledge_wzl_1.prev_conf[job_uid]=para['video_conf']
+    scheduler_func.lat_first_kb_muledge_wzl_1.prev_flow_mapping[job_uid]=para['flow_mapping']
+    scheduler_func.lat_first_kb_muledge_wzl_1.prev_resource_limit[job_uid]=para['resource_limit']
 
     return flask.jsonify({"statys":0,"msg":"prev plan has been updated"})
 
@@ -464,7 +464,7 @@ def node_join_cbk():
     node_addr = node_ip + ":" + str(node_port)
     video_id = para['video_id']
     video_type = para['video_type']
-    root_logger.info(node_ip,node_port,node_addr)
+    root_logger.info("node_ip:{},node_port:{},node_addr:{}".format(node_ip,node_port,node_addr))
 
     query_manager.add_video(node_addr=node_addr, video_id=video_id, video_type=video_type)
 
@@ -533,6 +533,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
                         #     bandwidth_dict=bandwidth_dict[node_addr]
                         # )
                         
+                        start_time = time.time()
                         conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge_wzl_1.scheduler(
                             job_uid=query_id,
                             dag={"generator": "x", "flow": query.pipeline},
@@ -541,12 +542,14 @@ def cloud_scheduler_loop_kb(query_manager=None):
                             user_constraint=user_constraint,
                             bandwidth_dict=bandwidth_dict[node_addr]
                         )
-                        
+                        end_time = time.time()
+                    
+                    root_logger.info("调度策略指定的时间:{}".format(end_time - start_time))
                     root_logger.info("下面展示即将更新的调度计划：")
-                    root_logger.info(type(query_id),query_id)
-                    root_logger.info(type(conf),conf)
-                    root_logger.info(type(flow_mapping),flow_mapping)
-                    root_logger.info(type(resource_limit),resource_limit)
+                    root_logger.info("{},{}".format(type(query_id),query_id))
+                    root_logger.info("{},{}".format(type(conf),conf))
+                    root_logger.info("{},{}".format(type(flow_mapping),flow_mapping))
+                    root_logger.info("{},{}".format(type(resource_limit),resource_limit))
                 else:
                     root_logger.info("query.video_id:{}, 不值得调度".format(query.video_id))
         except Exception as e:

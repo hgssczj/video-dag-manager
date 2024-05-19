@@ -596,7 +596,7 @@ class RuntimePortrait():
         act_delay = act_proc_delay + act_trans_delay
         
         ##### 2.2.3 确定资源画像类别 #####
-        if act_delay >= 1.02 * ideal_delay:
+        if act_delay >= 1.2 * ideal_delay:
             portrait_info['resource_portrait'] = 0  # 若实际执行时延高于理想时延，则资源画像为弱
         else:
             portrait_info['resource_portrait'] = 3  # 若实际执行时延等于理想时延，则资源画像为中或强，这一点在画像中无法具体判断，需要在中间模块中进一步判断
@@ -689,6 +689,13 @@ class RuntimePortrait():
         portrait_info['frame'] = cur_runtime_info['frame']
         portrait_info['process_delay'] = cur_runtime_info['process_delay']
         portrait_info['delay'] = cur_runtime_info['delay']
+        
+        assert('end_pipe' in cur_runtime_info)
+        portrait_info['cur_latency'] = cur_runtime_info['end_pipe']['delay']
+        portrait_info['cur_process_latency'] = cur_runtime_info['end_pipe']['process_delay']
+        
+        
+        return portrait_info
         
       
     def predict_resource_threshold(self, task_info):

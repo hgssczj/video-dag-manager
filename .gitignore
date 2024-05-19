@@ -7,3 +7,4 @@ input/
 services/
 .vscode/
 router_control.py
+data_record_specification.txt

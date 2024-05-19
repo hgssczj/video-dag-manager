@@ -277,16 +277,7 @@ class KnowledgeBaseBuilder():
         system_status = r2.json()
         result = r3.json()
         # portrait_info=r4.json()
-        '''
-        print("system_status")
-        print(system_status)
-        print('result')
-        print(result)
-        print('portrait_info')
-        print(portrait_info)
-        '''
         
-
         # system_status的典型结构
         '''
        {
@@ -463,7 +454,7 @@ class KnowledgeBaseBuilder():
         # updatetd_result用于存储本次从云端获取的有效的更新结果
         updatetd_result=[]
 
-        for res in appended_result:    
+        for res in appended_result:   
             '''
              row={
                 'n_loop':n_loop,
@@ -644,11 +635,11 @@ class KnowledgeBaseBuilder():
     #      使用write_in_file方法将感知到的结果写入文件之中
     # 返回值：包含updated_result的键值对
     def get_write(self):
-         
+        # print("In get_write")
         #（1）获取资源情境,获取node_ip指定的边缘节点的内存使用率
         r2 = self.sess.get(url="http://{}/get_system_status".format(self.service_addr))
         if not r2.json():
-            return {"status":1,"des":"fail to get resource info"}
+            return {"status":1,"des":"fail to request /get_system_status"}
         '''
         else:
             print("收到资源情境为:")
@@ -658,13 +649,13 @@ class KnowledgeBaseBuilder():
         #（2）查询执行结果并处理
         r3 = self.sess.get(url="http://{}/query/get_result/{}".format(self.query_addr, self.query_id))  
         if not r3.json():
-            return {"status":2,"des":"fail to post one query request"}
+            return {"status":2,"des":"fail to request /query/get_result"}
         
         # (4) 查看当前运行时情境
         r4 = self.sess.get(url="http://{}/query/get_portrait_info/{}".format(self.query_addr, self.query_id))  
         #print("r4",r4)
         if not r4.json():
-            return {"status":2,"des":"fail to post one query request"}
+            return {"status":2,"des":"fail to request /query/get_portrait_info"}
         '''
         else:
             print("收到运行时情境为:")
@@ -673,7 +664,7 @@ class KnowledgeBaseBuilder():
         # 如果r1 r2 r3都正常
         updatetd_result=self.write_in_file(r2=r2,r3=r3,r4=r4)
 
-        return {"status":3,"des:":"succeed to record a row","updatetd_result":updatetd_result}
+        return {"status":3,"des":"succeed to record a row","updatetd_result":updatetd_result}
 
     # collect_for_sample：
     # 用途：获取特定配置下的一系列采样结果，并将平均结果记录在explore_conf_dict贝叶斯字典中
@@ -723,11 +714,14 @@ class KnowledgeBaseBuilder():
         record_sum = 0
         while(record_sum < record_num):
             get_resopnse = self.get_write()
-            if(get_resopnse['status'] == 3):
+            if get_resopnse['status'] == 3:
                 updatetd_result = get_resopnse['updatetd_result']
                 for i in range(0, len(updatetd_result)):
-                    #print(updatetd_result[i])
+                    # print(updatetd_result[i])
                     record_sum += 1
+            else:
+                pass
+                # print(get_resopnse['des'])
 
         self.fp.close()
         print("记录结束，查看文件")
@@ -1574,16 +1568,16 @@ service_info_list=[
         "value":'gender_classification_proc_delay',
         "conf":["reso","fps","encoder"]
     },
-    {
-        "name":'face_detection_trans',
-        "value":'face_detection_trans_delay',
-        "conf":["reso","fps","encoder"]
-    },
-    {
-        "name":'gender_classification_trans',
-        "value":'gender_classification_trans_delay',
-        "conf":["reso","fps","encoder"]
-    },
+    # {
+    #     "name":'face_detection_trans',
+    #     "value":'face_detection_trans_delay',
+    #     "conf":["reso","fps","encoder"]
+    # },
+    # {
+    #     "name":'gender_classification_trans',
+    #     "value":'gender_classification_trans_delay',
+    #     "conf":["reso","fps","encoder"]
+    # },
 ]
 
 
@@ -1599,15 +1593,14 @@ serv_names=["face_detection","gender_classification"]
 #'''
 query_body = {
         "node_addr": "192.168.1.9:4001",
-        "video_id": 103,     
+        "video_id": 4,     
         "pipeline":  ["face_detection", "gender_classification"],#制定任务类型
         "user_constraint": {
             "delay": 0.3,  # 用户时延约束暂时设置为0.3
             "accuracy": 0.6,  # 用户精度约束暂时设置为0.6
-            'rsc_constraint': {
+            'rsc_constraint': {  # 注意，没有用到的设备的ip这里必须删除，因为贝叶斯求解多目标优化问题时优化目标的数量是由这里的设备ip决定的
                 "114.212.81.11": {"cpu": 1.0, "mem": 1000}, 
-                "192.168.1.7": {"cpu": 1.0, "mem": 1000},
-                "192.168.1.9": {"cpu": 0.7, "mem": 1000}
+                "192.168.1.9": {"cpu": 1.0, "mem": 1000}
             }
         }
     }  
@@ -1674,7 +1667,7 @@ if __name__ == "__main__":
     # 是否进行稀疏采样(贝叶斯优化)
     need_sparse_kb = 0
     # 是否进行严格采样（遍历所有配置）
-    need_tight_kb = 1
+    need_tight_kb = 0
     # 是否根据某个csv文件绘制画像 
     need_to_draw = 0
     # 是否需要基于初始采样结果建立一系列字典，也就是时延有关的知识库
@@ -1685,7 +1678,7 @@ if __name__ == "__main__":
     need_new_ip = 0
 
     #是否需要发起一次简单的查询并测试调度器的功能
-    need_to_test = 0
+    need_to_test = 1
 
     #获取内存资源限制列表的时候，需要两步，第一步是下降，第二部是采取，两种方法都可以随机，也都可以不随机
     dec_rand = 0
@@ -1713,7 +1706,7 @@ if __name__ == "__main__":
     #是否需要发起一次简单的查询并测试调度器的功能
     if need_to_test==1:
         kb_builder.send_query() 
-        filepath=kb_builder.just_record(record_num=350)
+        filepath=kb_builder.just_record(record_num=200)
 
         kb_builder.anylze_explore_result(filepath=filepath)
         kb_builder.draw_picture_from_sample(filepath=filepath)
@@ -1809,17 +1802,12 @@ if __name__ == "__main__":
     
     # 如果想要用新记录的csv文件内容来更新知识库
     if need_to_add==1:
-        '''
-        new_list=['kb_data/20240326_20_30_40_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv',
-        'kb_data/20240326_20_55_52_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv',
-        'kb_data/20240326_21_00_27_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv',
-        'kb_data/20240326_21_08_05_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv',
-        'kb_data/20240326_21_16_29_kb_builder_0.35_tight_build_gender_classify_cold_start04.csv']
-        '''
-        new_list=['kb_data/20240326_21_38_09_kb_builder_0.35_tight_build_gender_classify_cold_start04.csv']
-        new_list=['kb_data/20240326_21_52_35_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv']
-        new_list=['kb_data/20240326_21_59_19_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv']
-        new_list=['kb_data/20240401_15_52_56_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv']
+        
+        new_list=['kb_data/20240511_16_57_05_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv',
+        'kb_data/20240511_17_36_55_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv',
+        'kb_data/20240511_19_19_00_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv',
+        'kb_data/20240511_19_30_24_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv']
+        
         for filepath in new_list:
             kb_builder.update_evaluator_from_samples(filepath=filepath)
             kb_builder.update_conf_info_from_samples(filepath=filepath)
