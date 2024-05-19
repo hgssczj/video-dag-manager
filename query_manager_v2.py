@@ -340,6 +340,8 @@ def query_get_job_cbk():
     jobs_plan=dict()
     node_addr = para['node_addr']
     bandwidth = para['bandwidth']
+    print('当前发出请求的node_addr')
+    print(node_addr)
     # 在query_manager里用一个字典保存每一个边缘当前的带宽。
     query_manager.bandwidth_dict[node_addr]=bandwidth
     print('当前任务字典query_dict')
@@ -360,7 +362,7 @@ def query_get_job_cbk():
             query_id in scheduler_func.lat_first_kb_muledge_wzl.prev_conf and\
             query_id in scheduler_func.lat_first_kb_muledge_wzl.prev_flow_mapping and \
             query_id in scheduler_func.lat_first_kb_muledge_wzl.prev_resource_limit:
-            # print('开始更新调度计划')
+            print('开始更新调度计划')
             jobs_plan[query_id] = {
                 'job_uid': query_id,
                 'video_conf': scheduler_func.lat_first_kb_muledge_wzl.prev_conf[query_id],
@@ -375,16 +377,17 @@ def query_get_job_cbk():
     return flask.jsonify(info_and_plan)
 
 
-# TODO：为无job的query生成job
+# TODO：为query生成新调度计划
 @query_app.route("/query/update_prev_plan", methods=["POST"])
 @flask_cors.cross_origin()
 def update_prev_plan_cbk():
+    #print("生成新调度计划")
     para = flask.request.json
 
     job_uid=para['job_uid']
-    scheduler_func.lat_first_kb_muledge.prev_conf[job_uid]=para['video_conf']
-    scheduler_func.lat_first_kb_muledge.prev_flow_mapping[job_uid]=para['flow_mapping']
-    scheduler_func.lat_first_kb_muledge.prev_resource_limit[job_uid]=para['resource_limit']
+    scheduler_func.lat_first_kb_muledge_wzl.prev_conf[job_uid]=para['video_conf']
+    scheduler_func.lat_first_kb_muledge_wzl.prev_flow_mapping[job_uid]=para['flow_mapping']
+    scheduler_func.lat_first_kb_muledge_wzl.prev_resource_limit[job_uid]=para['resource_limit']
 
     return flask.jsonify({"statys":0,"msg":"prev plan has been updated"})
 
@@ -470,7 +473,7 @@ def node_join_cbk():
     return flask.jsonify({"status": 0, "msg": "joined one video to query_manager", "node_addr": node_addr})
 
 
-def start_query_listener(serv_port=4000):
+def start_query_listener(serv_port=3000):
     query_app.run(host="0.0.0.0", port=serv_port)
 
 
@@ -501,7 +504,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
                 # appended_result_list = query.get_appended_result_list()
                 if query.video_id < 99:  # 如果是大于等于99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
                     print("video_id", query.video_id)
-                    node_addr = query.node_addr  # 形如：192.168.1.9:4001
+                    node_addr = query.node_addr  # 形如：192.168.1.7:3001
                     user_constraint = query.user_constraint
                     assert node_addr
 
@@ -546,11 +549,11 @@ def cloud_scheduler_loop_kb(query_manager=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--query_port', dest='query_port',
-                        type=int, default=4000)
+                        type=int, default=3000)
     parser.add_argument('--serv_cloud_addr', dest='serv_cloud_addr',
-                        type=str, default='127.0.0.1:4500')
+                        type=str, default='127.0.0.1:3500')
     parser.add_argument('--video_cloud_port', dest='video_cloud_port',
-                        type=int, default=4100)
+                        type=int, default=3100)
     args = parser.parse_args()
 
     threading.Thread(target=start_query_listener,

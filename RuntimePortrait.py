@@ -10,7 +10,7 @@ import math
 class RuntimePortrait():
     CONTENT_ELE_MAXN = 50
     def __init__(self, pipeline):
-        self.service_cloud_addr = "114.212.81.11:4500"
+        self.service_cloud_addr = "114.212.81.11:3500"
         self.sess = requests.Session()
         
         # 存储工况情境的字段

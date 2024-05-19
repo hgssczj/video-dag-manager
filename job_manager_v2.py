@@ -78,8 +78,8 @@ def sfg_get_next_init_task(
             new_conf_frame_id = conf_frame_id
             break
 
-    print("cam_fps={} conf_fps={}".format(cam_fps, conf_fps))
-    print("new_cam_frame_id={} new_conf_frame_id={}".format(new_cam_frame_id, new_conf_frame_id))
+    #print("cam_fps={} conf_fps={}".format(cam_fps, conf_fps))
+    #print("new_cam_frame_id={} new_conf_frame_id={}".format(new_cam_frame_id, new_conf_frame_id))
 
 
     # 根据video_conf['reso']调整大小
@@ -201,7 +201,7 @@ class JobManager():
     
     # 向云端获取可用于创建job的job_info
     def created_job_and_update_plan_and_get_bandwidth(self):
-        if self.local_addr:  # node_ip:tracker_port 4001
+        if self.local_addr:  # node_ip:tracker_port 3001
             bandwidth = get_bandwidth()
             self.bandwidth_2_cloud = bandwidth
             resp = self.sess.post(url="http://{}/query/get_jobs_info_and_jobs_plan".format(self.query_addr),
@@ -215,7 +215,7 @@ class JobManager():
                 jobs_plan=info_and_plan['jobs_plan']
                 # 建立新job
                 for job_uid,job_info in jobs_info.items():
-                    print('建立新job',job_uid)
+                    #print('建立新job',job_uid)
                     self.submit_job(
                         job_uid=job_uid,
                         node_addr=job_info['node_addr'],
@@ -225,8 +225,8 @@ class JobManager():
                     )
                 # 更新调度计划
                 for job_uid,job_plan in jobs_plan.items():
-                    print('更新新调度计划',job_uid)
-                    print(job_plan)
+                    #print('更新新调度计划',job_uid)
+                    #print(job_plan)
                     self.update_job_plan(
                         job_uid=job_uid,
                         video_conf=job_plan['video_conf'],
@@ -401,7 +401,7 @@ class Job():
             proc_resource_info_dict = dict()
             data_to_cloud = 0  # 记录本次执行边缘端与云端之间的通信数据量
             for taskname in self.pipeline:
-                print("开始执行服务", taskname)
+                #print("开始执行服务", taskname)
                 root_logger.info("to forward taskname={}".format(taskname))
 
                 input_ctx = output_ctx
@@ -459,9 +459,9 @@ class Job():
                 root_logger.info("got service result: {}, (delta_t={})".format(
                                   output_ctx.keys(), ed_time - st_time))
                 plan_result['delay'][taskname] = ed_time - st_time
-                print("展示云端所发资源信息:") #把各阶段时延都保存到plan_result内以便同步到云端
-                print(output_ctx.keys())
-                print(output_ctx['proc_resource_info'])
+                #print("展示云端所发资源信息:") #把各阶段时延都保存到plan_result内以便同步到云端
+                #print(output_ctx.keys())
+                #print(output_ctx['proc_resource_info'])
                 plan_result['process_delay'][taskname]=output_ctx['proc_resource_info']['compute_latency']
                 #下面的注释不用管
                 # 运行时感知：应用相关
@@ -476,11 +476,11 @@ class Job():
                 output_ctx['task_conf'] = cur_plan[common.PLAN_KEY_VIDEO_CONF]
                 proc_resource_info_dict[taskname] = output_ctx['proc_resource_info']
                 runtime_dict[taskname] = output_ctx
-                print("完成情境获取")
+                #print("完成情境获取")
                 # self.update_runtime(taskname=taskname, output_ctx=output_ctx)
 
             n += 1
-            print("流水线初步完成，进行收尾处理")
+            #print("流水线初步完成，进行收尾处理")
             total_frame_delay = 0
             total_frame_process_delay = 0
             for taskname in plan_result['delay']:
@@ -579,7 +579,7 @@ tracker_app = flask.Flask(__name__)
 flask_cors.CORS(tracker_app)
 
 
-def start_tracker_listener(serv_port=4001):
+def start_tracker_listener(serv_port=3001):
     tracker_app.run(host="0.0.0.0", port=serv_port)
     # app.run(port=serv_port)
     # app.run(host="*", port=serv_port)
@@ -587,13 +587,13 @@ def start_tracker_listener(serv_port=4001):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--query_addr', dest='query_addr',
-                        type=str, default='114.212.81.11:4000')
+                        type=str, default='114.212.81.11:3000')
     parser.add_argument('--tracker_port', dest='tracker_port',
-                        type=int, default=4001)
+                        type=int, default=3001)
     parser.add_argument('--serv_cloud_addr', dest='serv_cloud_addr',
-                        type=str, default='114.212.81.11:4500')
+                        type=str, default='114.212.81.11:3500')
     parser.add_argument('--video_side_port', dest='video_side_port',
-                        type=int, default=4101)
+                        type=int, default=3101)
     args = parser.parse_args()
 
     # 接受下发的query生成job、接收更新的调度策略

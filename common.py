@@ -38,7 +38,10 @@ EDGE_SIDE_COLLABORATION = 12  # 边边协同
 # 资源分配相关
 CHANGE_RSC_ALLOC_TO_CONS = 14  # 将服务的资源分配量更改为资源约束值，其他所有配置不变
 
-
+# 查询目标相关
+MIN_DELAY=0 #最小化时延
+MAX_ACCURACY=1 #最大化精度
+MIN_RESOURCE=2 #最小化资源消耗
 
 
 
@@ -107,11 +110,6 @@ model_op={
                 "node_ip": "192.168.1.7",
                 "node_role": "host"  
             },
-            "192.168.1.9": {
-                "model_id": 0,
-                "node_ip": "192.168.1.9",
-                "node_role": "host"  
-            },
         }
 
 service_info_dict={
@@ -132,32 +130,32 @@ service_info_dict={
 }
 
 
-#reso_range=list(resolution_wh.keys())
-reso_range=['360p','480p','720p','1080p']
+reso_range=list(resolution_wh.keys())
+#reso_range=['360p','480p','720p','1080p']
 
 #fps_range=fps_list
 fps_range=[1,5,10,20,30]
+fps_range=fps_list
 
 encoder_range=['JPEG']
 
-ip_range=["192.168.1.9","114.212.81.11"]  # ["192.168.1.7","192.168.1.9","114.212.81.11"]
+ip_range=["192.168.1.7","114.212.81.11"]
 cloud_ip = "114.212.81.11"
-edge_ip = "192.168.1.9"
+edge_ip = "192.168.1.7"
 
+# common里不应该存储serv_names这种与流水线高度绑定的配置
+# 不同流水线都可以使用common中的量才对
+#serv_names = ['face_detection', 'gender_classification']
 
-serv_names = ['face_detection', 'gender_classification']
+#edge_cloud_cut_range = [i for i in range(len(serv_names) + 1)]
+edge_cloud_cut_range = []
 
-edge_cloud_cut_range = [i for i in range(len(serv_names) + 1)]
-
-mem_range=[0.001,0.002,0.003,0.004,0.005,0.006,0.007,0.008,0.009,0.01,
-           0.011,0.012,0.013,0.014,0.015,0.016,0.017,0.018,0.019,0.02,
-           0.021,0.022,0.023,0.024,0.025,0.026,0.027,0.028,0.029,0.03]
 
 cpu_range=[0.05,0.10,0.15,0.20,
            0.25,0.30,0.35,0.40,
-           0.45,0.50,0.55,0.60]
-
-
+           0.45,0.50,0.55,0.60,
+           0.65,0.70,0.75,0.80,
+           0.85,0.90,0.95,1.00]
 
 conf_and_serv_info={  #各种配置参数的可选值
     
@@ -169,17 +167,11 @@ conf_and_serv_info={  #各种配置参数的可选值
     "gender_classification_ip":ip_range,  
     "edge_cloud_cut_point": edge_cloud_cut_range,
 
-    "face_detection_mem_util_limit":mem_range,
     "face_detection_cpu_util_limit":cpu_range,
-    "gender_classification_mem_util_limit":mem_range,
     "gender_classification_cpu_util_limit":cpu_range,
 
-    "face_detection_trans_ip":ip_range,
-    "gender_classification_trans_ip":ip_range,   
-
-    "face_detection_trans_mem_util_limit":mem_range,
-    "face_detection_trans_cpu_util_limit":cpu_range,
-    "gender_classification_trans_mem_util_limit":mem_range,
-    "gender_classification_trans_cpu_util_limit":cpu_range,
-
 }
+
+# edge_to_cloud_data += self.portrait_info['data_trans_size'][self.serv_names[index]]  # 以上次执行时各服务之间数据的传输作为当前传输的数据量
+# pre_frame_str_size = len(self.portrait_info['frame'])
+# pre_frame = field_codec_utils.decode_image(self.portrait_info['frame'])

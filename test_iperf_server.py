@@ -1,6 +1,7 @@
 import iperf3
 
 server = iperf3.Server()
+server.port=5555
 print('Running server: {0}:{1}'.format(server.bind_address, server.port))
 
 while True:

@@ -1,10 +1,11 @@
 import iperf3
+import time
 
 def get_bandwidth():
     client = iperf3.Client()
     client.duration = 2 # Measurement time [sec]
     client.server_hostname = '114.212.81.11' # Server's IP address
-
+    client.port=5555
     print('Connecting to {0}:{1}'.format(client.server_hostname, client.port))
     result = client.run()
 
@@ -33,3 +34,8 @@ def get_bandwidth():
             'kB/s':result.sent_kB_s,
             'MB/s':result.sent_MB_s
         }
+'''
+while True:
+    time.sleep(2)
+    print(get_bandwidth())
+'''

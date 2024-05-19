@@ -1,4 +1,5 @@
 #彭师兄同步到边
+#测试section-kb同步能能否成功
 '''
 from logging_utils import root_logger
 from query_manager_v2 import Query

@@ -598,6 +598,7 @@ class KnowledgeBaseBuilder():
     def post_get_write(self,conf,flow_mapping,resource_limit):
         # print("开始发出消息并配置")
         #（1）更新配置
+        #print('发出新配置')
         r1 = self.sess.post(url="http://{}/query/update_prev_plan".format(self.query_addr),
                         json={"job_uid": self.query_id, "video_conf": conf, "flow_mapping": flow_mapping,"resource_limit":resource_limit})
         if not r1.json():
@@ -680,6 +681,10 @@ class KnowledgeBaseBuilder():
         sample_num=0
         sample_result=[]
         all_delay=0
+        print('当前采样配置')
+        print(conf)
+        print(flow_mapping)
+        print(resource_limit)
         while(sample_num<self.sample_bound):# 只要已经收集的符合要求的采样结果不达标，就不断发出请求，直到在本配置下成功获取sample_bound个样本
             get_resopnse=self.post_get_write(conf=conf,flow_mapping=flow_mapping,resource_limit=resource_limit)
             if(get_resopnse['status']==3): #如果正常返回了结果，就可以从中获取updatetd_result了
@@ -1594,8 +1599,8 @@ serv_names=["face_detection","gender_classification"]
 #这个query_body用于测试单位的“人进入会议室”，也就是只有一张脸的情况，工况不变，但是会触发调度器变化，因为ifd很小
 #'''
 query_body = {
-        "node_addr": "192.168.1.9:4001",
-        "video_id": 4,     
+        "node_addr": "192.168.1.7:3001",
+        "video_id": 103,     
         "pipeline":  ["face_detection", "gender_classification"],#制定任务类型
         "user_constraint": {
             "delay": 0.3, #用户约束暂时设置为0.3
@@ -1662,11 +1667,11 @@ if __name__ == "__main__":
     #(将上述三个量相乘，就足以得到要采样的总次数，这个次数与建立知识库所需的时延一般成正比)
     
     # 是否进行稀疏采样(贝叶斯优化)
-    need_sparse_kb = 0
+    need_sparse_kb = 1
     # 是否进行严格采样（遍历所有配置）
     need_tight_kb = 0
     # 是否根据某个csv文件绘制画像 
-    need_to_draw = 1
+    need_to_draw = 0
     # 是否需要基于初始采样结果建立一系列字典，也就是时延有关的知识库
     need_to_build = 0
     # 是否需要将某个文件的内容更新到知识库之中
@@ -1690,10 +1695,10 @@ if __name__ == "__main__":
               
 
     kb_builder=KnowledgeBaseBuilder(expr_name="tight_build_gender_classify_cold_start04",
-                                    node_ip='192.168.1.9',
-                                    node_addr="192.168.1.9:4001",
-                                    query_addr="114.212.81.11:4000",
-                                    service_addr="114.212.81.11:4500",
+                                    node_ip='192.168.1.7',
+                                    node_addr="192.168.1.7:3001",
+                                    query_addr="114.212.81.11:3000",
+                                    service_addr="114.212.81.11:3500",
                                     query_body=query_body,
                                     conf_names=conf_names,
                                     serv_names=serv_names,
@@ -1817,7 +1822,7 @@ if __name__ == "__main__":
     
     if need_new_ip==1:
         # 此处可以直接修改知识库中的特定配置，比如删除所有特定ip下的配置，或者基于各个边缘端都相同的思想添加新的边缘端ip配置，或者将知识库中的某个ip换成新的ip
-        kb_builder.add_node_ip_in_kb(new_node_ip='192.168.1.9')
+        kb_builder.add_node_ip_in_kb(new_node_ip='192.168.1.7')
         # kb_builder.delete_node_ip_in_kb(old_node_ip='172.27.143.164')
         # kb_builder.swap_node_ip_in_kb(old_node_ip='172.27.143.164',new_node_ip='192.168.1.7')
         print('完成更新')
