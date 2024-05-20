@@ -1,4 +1,7 @@
 import sys  
+import optuna
+import logging
+optuna.logging.set_verbosity(logging.WARNING)
 import itertools
 import json
 import os
@@ -8,6 +11,7 @@ import common
 from RuntimePortrait import RuntimePortrait
 from AccuracyPrediction import AccuracyPrediction
 from kb_user_wzl import KnowledgeBaseUser
+from macro_plan_helper import MacroPlanHelper
 
 
 # 保存历史调度策略
@@ -327,7 +331,7 @@ def get_coldstart_plan_bayes(
         conf = {}
         flow_mapping = {}
         resource_limit = {}
-        root_logger.warn("In get_coldstart_plan_bayes(), 知识库未能获取任何可用解")
+        root_logger.warning("In get_coldstart_plan_bayes(), 知识库未能获取任何可用解")
         return ans_found, conf, flow_mapping, resource_limit
 
     # 找到可调整的解，对其进行修正  
@@ -744,12 +748,12 @@ def scheduler(
             prev_flow_mapping[job_uid] = flow_mapping
             prev_resource_limit[job_uid] = resource_limit
         else:
-            root_logger.warn("查表已经失败,使用极端配置")
+            root_logger.warning("查表已经失败,使用极端配置")
             conf, flow_mapping, resource_limit = get_extreme_case(serv_names=serv_names)
             prev_conf[job_uid] = conf
             prev_flow_mapping[job_uid] = flow_mapping
             prev_resource_limit[job_uid] = resource_limit
-            root_logger.warn('最终采用:极端情况')
+            root_logger.warning('最终采用:极端情况')
         
         # 为了测试方便，以下人为设置初始冷启动值，以便查看更多稳定可靠的效果。但是下面这一部分代码实际上不能作为真正的冷启动。
         '''
@@ -785,7 +789,22 @@ def scheduler(
                 bandwidth_dict=bandwidth_dict
             )
         
-        ############### 2.2 TODO: 按照两重贝叶斯优化的方式确定最优解 ###############
+        ############### 2.2 按照两重贝叶斯优化的方式确定最优解 ###############
+        ############### 2.2.1 第一重贝叶斯优化：选择最优的调度方向 ###############
+        macro_plan_selector = MacroPlanHelper(conf_names=conf_names,
+                                            serv_names=serv_names,
+                                            service_info_list=service_info_list,
+                                            rsc_constraint=rsc_constraint,
+                                            user_constraint=user_constraint,
+                                            rsc_upper_bound=rsc_upper_bound,
+                                            rsc_down_bound=rsc_down_bound,
+                                            work_condition=work_condition,
+                                            portrait_info=portrait_info,
+                                            bandwidth_dict=bandwidth_dict,
+                                            macro_plan_dict=macro_plan_dict)
+        best_macro_plan_index = macro_plan_selector.get_best_macro_plan()
+        
+        ############### 2.2.2 第二重贝叶斯优化：在最优的调度方向上寻找最优解 ###############
         if_find_solution = False  # 能否根据宏观建议列表找到一个满足约束的解
         next_try_plan = None  # 在优先级最高的宏观建议下，查表的贝叶斯优化模型下一个建议的调度计划，当所有宏观调度计划均在知识库中查找失败时使用此调度计划
         for macro_plan in macro_plan_dict['macro_plans']:

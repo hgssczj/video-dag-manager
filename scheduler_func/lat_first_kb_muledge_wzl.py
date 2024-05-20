@@ -318,7 +318,7 @@ def get_coldstart_plan_bayes(
         conf = {}
         flow_mapping = {}
         resource_limit = {}
-        root_logger.warn("In get_coldstart_plan_bayes(), 知识库未能获取任何可用解")
+        root_logger.warning("In get_coldstart_plan_bayes(), 知识库未能获取任何可用解")
         return ans_found, conf, flow_mapping, resource_limit
 
     # 找到可调整的解，对其进行修正  
@@ -684,12 +684,12 @@ def scheduler(
             prev_flow_mapping[job_uid] = flow_mapping
             prev_resource_limit[job_uid] = resource_limit
         else:
-            root_logger.warn("查表已经失败,使用极端配置")
+            root_logger.warning("查表已经失败,使用极端配置")
             conf, flow_mapping, resource_limit = get_extreme_case(serv_names=serv_names)
             prev_conf[job_uid] = conf
             prev_flow_mapping[job_uid] = flow_mapping
             prev_resource_limit[job_uid] = resource_limit
-            root_logger.warn('最终采用:极端情况')
+            root_logger.warning('最终采用:极端情况')
         
         # 为了测试方便，以下人为设置初始冷启动值，以便查看更多稳定可靠的效果。但是下面这一部分代码实际上不能作为真正的冷启动。
         '''
