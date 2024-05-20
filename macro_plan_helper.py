@@ -64,14 +64,14 @@ class MacroPlanHelper():
             new_fps_index = fps_range.index(new_fps_bound)
             fps_min_index = min(old_fps_index, new_fps_index)
             fps_max_index = max(old_fps_index, new_fps_index)
-            new_fps_range = fps_range[fps_min_index, fps_max_index+1]
+            new_fps_range = fps_range[fps_min_index: fps_max_index+1]
             conf_and_serv_info['fps'] = new_fps_range
             
             assert new_reso_bound in reso_range
             new_reso_index = reso_range.index(new_reso_bound)
             reso_min_index = min(old_reso_index, new_reso_index)
             reso_max_index = max(old_reso_index, new_reso_index)
-            new_reso_range = reso_range[reso_min_index, reso_max_index+1]
+            new_reso_range = reso_range[reso_min_index: reso_max_index+1]
             conf_and_serv_info['reso'] = new_reso_range
             
         
@@ -146,14 +146,14 @@ class MacroPlanHelper():
         
         ######### 3.2 求最低时延 #########
         sorted_params_in_acc_in_rsc_cons = sorted(params_in_acc_in_rsc_cons, key=lambda item:(item['pred_delay_total']))
-        minimun_delay = 10
+        minimum_delay = 10
         if len(sorted_params_in_acc_in_rsc_cons) > 0:
-            minimun_delay = min(minimun_delay, sorted_params_in_acc_in_rsc_cons[0]['pred_delay_total'])
+            minimum_delay = min(minimum_delay, sorted_params_in_acc_in_rsc_cons[0]['pred_delay_total'])
         
         ######### 3.3 求目标函数 #########
         # 将二者进行归一化
-        cons_satisfied_rate_1 = cons_satisfied_rate / max(cons_satisfied_rate, minimun_delay)
-        minimun_delay_1 = minimun_delay / max(cons_satisfied_rate, minimun_delay)
+        cons_satisfied_rate_1 = cons_satisfied_rate / max(cons_satisfied_rate, minimum_delay)
+        minimun_delay_1 = minimum_delay / max(cons_satisfied_rate, minimum_delay)
         
         optimize_obj = 0.7 * cons_satisfied_rate_1 - 0.3 * minimun_delay_1  # 约束满足率和最低时延的加权求和
         optimize_obj = -optimize_obj
@@ -174,7 +174,7 @@ class MacroPlanHelper():
     def get_best_macro_plan(self):
         ### 1.利用贝叶斯优化选择最优的宏观计划
         study = optuna.create_study()
-        trial_num = min(10, len(self.macro_plan_dict['macro_plans']))
+        trial_num = min(10, self.macro_plan_num)
         study.optimize(self.objective, n_trials=trial_num)
         
         trials = sorted(study.best_trials, key=lambda t: t.values)

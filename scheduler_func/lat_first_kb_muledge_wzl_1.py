@@ -478,14 +478,14 @@ def get_scheduler_plan_bayes(
         new_fps_index = fps_range.index(new_fps_bound)
         fps_min_index = min(old_fps_index, new_fps_index)
         fps_max_index = max(old_fps_index, new_fps_index)
-        new_fps_range = fps_range[fps_min_index, fps_max_index+1]
+        new_fps_range = fps_range[fps_min_index: fps_max_index+1]
         conf_and_serv_info['fps'] = new_fps_range
         
         assert new_reso_bound in reso_range
         new_reso_index = reso_range.index(new_reso_bound)
         reso_min_index = min(old_reso_index, new_reso_index)
         reso_max_index = max(old_reso_index, new_reso_index)
-        new_reso_range = reso_range[reso_min_index, reso_max_index+1]
+        new_reso_range = reso_range[reso_min_index: reso_max_index+1]
         conf_and_serv_info['reso'] = new_reso_range
         
     
@@ -803,36 +803,30 @@ def scheduler(
                                             bandwidth_dict=bandwidth_dict,
                                             macro_plan_dict=macro_plan_dict)
         best_macro_plan_index = macro_plan_selector.get_best_macro_plan()
+        root_logger.info("选择的最优调度方向:{}".format(macro_plan_dict['macro_plans'][best_macro_plan_index]))
         
         ############### 2.2.2 第二重贝叶斯优化：在最优的调度方向上寻找最优解 ###############
-        if_find_solution = False  # 能否根据宏观建议列表找到一个满足约束的解
-        next_try_plan = None  # 在优先级最高的宏观建议下，查表的贝叶斯优化模型下一个建议的调度计划，当所有宏观调度计划均在知识库中查找失败时使用此调度计划
-        for macro_plan in macro_plan_dict['macro_plans']:
-            ans_found, conf, flow_mapping, resource_limit, next_plan = get_scheduler_plan_bayes(conf_names=conf_names,
-                                                                                    serv_names=serv_names,
-                                                                                    service_info_list=service_info_list,
-                                                                                    rsc_constraint=rsc_constraint,
-                                                                                    user_constraint=user_constraint,
-                                                                                    rsc_upper_bound=rsc_upper_bound,
-                                                                                    rsc_down_bound=rsc_down_bound,
-                                                                                    work_condition=work_condition,
-                                                                                    portrait_info=portrait_info,
-                                                                                    bandwidth_dict=bandwidth_dict,
-                                                                                    macro_plan=macro_plan,
-                                                                                    macro_plan_dict=macro_plan_dict
-                                                                                    )
-            
-            if next_try_plan is None:
-                next_try_plan = next_plan
-            
-            if ans_found == 1:
-                prev_conf[job_uid] = conf
-                prev_flow_mapping[job_uid] = flow_mapping
-                prev_resource_limit[job_uid] = resource_limit
-                if_find_solution = True
-                break
+        next_try_plan = None  # 在最优的宏观建议下，查表的贝叶斯优化模型下一个建议的调度计划，当所有宏观调度计划均在知识库中查找失败时使用此调度计划
+        ans_found, conf, flow_mapping, resource_limit, next_plan = get_scheduler_plan_bayes(conf_names=conf_names,
+                                                                                serv_names=serv_names,
+                                                                                service_info_list=service_info_list,
+                                                                                rsc_constraint=rsc_constraint,
+                                                                                user_constraint=user_constraint,
+                                                                                rsc_upper_bound=rsc_upper_bound,
+                                                                                rsc_down_bound=rsc_down_bound,
+                                                                                work_condition=work_condition,
+                                                                                portrait_info=portrait_info,
+                                                                                bandwidth_dict=bandwidth_dict,
+                                                                                macro_plan=macro_plan_dict['macro_plans'][best_macro_plan_index],
+                                                                                macro_plan_dict=macro_plan_dict
+                                                                                )
+        next_try_plan = next_plan
         
-        if not if_find_solution:  # 若根据宏观建议列表未能在知识库中找到一个满足约束的解，则使用next_try_plan进行探索
+        if ans_found == 1:
+            prev_conf[job_uid] = conf
+            prev_flow_mapping[job_uid] = flow_mapping
+            prev_resource_limit[job_uid] = resource_limit
+        else:  # 若根据宏观建议列表未能在知识库中找到一个满足约束的解，则使用next_try_plan进行探索
             prev_conf[job_uid] = next_try_plan["video_conf"]
             prev_flow_mapping[job_uid] = next_try_plan["flow_mapping"]
             prev_resource_limit[job_uid] = next_try_plan["resource_limit"]
