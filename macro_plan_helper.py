@@ -184,5 +184,27 @@ class MacroPlanHelper():
         best_macro_plan_index = best_trial.params['macro_plan_index']
         
         return best_macro_plan_index
+    
+    def get_top_k_macro_plans(self, k):
+        ### 1.利用贝叶斯优化选择最优的宏观计划
+        study = optuna.create_study()
+        trial_num = min(10, self.macro_plan_num)
+        study.optimize(self.objective, n_trials=trial_num)
         
+        trials = sorted(study.best_trials, key=lambda t: t.values)
+        
+        ### 2.返回top-K宏观计划的相关信息
+        top_k_index_list = []
+        count = 0
+        for trial in trials:
+            if count < k:
+                temp_index = trial.params['macro_plan_index']
+                if temp_index not in top_k_index_list:  # 去除重复项
+                    top_k_index_list.append(temp_index)
+                    count += 1
+
+        assert len(top_k_index_list) > 0
+        return top_k_index_list
+
+
         

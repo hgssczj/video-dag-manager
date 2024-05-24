@@ -6,6 +6,7 @@ import itertools
 import logging
 import field_codec_utils
 import cv2
+import sys
 from logging_utils import root_logger
 optuna.logging.set_verbosity(logging.WARNING)  
 
@@ -64,6 +65,8 @@ class  KnowledgeBaseUser():
             serv_mem = serv_name + "_mem_util_limit"
             self.serv_mem_list.append(conf_and_serv_info[serv_mem])
         # serv_mem_list包含各个模型的mem使用率的取值范围
+        
+        self.n_trial_unit = 20  # 贝叶斯优化查找的粒度
         
         #例如,可能的一组取值如下：
         # conf_names=["reso","fps","encoder"]
@@ -772,7 +775,7 @@ class  KnowledgeBaseUser():
         return params_in_delay_in_rsc_cons, params_in_delay_out_rsc_cons, params_out_delay_cons, next_plan
     
     
-    # get_plan_in_cons：
+    # get_plan_in_cons_1：
     # 用途：基于贝叶斯优化，调用多目标优化的贝叶斯模型，得到一系列帕累托最优解
     # 方法：通过贝叶斯优化，在有限轮数内选择一个最优的结果
     # 返回值：满足精度和资源约束的解；满足精度约束不满足资源约束的解；不满足精度约束的解；贝叶斯优化模型建议的下一组参数值
@@ -899,6 +902,160 @@ class  KnowledgeBaseUser():
               
         return params_in_acc_in_rsc_cons, params_in_acc_out_rsc_cons, params_out_acc_cons, next_plan
     
+    
+    # get_plan_in_cons_2：
+    # 其用途、方法、返回值与get_plan_in_cons_1均一致，但是贝叶斯优化查找的过程以较小的粒度为单位进行（例如20次），而不是直接进行大量查找，用于减少不必要的查找，提高查找速度
+    def get_plan_in_cons_2(self, n_trials):
+        # 开始多目标优化，由于精度和资源为优化问题的约束条件，因此将其作为多目标优化的目标
+        study = optuna.create_study(directions=['minimize' for _ in range(2+2*len(self.rsc_constraint.keys()))])  
+        count = 0
+        
+        # 保存满足约束的解
+        ans_params = []
+        params_in_acc_in_rsc_cons = []
+        params_in_acc_out_rsc_cons = []
+        params_out_acc_cons = []
+        
+        prev_in_acc_cons_minimun_delay = -1  # 前一轮查找过程中满足精度约束的最低时延
+    
+        
+        while count < n_trials:  # 以self.n_trial_unit为单位进行贝叶斯优化查找，最多进行n_trials次查找
+            study.optimize(self.objective_1, n_trials=self.n_trial_unit)
+            
+            ########## 1. 整理本轮贝叶斯优化查找的结果 ##########
+            cur_in_acc_cons_minimun_delay = sys.maxsize  # 本轮查找过程中满足精度约束的最低时延
+            temp_ans_params = []
+            trials = sorted(study.best_trials, key=lambda t: t.values) # 对字典best_trials按values从小到达排序  
+            
+            # 此处的帕累托最优解可能重复，因此首先要提取内容，将其转化为字符串记录在ans_params中，然后从ans_params里删除重复项
+            for trial in trials:
+                conf = {}
+                flow_mapping = {}
+                resource_limit = {}
+                for conf_name in self.conf_names:   # conf_names含有流水线上所有任务需要的配置参数的总和，但是不包括其所在的ip
+                    # conf_list会包含各类配置参数取值范围,例如分辨率、帧率等
+                    conf[conf_name] = trial.params[conf_name]
+                edge_cloud_cut_choice = trial.params['edge_cloud_cut_choice']
+                
+                for serv_name in self.serv_names:
+                    if self.serv_names.index(serv_name) < edge_cloud_cut_choice:  # 服务索引小于云边协同切分点，在边执行
+                        flow_mapping[serv_name] = model_op[common.edge_ip]
+                    else:  # 服务索引大于等于云边协同切分点，在云执行
+                        flow_mapping[serv_name] = model_op[common.cloud_ip]
+
+                    serv_cpu_limit = serv_name + "_cpu_util_limit"
+                    serv_mem_limit = serv_name + "_mem_util_limit"
+                    resource_limit[serv_name] = {}
+
+                    if flow_mapping[serv_name]["node_role"] == "cloud":
+                        resource_limit[serv_name]["cpu_util_limit"] = 1.0
+                        resource_limit[serv_name]["mem_util_limit"] = 1.0
+                    else:
+                        resource_limit[serv_name]["cpu_util_limit"] = trial.params[serv_cpu_limit]
+                        resource_limit[serv_name]["mem_util_limit"] = trial.params[serv_mem_limit]
+                
+                ans_item = {}
+                ans_item['conf'] = conf
+                ans_item['flow_mapping'] = flow_mapping
+                ans_item['resource_limit'] = resource_limit
+                ans_item['edge_cloud_cut_choice'] = edge_cloud_cut_choice
+                
+                temp_ans_params.append(json.dumps(ans_item))
+                '''
+                {   'reso': '720p', 'fps': 10, 'encoder': 'JPEG'}
+                {   'face_detection': {'model_id': 0, 'node_ip': '172.27.151.145', 'node_role': 'host'}, 
+                    'face_alignment': {'model_id': 0, 'node_ip': '172.27.151.145', 'node_role': 'host'}}
+                {   'face_detection': {'cpu_util_limit': 0.2, 'mem_util_limit': 0.45}, 
+                    'face_alignment': {'cpu_util_limit': 0.1, 'mem_util_limit': 0.45}}
+                '''
+
+            # 从temp_ans_params里删除重复项，相当于对本轮的查找去重
+            temp_ans_params_set = list(set(temp_ans_params))
+            for param in temp_ans_params_set:
+                if param not in ans_params:  #  全局去重，本轮未重复不代表全局未重复
+                    ans_params.append(param)
+                    
+                    ans_dict = json.loads(param)
+                    conf = ans_dict['conf']
+                    flow_mapping = ans_dict['flow_mapping']
+                    resource_limit = ans_dict['resource_limit']
+                    edge_cloud_cut_choice = ans_dict['edge_cloud_cut_choice']
+                    status, pred_delay_list, pred_delay_total = self.get_pred_delay(conf=conf,
+                                                                                    flow_mapping=flow_mapping,
+                                                                                    resource_limit=resource_limit,
+                                                                                    edge_cloud_cut_choice=edge_cloud_cut_choice)
+                    
+                    # 求出精度
+                    task_accuracy = 1.0
+                    acc_pre = AccuracyPrediction()
+                    obj_size = None if 'obj_size' not in self.work_condition else self.work_condition['obj_size']
+                    obj_speed = None if 'obj_speed' not in self.work_condition else self.work_condition['obj_speed']
+                    for serv_name in serv_names:
+                        if service_info_dict[serv_name]["can_seek_accuracy"]:
+                            task_accuracy *= acc_pre.predict(service_name=serv_name, service_conf={
+                                'fps':conf['fps'],
+                                'reso':conf['reso']
+                            }, obj_size=obj_size, obj_speed=obj_speed)
+                            
+                    if status != 0:  # 如果status不为0，才说明这个配置是有效的，否则是无效的
+                        deg_violate = 0 #违反资源约束的程度
+                        for device_ip in self.rsc_constraint.keys():
+                            # 只针对非云设备计算违反资源约束程度
+                            if model_op[device_ip]['node_role'] != 'cloud':
+                                cpu_util = 0
+                                mem_util = 0
+                                for serv_name in resource_limit.keys():
+                                    if flow_mapping[serv_name]['node_ip'] == device_ip:
+                                        # 必须用round保留小数点，因为python对待浮点数不精确，0.35加上0.05会得到0.39999……
+                                        cpu_util = round(cpu_util + resource_limit[serv_name]['cpu_util_limit'], 2)
+                                        mem_util = round(mem_util + resource_limit[serv_name]['mem_util_limit'], 2)
+                                cpu_util_ratio = float(cpu_util) / float(self.rsc_constraint[device_ip]['cpu'])
+                                mem_util_ratio = float(mem_util) / float(self.rsc_constraint[device_ip]['mem'])
+                                
+                                if cpu_util_ratio > 1:
+                                    deg_violate += cpu_util_ratio
+                                if mem_util_ratio > 1:
+                                    deg_violate += mem_util_ratio
+                            
+                        ans_dict['pred_delay_list'] = pred_delay_list
+                        ans_dict['pred_delay_total'] = pred_delay_total
+                        ans_dict['deg_violate'] = deg_violate
+                        ans_dict['task_accuracy'] = task_accuracy
+
+                        # 根据配置是否满足精度约束，将其分为三类
+                        if task_accuracy >= self.user_constraint["accuracy"] and ans_dict['deg_violate'] == 0:
+                            params_in_acc_in_rsc_cons.append(ans_dict)
+                            cur_in_acc_cons_minimun_delay = min(cur_in_acc_cons_minimun_delay, pred_delay_total)
+                        elif task_accuracy >= self.user_constraint["accuracy"] and ans_dict['deg_violate'] > 0:
+                            params_in_acc_out_rsc_cons.append(ans_dict)
+                        else:
+                            params_out_acc_cons.append(ans_dict)
+                
+            ########## 2. 判断本轮查找与上一轮查找相比是否出现了饱和 ##########
+            if prev_in_acc_cons_minimun_delay == -1:  # 目前还未获得合理的结果
+                if cur_in_acc_cons_minimun_delay != sys.maxsize:  # 本轮获得了合理的结果，进行赋值
+                    prev_in_acc_cons_minimun_delay = cur_in_acc_cons_minimun_delay
+            elif cur_in_acc_cons_minimun_delay != sys.maxsize:
+                if cur_in_acc_cons_minimun_delay >= 0.95*prev_in_acc_cons_minimun_delay:
+                    break
+                else:
+                    prev_in_acc_cons_minimun_delay = cur_in_acc_cons_minimun_delay
+            else:
+                break
+            
+            count += self.n_trial_unit
+        
+        # 构建贝叶斯优化模型建议的下一组参数值
+        next_trial = study.ask()
+        next_conf, next_flow_mapping, next_resource_limit = self.get_next_params_1(next_trial)
+        next_plan = {
+            'video_conf': next_conf,
+            'flow_mapping': next_flow_mapping,
+            'resource_limit': next_resource_limit
+        }
+        
+        return params_in_acc_in_rsc_cons, params_in_acc_out_rsc_cons, params_out_acc_cons, next_plan
+        
 
 service_info_list=[
     {

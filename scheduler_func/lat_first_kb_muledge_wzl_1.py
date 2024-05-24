@@ -12,6 +12,7 @@ from RuntimePortrait import RuntimePortrait
 from AccuracyPrediction import AccuracyPrediction
 from kb_user_wzl import KnowledgeBaseUser
 from macro_plan_helper import MacroPlanHelper
+from DelayPredictModel import DelayPredictor
 
 
 # 保存历史调度策略
@@ -45,6 +46,8 @@ def get_combination(list_dict, depth, length):
         
         return res_lists
     
+
+# 宏观调度计划制定函数，返回所有可能的宏观调度计划
 def macro_judge(
     job_uid=None,
     work_condition=None,
@@ -136,33 +139,88 @@ def macro_judge(
             cur_cut_point_index = i
             break
     
-    if cur_cut_point_index == len(serv_names):  # 若当前全部在边端执行，则调整方向为不变或提高。注意，这里只是建议，实际由调度器在求解时根据时延（执行时延和预估的传输时延）决定
-        edge_cloud_cut_plans.append(0)
-        edge_cloud_cut_plans.append(1)
-    else:  # 若当前有服务在云端执行，则根据当前预估的传输时延与前一调度周期内实际传输时延的比较给出调整建议
-        ### 前一调度周期内的传输时延
-        # 计算方式一；以前一调度周期内云和边之间的数据传输量除以带宽来计算
-        pre_data_to_cloud = portrait_info['data_to_cloud']
-        pre_bandwidth = portrait_info['bandwidth']
-        pre_edge_to_cloud_trans_delay = pre_data_to_cloud / (pre_bandwidth['kB/s'] * 1000)  # 上一帧处理时的传输时延
+    delay_predictor = DelayPredictor(serv_names)
+    if cur_cut_point_index != 0:  # 尝试卸载更多的服务到云
+        ###### 判断多卸载一个服务到云带来的执行时延收益与传输时延开销的大小 ######
+        try_move_index = cur_cut_point_index - 1
         
-        # 计算方式二；以前一调度周期内云和边之间实际的传输时延来计算
-        # pre_edge_to_cloud_trans_delay = 0
-        # for i in range(len(serv_names)):
-        #     if old_flow_mapping[serv_names[i]]['node_role'] == 'cloud':
-        #         pre_edge_to_cloud_trans_delay += (portrait_info['delay'][serv_names[i]] - portrait_info['process_delay'][serv_names[i]])
+        ### 执行时延收益
+        cloud_exe_delay = -1  # 该服务在云端的理想执行时延
+        if serv_names[try_move_index] == 'face_detection':
+            cloud_exe_delay = delay_predictor.predict({
+                    'delay_type': 'proc_delay',
+                    'predict_info': {
+                        'service_name': serv_names[try_move_index],  
+                        'fps': old_fps,  
+                        'reso': old_reso,
+                        'node_role': 'server'
+                    }
+                })
+        elif serv_names[try_move_index] == 'gender_classification':
+            temp_obj_n = work_condition['obj_n']
+            cloud_exe_delay = delay_predictor.predict({
+                'delay_type': 'proc_delay',
+                'predict_info': {
+                    'service_name': serv_names[try_move_index],  
+                    'fps': temp_fps,  
+                    'obj_n': temp_obj_n,
+                    'node_role': 'server'
+                }
+            })
+        assert cloud_exe_delay != -1
         
-        ### 当前调度周期内预估的传输时延
-        # TODO: 这里理想的做法是查找传输时延知识库来确定传输时延，查不到再使用以下方法预估
-        cur_edge_to_cloud_trans_delay = pre_data_to_cloud / (bandwidth_dict['kB/s'] * 1000)
+        cur_edge_exe_delay = portrait_info['process_delay'][serv_names[try_move_index]]  # 该服务当前在边端的理想执行时延
         
-        if cur_edge_to_cloud_trans_delay <= 1.1 * pre_edge_to_cloud_trans_delay:  # 若当前预估的传输时延小于等于前一调度周期内实际传输时延，则云边协同切分点保持不变或提高
-            edge_cloud_cut_plans.append(0)
+        exe_delay_benefit = cur_edge_exe_delay - cloud_exe_delay  # 执行时延收益
+        
+        ### 传输时延开销
+        temp_data_trans_size = portrait_info['data_trans_size'][serv_names[try_move_index]]
+        temp_trans_delay = temp_data_trans_size / (bandwidth_dict['kB/s'] * 1000)  # 该服务挪到云端带来的传输时延开销
+        
+        if exe_delay_benefit >= 5*temp_trans_delay:  # 若执行时延收益远大于传输时延开销，则提高云边协同切分点设置
             edge_cloud_cut_plans.append(1)
-        else:  # 若当前预估的传输时延高于前一调度周期内实际传输时延，则云边协同切分点保持不变或降低
-            edge_cloud_cut_plans.append(0)  
+        
+    if cur_cut_point_index != len(serv_names):  # 尝试将更多服务拉回到边端
+        ###### 判断多拉回一个服务到边带来的执行时延损失与传输时延收益的大小 ######
+        ### 执行时延损失
+        edge_exe_delay = -1  # 该服务在边端的理想执行时延，假设边端资源充足
+        if serv_names[cur_cut_point_index] == 'face_detection':
+            edge_exe_delay = delay_predictor.predict({
+                    'delay_type': 'proc_delay',
+                    'predict_info': {
+                        'service_name': serv_names[cur_cut_point_index],  
+                        'fps': old_fps,  
+                        'reso': old_reso,
+                        'node_role': 'edge'
+                    }
+                })
+        elif serv_names[cur_cut_point_index] == 'gender_classification':
+            temp_obj_n = work_condition['obj_n']
+            edge_exe_delay = delay_predictor.predict({
+                'delay_type': 'proc_delay',
+                'predict_info': {
+                    'service_name': serv_names[cur_cut_point_index],  
+                    'fps': temp_fps,  
+                    'obj_n': temp_obj_n,
+                    'node_role': 'edge'
+                }
+            })
+        assert edge_exe_delay != -1
+        
+        cur_cloud_exe_delay = portrait_info['process_delay'][serv_names[cur_cut_point_index]]  # 该服务当前在云端的执行时延
+        
+        exe_delay_loss = edge_exe_delay - cur_cloud_exe_delay
+        
+        ### 传输时延收益
+        temp_data_trans_size = portrait_info['data_trans_size'][serv_names[cur_cut_point_index]]
+        temp_trans_delay = temp_data_trans_size / (bandwidth_dict['kB/s'] * 1000)
+        
+        # 这里预估的边端的执行时延是在边端资源充足情况下的执行时延，实际的边端执行时延大于等于这里求出的时延，即实际执行时延的损失要高于这里求出来的执行时延损失。
+        # 逻辑上，只有传输时延收益能够抵消掉较小的执行时延损失，我们才会给出降低云边协同切分点的建议；如果传输时延收益连较小的执行时延损失都无法抵消，那就更不可能抵消实际的、大的执行时延损失
+        if temp_trans_delay >= 3*exe_delay_loss:  # 若传输时延收益明显高于执行时延损失，则降低云边协同切分点设置
             edge_cloud_cut_plans.append(-1)
-    
+        
+    edge_cloud_cut_plans.append(0)  # 添加一个云边协同切分点不变的建议
     
     ########################## 3. 确定各个服务资源的调整方向 ##########################
     cut_rsc_plans = []  # 云边协同切分点与各个服务资源的调整方向列表，每个元素为一个列表:[云边协同切分点调整方向, 服务1CPU调整方向, 服务1内存调整方向, 服务2CPU调整方向, 服务2内存调整方向...]
@@ -802,31 +860,38 @@ def scheduler(
                                             portrait_info=portrait_info,
                                             bandwidth_dict=bandwidth_dict,
                                             macro_plan_dict=macro_plan_dict)
-        best_macro_plan_index = macro_plan_selector.get_best_macro_plan()
-        root_logger.info("选择的最优调度方向:{}".format(macro_plan_dict['macro_plans'][best_macro_plan_index]))
         
-        ############### 2.2.2 第二重贝叶斯优化：在最优的调度方向上寻找最优解 ###############
+        k = 3  # 最优的宏观调度计划数量
+        top_k_macro_plan_index_list = macro_plan_selector.get_top_k_macro_plans(k)
+        
+        ############### 2.2.2 第二重贝叶斯优化：按照优先级在top-k个调度方向上寻找最优解 ###############
         next_try_plan = None  # 在最优的宏观建议下，查表的贝叶斯优化模型下一个建议的调度计划，当所有宏观调度计划均在知识库中查找失败时使用此调度计划
-        ans_found, conf, flow_mapping, resource_limit, next_plan = get_scheduler_plan_bayes(conf_names=conf_names,
-                                                                                serv_names=serv_names,
-                                                                                service_info_list=service_info_list,
-                                                                                rsc_constraint=rsc_constraint,
-                                                                                user_constraint=user_constraint,
-                                                                                rsc_upper_bound=rsc_upper_bound,
-                                                                                rsc_down_bound=rsc_down_bound,
-                                                                                work_condition=work_condition,
-                                                                                portrait_info=portrait_info,
-                                                                                bandwidth_dict=bandwidth_dict,
-                                                                                macro_plan=macro_plan_dict['macro_plans'][best_macro_plan_index],
-                                                                                macro_plan_dict=macro_plan_dict
-                                                                                )
-        next_try_plan = next_plan
-        
-        if ans_found == 1:
-            prev_conf[job_uid] = conf
-            prev_flow_mapping[job_uid] = flow_mapping
-            prev_resource_limit[job_uid] = resource_limit
-        else:  # 若根据宏观建议列表未能在知识库中找到一个满足约束的解，则使用next_try_plan进行探索
+        if_find_best_solution = False
+        for macro_plan_index in top_k_macro_plan_index_list:
+            ans_found, conf, flow_mapping, resource_limit, next_plan = get_scheduler_plan_bayes(conf_names=conf_names,
+                                                                                    serv_names=serv_names,
+                                                                                    service_info_list=service_info_list,
+                                                                                    rsc_constraint=rsc_constraint,
+                                                                                    user_constraint=user_constraint,
+                                                                                    rsc_upper_bound=rsc_upper_bound,
+                                                                                    rsc_down_bound=rsc_down_bound,
+                                                                                    work_condition=work_condition,
+                                                                                    portrait_info=portrait_info,
+                                                                                    bandwidth_dict=bandwidth_dict,
+                                                                                    macro_plan=macro_plan_dict['macro_plans'][macro_plan_index],
+                                                                                    macro_plan_dict=macro_plan_dict
+                                                                                    )
+            if next_try_plan is None:
+                next_try_plan = next_plan
+            
+            if ans_found == 1:
+                prev_conf[job_uid] = conf
+                prev_flow_mapping[job_uid] = flow_mapping
+                prev_resource_limit[job_uid] = resource_limit
+                if_find_best_solution = True
+                break
+            
+        if not if_find_best_solution:  # 若根据宏观建议列表未能在知识库中找到一个满足约束的解，则使用next_try_plan进行探索
             prev_conf[job_uid] = next_try_plan["video_conf"]
             prev_flow_mapping[job_uid] = next_try_plan["flow_mapping"]
             prev_resource_limit[job_uid] = next_try_plan["resource_limit"]
