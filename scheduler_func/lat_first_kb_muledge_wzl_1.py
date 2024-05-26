@@ -347,7 +347,7 @@ def get_coldstart_plan_bayes(
     params_out_acc_cons_total = []  # 不满足精度约束的解
     
     for n_trials in n_trials_range:
-        params_in_acc_in_rsc_cons, params_in_acc_out_rsc_cons, params_out_acc_cons, _ = cold_starter.get_plan_in_cons_1(n_trials=n_trials)
+        params_in_acc_in_rsc_cons, params_in_acc_out_rsc_cons, params_out_acc_cons, _ = cold_starter.get_plan_in_cons_2(n_trials=n_trials)
         params_in_acc_in_rsc_cons_total.extend(params_in_acc_in_rsc_cons)
         params_in_acc_out_rsc_cons_total.extend(params_in_acc_out_rsc_cons)
         params_out_acc_cons_total.extend(params_out_acc_cons)
@@ -626,7 +626,7 @@ def get_scheduler_plan_bayes(
     params_in_acc_in_rsc_cons_total = []  # 既满足时延约束也满足资源约束的解
     
     for n_trials in n_trials_range:
-        params_in_acc_in_rsc_cons, _, _, next_plan = plan_builder.get_plan_in_cons_1(n_trials=n_trials)
+        params_in_acc_in_rsc_cons, _, _, next_plan = plan_builder.get_plan_in_cons_2(n_trials=n_trials)
         params_in_acc_in_rsc_cons_total.extend(params_in_acc_in_rsc_cons)
         
         # 看看完全满足约束的解中，是否能出现一个绝佳解。绝佳解定义为时延低于0.2，所以按照时延从小到大排序
