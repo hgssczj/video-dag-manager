@@ -1160,6 +1160,7 @@ class KnowledgeBaseBuilder():
 
     # 以贝叶斯采样的方式获取离线知识库
     # 相比前一种方法，这种方法首先要对分区的左下角进行若干次采样，然后才进行贝叶斯优化采样
+    # 使用该函数之前，必须确保conf_and_serv_info里的内容已经完成调整
     def sample_and_record_bayes_for_section(self,sample_bound,n_trials,bin_nums,delay_range,accuracy_range):
         self.sample_bound=sample_bound
         self.bin_nums=bin_nums
@@ -1193,7 +1194,7 @@ class KnowledgeBaseBuilder():
 
 
         self.fp.close()
-        print("完成对该分区的全部采样返回filename, filepath,bottom_left_plans,delay_std,accuracy_std")
+        print("完成对该分区的全部采样,返回filename, filepath,bottom_left_plans,delay_std,accuracy_std")
         delay_std,accuracy_std=self.exmaine_explore_distribution()
         return filename,filepath,bottom_left_plans, delay_std,accuracy_std
 
@@ -1204,7 +1205,8 @@ class KnowledgeBaseBuilder():
     # sample_for_kb_sections_bayes
     # 用途：为一种区间划分方式，进行一系列文件初始化，并调用贝叶斯优化函数完成采样（不包括建库）
     # 方法：建立各类文件实现初始化
-    def sample_for_kb_sections_bayes(self,conf_sections,sec_num,sample_bound,n_trials,bin_nums,delay_range,accuracy_range):
+    #      为了防止中断，对每一个分区进行采样的时候，都使用if_continue来判断当前是否需要从data_recovery里保存的数据恢复
+    def sample_for_kb_sections_bayes(self,conf_sections,sec_num,sample_bound,n_trials,bin_nums,delay_range,accuracy_range,if_continue):
         '''
         "conf_sections":{
             "reso":{
@@ -1225,96 +1227,114 @@ class KnowledgeBaseBuilder():
             }
         }
         '''
-        # (1)首先要生成一个初始化文件描述当前分区信息
-
-        section_info={}
-        section_info['des']=datetime.datetime.now().strftime('%Y%m%d_%H_%M_%S')
-        section_info['serv_names']=self.serv_names
-        section_info['conf_names']=self.conf_names
-        section_info['conf_sections']=conf_sections
-        section_info['section_ids']=list([])
-        
+        # (1)首先要生成一个初始化文件描述当前分区信息。如果是中断后恢复，那就直接读取旧的section_info信息
         dag_name=''
         for serv_name in self.serv_names:
             if len(dag_name)==0:
                 dag_name+=serv_name
             else:
                 dag_name+='-'+serv_name
+
+        section_info={}
+        if not if_continue: #如果不是恢复而是从头开始：
+            section_info['des']=datetime.datetime.now().strftime('%Y%m%d_%H_%M_%S')
+            section_info['serv_names']=self.serv_names
+            section_info['conf_names']=self.conf_names
+            section_info['conf_sections']=conf_sections
+            section_info['section_ids']=list([])
+        else:
+            #否则直接读取已有的section_info信息
+            with open(self.kb_name + '/' + dag_name + '/' + 'section_info.json', 'r') as f:  
+                #print('打开知识库section_info:',self.kb_name + '/' + dag_name + '/' + 'section_info.json')
+                section_info=json.load(f) 
+            f.close()
         
         # （2）进行采样前首先保存好原始的各个配置的取值范围，以供未来恢复    
         original_conf_range={}
         for conf_name in self.conf_names:
             original_conf_range[conf_name]=conf_and_serv_info[conf_name]
+        
 
+        # （3）根据if_continue判断当前是应该恢复上一次中断，还是进行重新采样
+        #      如果为False，就表示需要重新开启，此时才需要对左上角和右下角进行采样。
 
-        # (3)计算整个空间中的左下角分区和右上角分区
-        bottom_left_plans=[]
-        # (3.1)计算左下角的最小分区
+        # 求最小分区id和最大分区id
         section_id_min=''
-        for i in range(0,len(self.conf_names)):
-            conf_name=self.conf_names[i]            
-            conf_and_serv_info[conf_name]=conf_sections[conf_name]['0']
-            # 计算所得section_id
-            if i>0:
-                section_id_min+='-'
-            section_id_min=section_id_min+conf_name+'='+'0'
-        print('准备对分区采样,当前左下角分区id为:',section_id_min)
-        # 首先清空已有的采样字典
-        self.clear_explore_distribution(delay_range=delay_range,accuracy_range=accuracy_range)
-        filename,filepath,bottom_left_plans,delay_std,accuracy_std=self.sample_and_record_bayes_for_section(sample_bound=sample_bound,
-                                                                             n_trials=n_trials,bin_nums=bin_nums,
-                                                                             delay_range=delay_range,accuracy_range=accuracy_range)
-        if section_id_min not in section_info['section_ids']:
-            section_info['section_ids'].append(section_id_min)
-            section_info[section_id_min]={}
-            section_info[section_id_min]['filenames']=[]
-            section_info[section_id_min]['bottom_left_plans']=bottom_left_plans
-
-        if filename not in section_info[section_id_min]['filenames']:
-            section_info[section_id_min]['filenames'].append(filename)
-        
-        with open(self.kb_name+'/'+dag_name+'/'+'section_info'+".json", 'w') as f:  
-            json.dump(section_info, f,indent=4) 
-        f.close()
-        
-        print('已在section_info中更新左下角分区的filenames信息和bottom_left_plans信息')
-
-         # (3.2)计算右上角的最大分区
         section_id_max=''
         for i in range(0,len(self.conf_names)):
-            conf_name=self.conf_names[i]    
-            max_idx=str(len(conf_sections[conf_name])-1)        
-            conf_and_serv_info[conf_name]=conf_sections[conf_name][max_idx]
-            # 计算所得section_id
+            conf_name=self.conf_names[i]   
+            max_idx=str(len(conf_sections[conf_name])-1) 
             if i>0:
+                section_id_min+='-'
                 section_id_max+='-'
-            section_id_max=section_id_max+conf_name+'='+max_idx
-        print('准备对分区采样,当前右上角分区id为:',section_id_max)
-        if section_id_max==section_id_min:
-            print('右上角等于左下角，不必再采样')
-        else:
+            section_id_min=section_id_min + conf_name+'='+'0'
+            section_id_max=section_id_max + conf_name+'='+max_idx
+        
+        # 如果不是中断恢复，才会求左下角和右上角区间
+        if not if_continue:
+            # (4)计算整个空间中的左下角分区和右上角分区
+            bottom_left_plans=[]
+            
+            # (4.1)计算左下角的最小分区的配置范围
+            for i in range(0,len(self.conf_names)):
+                conf_name=self.conf_names[i]            
+                conf_and_serv_info[conf_name]=conf_sections[conf_name]['0'] 
+            print('准备对分区采样,当前左下角分区id为:',section_id_min)
+
             # 首先清空已有的采样字典
             self.clear_explore_distribution(delay_range=delay_range,accuracy_range=accuracy_range)
             filename,filepath,bottom_left_plans,delay_std,accuracy_std=self.sample_and_record_bayes_for_section(sample_bound=sample_bound,
                                                                                 n_trials=n_trials,bin_nums=bin_nums,
                                                                                 delay_range=delay_range,accuracy_range=accuracy_range)
-        if section_id_max not in section_info['section_ids']:
-            section_info['section_ids'].append(section_id_max)
-            section_info[section_id_max]={}
-            section_info[section_id_max]['filenames']=[]
-            section_info[section_id_max]['bottom_left_plans']=bottom_left_plans
+            if section_id_min not in section_info['section_ids']:
+                section_info['section_ids'].append(section_id_min)
+                section_info[section_id_min]={}
+                section_info[section_id_min]['filenames']=[]
+                section_info[section_id_min]['bottom_left_plans']=bottom_left_plans
 
-        if filename not in section_info[section_id_max]['filenames']:
-            section_info[section_id_max]['filenames'].append(filename)
+            if filename not in section_info[section_id_min]['filenames']:
+                section_info[section_id_min]['filenames'].append(filename)
+            
+            with open(self.kb_name+'/'+dag_name+'/'+'section_info'+".json", 'w') as f:  
+                json.dump(section_info, f,indent=4) 
+            f.close()
+            
+            print('已在section_info中更新左下角分区的filenames信息和bottom_left_plans信息')
+
+            # (4.2)计算右上角的最大分区的配置范围
+            for i in range(0,len(self.conf_names)):
+                conf_name=self.conf_names[i]    
+                max_idx=str(len(conf_sections[conf_name])-1)        
+                conf_and_serv_info[conf_name]=conf_sections[conf_name][max_idx]
+
+            print('准备对分区采样,当前右上角分区id为:',section_id_max)
+            if section_id_max==section_id_min:
+                print('右上角等于左下角，不必再采样')
+            else:
+                # 首先清空已有的采样字典
+                self.clear_explore_distribution(delay_range=delay_range,accuracy_range=accuracy_range)
+                filename,filepath,bottom_left_plans,delay_std,accuracy_std=self.sample_and_record_bayes_for_section(sample_bound=sample_bound,
+                                                                                    n_trials=n_trials,bin_nums=bin_nums,
+                                                                                    delay_range=delay_range,accuracy_range=accuracy_range)
+            if section_id_max not in section_info['section_ids']:
+                section_info['section_ids'].append(section_id_max)
+                section_info[section_id_max]={}
+                section_info[section_id_max]['filenames']=[]
+                section_info[section_id_max]['bottom_left_plans']=bottom_left_plans
+
+            if filename not in section_info[section_id_max]['filenames']:
+                section_info[section_id_max]['filenames'].append(filename)
+            
+            with open(self.kb_name+'/'+dag_name+'/'+'section_info'+".json", 'w') as f:  
+                json.dump(section_info, f,indent=4) 
+            f.close()
+            
+            print('已在section_info中更新该右上角分区的filenames信息和bottom_left_plans信息')
         
-        with open(self.kb_name+'/'+dag_name+'/'+'section_info'+".json", 'w') as f:  
-            json.dump(section_info, f,indent=4) 
-        f.close()
-        
-        print('已在section_info中更新该右上角分区的filenames信息和bottom_left_plans信息')
 
 
-        #(3)开始从分区信息中提取分区，从而进行嵌套贝叶斯优化。使用ask_and_tell方法。
+
+        #(5)开始从分区信息中提取分区，从而进行嵌套贝叶斯优化。使用ask_and_tell方法。
         conf_sec_select={}
         for conf_name in self.conf_names:
              conf_sec_select[conf_name]=list(conf_sections[conf_name].keys())
@@ -1328,11 +1348,34 @@ class KnowledgeBaseBuilder():
             'encoder': ['0']
         }
         '''
-        # 
-        study = optuna.create_study(directions=['minimize' for _ in range(2)], sampler=optuna.samplers.NSGAIISampler())  
-        sec_sum=0
+        # 根据if_continue来决定study的建立形式，是新建，还是加载已有的 
+
+
+        sec_sum=0 #已选择的区间数
+        study = None
+
+        study_num=0
+
+        if if_continue:
+            
+            with open(self.kb_name +  '/' + dag_name +'/data_recovery/sec_sum.json', 'r') as f:  
+                data = json.load(f)  
+            f.close()
+            sec_sum = data["sec_sum"]
+            study_num = data["study_num"]
+            print('恢复中断数据，上一次执行到',sec_sum,"上一次study_num是",study_num)
+            study = optuna.load_study(study_name="study"+str(study_num),storage="sqlite:///" + self.kb_name + '/' + dag_name +"/data_recovery/kb_study.db")
+        else:
+            # 重新开启一个study，初始为1。
+            study_num+=1
+            print("创建第",study_num,"个study")
+            study = optuna.create_study(directions=['minimize' for _ in range(2)], sampler=optuna.samplers.NSGAIISampler(),
+                                        study_name="study"+str(study_num),storage="sqlite:///" + self.kb_name + '/' + dag_name +"/data_recovery/kb_study.db") 
+ 
+
+        repeat_num=0 #如果连续多次采样了已经采样的点，说明陷入了死循环。
         while True:
-            if sec_sum==sec_num or section_id_max==section_id_min: #如果只有一种区间，那永远不可能满足循环终止条件
+            if sec_sum==sec_num or section_id_min == section_id_max: #只有在总数没有达标，且左下角区间和右上角区间不相等的时候，才进行依次采样
                 print('当前sec_sum是',sec_sum)
                 break
             else:
@@ -1351,10 +1394,26 @@ class KnowledgeBaseBuilder():
                 print('分区id是',section_id)
                 if section_id_max==section_id or section_id_min==section_id:
                     print('与左下角或右上角重合，不必考虑')
-                else:
-                    print('准备对分区采样,当前分区id为:',section_id)
-                    sec_sum+=1
+                elif section_id in section_info['section_ids']:
+                    print("该分区已经采样过，忽略")
+                    repeat_num+=1
+                    # 如果重复次数实在过于多，就说明已经陷入了局部最优解，此时需要重置study了。
+                    if repeat_num > max(10, len(section_info['section_ids'])):
+                        study_num+=1 #开始建立一个新的study_num
+                        print("创建第",study_num,"个study")
+                        with open(self.kb_name + '/' + dag_name +'/data_recovery/sec_sum.json', 'w') as f:  
+                            data={"sec_sum":sec_sum,"study_num":study_num}
+                            json.dump(data, f)
+                        f.close()
+                        study = optuna.create_study(directions=['minimize' for _ in range(2)], sampler=optuna.samplers.NSGAIISampler(),
+                                        study_name="study"+str(study_num),storage="sqlite:///" + self.kb_name + '/' + dag_name +"/data_recovery/kb_study.db") 
+                        repeat_num = 0 
+                        
 
+
+                else:
+                    print('准备对新分区采样,当前分区id为:',section_id)
+                    
                     # 首先清空已有的采样字典
                     self.clear_explore_distribution(delay_range=delay_range,accuracy_range=accuracy_range)
                     filename,filepath,bottom_left_plans,delay_std,accuracy_std=self.sample_and_record_bayes_for_section(sample_bound=sample_bound,
@@ -1377,8 +1436,13 @@ class KnowledgeBaseBuilder():
 
                     ans=[delay_std,accuracy_std]
                     study.tell(trial,ans)  # tell the pair of trial and objective value
-    
 
+                    # 完成tell之后才记录当前的最新sec_sum
+                    sec_sum+=1
+                    with open(self.kb_name + '/' + dag_name +'/data_recovery/sec_sum.json', 'w') as f:  
+                        data={"sec_sum":sec_sum,"study_num":study_num}
+                        json.dump(data, f)
+                    f.close()
 
         #最后恢复原始的各个配置的取值，并写入section_info
         for conf_name in self.conf_names:
@@ -1977,7 +2041,8 @@ if __name__ == "__main__":
 
     task_name = "gender_classify"
 
-    kb_name = 'kb_data_6sec-1'
+    kb_name = 'kb_data_90i90_no_clst-1'
+              #kb_data_20_of_90_no_cluster-1
 
     #未来还是需要类似record_name的存在。
     record_name=kb_name+'/'+'0_'+datetime.datetime.now().strftime('%Y%m%d_%H_%M_%S')+task_name+"_"+"bayes"+str(need_sparse_kb)+\
@@ -2036,7 +2101,6 @@ if __name__ == "__main__":
                 "0":["JPEG"]
             }
         }
-        '''
         conf_sections={
             "reso":{
                 "0":["360p","480p","540p"],
@@ -2050,6 +2114,35 @@ if __name__ == "__main__":
                 "3":[16,17,18,19,20],
                 "4":[21,22,23,24,25],
                 "5":[26,27,28,29,30],
+            },
+            "encoder":{
+                "0":["JPEG"]
+            }
+        }
+        '''
+        conf_sections={
+            "reso":{
+                "0":["360p"],
+                "1":["480p"],
+                "2":["540p"],
+                "3":["630p"],
+                "4":["720p"],
+                "5":["810p"],
+                "6":["900p"],
+                "7":["990p"],
+                "8":["1080p"],
+            },
+            "fps":{
+                "0":[1,2,3],
+                "1":[4,5,6],
+                "2":[7,8,9],
+                "3":[10,11,12],
+                "4":[13,14,15],
+                "5":[16,17,18],
+                "6":[19,20,21],
+                "7":[22,23,24],
+                "8":[25,26,27],
+                "9":[28,29,30],
             },
             "encoder":{
                 "0":["JPEG"]
@@ -2072,16 +2165,21 @@ if __name__ == "__main__":
         n_trials=66
         sec_num=1
         '''
+        # kb_data_20_of_90_no_cluster-1
+        # kb_data_20_of_90_no_cluster-1
         # 33 4 一共6个区间
 
-        n_trials=50
-        sec_num=2
+        n_trials=10  #每个区间采样多少个点,如果为0说明只采取了左下角点
+        sec_num=90 #要选取多少个区间
+        if_continue= True
         
         kb_builder.send_query_and_start() 
         # 确定当前资源限制之后，就可以开始采样了。
         kb_builder.sample_for_kb_sections_bayes(conf_sections=conf_sections,sec_num=sec_num,sample_bound=sample_bound,
                                                 n_trials=n_trials,bin_nums=bin_nums,
-                                                 delay_range=delay_range,accuracy_range=accuracy_range)
+                                                 delay_range=delay_range,accuracy_range=accuracy_range,
+                                                 if_continue=if_continue
+                                                 )
         
     
     # 关于是否需要建立知识库：可以根据txt文件中的内容来根据采样结果建立知识库

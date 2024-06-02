@@ -1,0 +1,538 @@
+{
+    "4": {
+        "0": {
+            "center": [
+                4.0,
+                0.0,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0"
+            ],
+            "score": 0.6008252685819593
+        },
+        "1": {
+            "center": [
+                4.0,
+                9.0,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0"
+            ],
+            "score": 0.5006975410143478
+        }
+    },
+    "5": {
+        "0": {
+            "center": [
+                4.0,
+                7.666666666666666,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0",
+                "reso=4-fps=5-encoder=0"
+            ],
+            "score": 0.7757951416602038
+        },
+        "1": {
+            "center": [
+                4.0,
+                0.0,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0"
+            ],
+            "score": 0.6008252685819593
+        }
+    },
+    "6": {
+        "0": {
+            "center": [
+                4.0,
+                1.3333333333333335,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0",
+                "reso=4-fps=4-encoder=0"
+            ],
+            "score": 0.8468495794325939
+        },
+        "1": {
+            "center": [
+                4.0,
+                7.666666666666666,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0",
+                "reso=4-fps=5-encoder=0"
+            ],
+            "score": 0.775798785999695
+        }
+    },
+    "7": {
+        "0": {
+            "center": [
+                4.0,
+                7.666666666666666,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0",
+                "reso=4-fps=5-encoder=0"
+            ],
+            "score": 0.7757883736011486
+        },
+        "1": {
+            "center": [
+                4.0,
+                1.75,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0",
+                "reso=4-fps=4-encoder=0",
+                "reso=4-fps=3-encoder=0"
+            ],
+            "score": 0.8574928320982308
+        }
+    },
+    "8": {
+        "0": {
+            "center": [
+                4.0,
+                9.0,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0"
+            ],
+            "score": 0.5006975410143478
+        },
+        "1": {
+            "center": [
+                4.0,
+                2.3333333333333335,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0",
+                "reso=4-fps=5-encoder=0",
+                "reso=4-fps=4-encoder=0",
+                "reso=4-fps=3-encoder=0",
+                "reso=4-fps=2-encoder=0"
+            ],
+            "score": 0.8643247424446999
+        }
+    },
+    "9": {
+        "0": {
+            "center": [
+                4.0,
+                2.333333333333334,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0",
+                "reso=4-fps=5-encoder=0",
+                "reso=4-fps=4-encoder=0",
+                "reso=4-fps=3-encoder=0",
+                "reso=4-fps=2-encoder=0"
+            ],
+            "score": 0.8642658520393556
+        },
+        "1": {
+            "center": [
+                4.0,
+                8.0,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0",
+                "reso=4-fps=6-encoder=0"
+            ],
+            "score": 0.758043592107577
+        }
+    },
+    "10": {
+        "0": {
+            "center": [
+                4.0,
+                2.3333333333333335,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0",
+                "reso=4-fps=5-encoder=0",
+                "reso=4-fps=4-encoder=0",
+                "reso=4-fps=3-encoder=0",
+                "reso=4-fps=2-encoder=0"
+            ],
+            "score": 0.8617645055505524
+        },
+        "1": {
+            "center": [
+                4.0,
+                7.75,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0",
+                "reso=4-fps=6-encoder=0",
+                "reso=4-fps=7-encoder=0"
+            ],
+            "score": 0.7580264116499756
+        }
+    },
+    "11": {
+        "0": {
+            "center": [
+                4.0,
+                7.333333333333333,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0",
+                "reso=4-fps=5-encoder=0",
+                "reso=4-fps=6-encoder=0",
+                "reso=4-fps=7-encoder=0",
+                "reso=4-fps=8-encoder=0"
+            ],
+            "score": 0.774627294279837
+        },
+        "1": {
+            "center": [
+                4.0,
+                1.7999999999999998,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0",
+                "reso=4-fps=4-encoder=0",
+                "reso=4-fps=3-encoder=0",
+                "reso=4-fps=2-encoder=0"
+            ],
+            "score": 0.8691107361658537
+        }
+    },
+    "12": {
+        "0": {
+            "center": [
+                4.0,
+                1.7999999999999998,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0",
+                "reso=4-fps=4-encoder=0",
+                "reso=4-fps=3-encoder=0",
+                "reso=4-fps=2-encoder=0"
+            ],
+            "score": 0.867819609356767
+        },
+        "1": {
+            "center": [
+                4.571428571428571,
+                7.428571428571429,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0",
+                "reso=4-fps=5-encoder=0",
+                "reso=4-fps=6-encoder=0",
+                "reso=4-fps=7-encoder=0",
+                "reso=4-fps=8-encoder=0",
+                "reso=8-fps=8-encoder=0"
+            ],
+            "score": 0.7745149078084139
+        }
+    },
+    "13": {
+        "0": {
+            "center": [
+                4.625,
+                7.125,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0",
+                "reso=4-fps=5-encoder=0",
+                "reso=4-fps=6-encoder=0",
+                "reso=4-fps=7-encoder=0",
+                "reso=4-fps=8-encoder=0",
+                "reso=8-fps=8-encoder=0",
+                "reso=5-fps=5-encoder=0"
+            ],
+            "score": 0.7682271735452852
+        },
+        "1": {
+            "center": [
+                4.0,
+                1.7999999999999998,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0",
+                "reso=4-fps=4-encoder=0",
+                "reso=4-fps=3-encoder=0",
+                "reso=4-fps=2-encoder=0"
+            ],
+            "score": 0.8672037686595836
+        }
+    },
+    "14": {
+        "0": {
+            "center": [
+                4.666666666666667,
+                7.0,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0",
+                "reso=4-fps=5-encoder=0",
+                "reso=4-fps=6-encoder=0",
+                "reso=4-fps=7-encoder=0",
+                "reso=4-fps=8-encoder=0",
+                "reso=8-fps=8-encoder=0",
+                "reso=5-fps=5-encoder=0",
+                "reso=5-fps=6-encoder=0"
+            ],
+            "score": 0.7711817731275603
+        },
+        "1": {
+            "center": [
+                4.0,
+                1.7999999999999998,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0",
+                "reso=4-fps=4-encoder=0",
+                "reso=4-fps=3-encoder=0",
+                "reso=4-fps=2-encoder=0"
+            ],
+            "score": 0.8690954418681354
+        }
+    },
+    "15": {
+        "0": {
+            "center": [
+                4.7,
+                7.000000000000001,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0",
+                "reso=4-fps=5-encoder=0",
+                "reso=4-fps=6-encoder=0",
+                "reso=4-fps=7-encoder=0",
+                "reso=4-fps=8-encoder=0",
+                "reso=8-fps=8-encoder=0",
+                "reso=5-fps=5-encoder=0",
+                "reso=5-fps=6-encoder=0",
+                "reso=5-fps=7-encoder=0"
+            ],
+            "score": 0.7658413689456088
+        },
+        "1": {
+            "center": [
+                4.0,
+                1.7999999999999998,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0",
+                "reso=4-fps=4-encoder=0",
+                "reso=4-fps=3-encoder=0",
+                "reso=4-fps=2-encoder=0"
+            ],
+            "score": 0.8703749474174095
+        }
+    },
+    "16": {
+        "0": {
+            "center": [
+                4.0,
+                1.7999999999999998,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0",
+                "reso=4-fps=4-encoder=0",
+                "reso=4-fps=3-encoder=0",
+                "reso=4-fps=2-encoder=0"
+            ],
+            "score": 0.8686896546120084
+        },
+        "1": {
+            "center": [
+                5.0,
+                7.0,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0",
+                "reso=4-fps=5-encoder=0",
+                "reso=4-fps=6-encoder=0",
+                "reso=4-fps=7-encoder=0",
+                "reso=4-fps=8-encoder=0",
+                "reso=8-fps=8-encoder=0",
+                "reso=5-fps=5-encoder=0",
+                "reso=5-fps=6-encoder=0",
+                "reso=5-fps=7-encoder=0",
+                "reso=8-fps=7-encoder=0"
+            ],
+            "score": 0.7689732104120667
+        }
+    },
+    "17": {
+        "0": {
+            "center": [
+                4.0,
+                1.7999999999999994,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0",
+                "reso=4-fps=4-encoder=0",
+                "reso=4-fps=3-encoder=0",
+                "reso=4-fps=2-encoder=0"
+            ],
+            "score": 0.8692762659034229
+        },
+        "1": {
+            "center": [
+                5.25,
+                6.916666666666666,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0",
+                "reso=4-fps=5-encoder=0",
+                "reso=4-fps=6-encoder=0",
+                "reso=4-fps=7-encoder=0",
+                "reso=4-fps=8-encoder=0",
+                "reso=8-fps=8-encoder=0",
+                "reso=5-fps=5-encoder=0",
+                "reso=5-fps=6-encoder=0",
+                "reso=5-fps=7-encoder=0",
+                "reso=8-fps=7-encoder=0",
+                "reso=8-fps=6-encoder=0"
+            ],
+            "score": 0.7654127050731347
+        }
+    },
+    "18": {
+        "0": {
+            "center": [
+                5.461538461538462,
+                6.769230769230769,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0",
+                "reso=4-fps=5-encoder=0",
+                "reso=4-fps=6-encoder=0",
+                "reso=4-fps=7-encoder=0",
+                "reso=4-fps=8-encoder=0",
+                "reso=8-fps=8-encoder=0",
+                "reso=5-fps=5-encoder=0",
+                "reso=5-fps=6-encoder=0",
+                "reso=5-fps=7-encoder=0",
+                "reso=8-fps=7-encoder=0",
+                "reso=8-fps=6-encoder=0",
+                "reso=8-fps=5-encoder=0"
+            ],
+            "score": 0.7615280807440676
+        },
+        "1": {
+            "center": [
+                4.0,
+                1.7999999999999998,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0",
+                "reso=4-fps=4-encoder=0",
+                "reso=4-fps=3-encoder=0",
+                "reso=4-fps=2-encoder=0"
+            ],
+            "score": 0.8671488067156891
+        }
+    },
+    "19": {
+        "0": {
+            "center": [
+                5.642857142857143,
+                6.571428571428571,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=9-encoder=0",
+                "reso=8-fps=9-encoder=0",
+                "reso=4-fps=5-encoder=0",
+                "reso=4-fps=6-encoder=0",
+                "reso=4-fps=7-encoder=0",
+                "reso=4-fps=8-encoder=0",
+                "reso=8-fps=8-encoder=0",
+                "reso=5-fps=5-encoder=0",
+                "reso=5-fps=6-encoder=0",
+                "reso=5-fps=7-encoder=0",
+                "reso=8-fps=7-encoder=0",
+                "reso=8-fps=6-encoder=0",
+                "reso=8-fps=5-encoder=0",
+                "reso=8-fps=4-encoder=0"
+            ],
+            "score": 0.7570651620940503
+        },
+        "1": {
+            "center": [
+                4.0,
+                1.7999999999999994,
+                0.0
+            ],
+            "section_ids": [
+                "reso=0-fps=0-encoder=0",
+                "reso=8-fps=0-encoder=0",
+                "reso=4-fps=4-encoder=0",
+                "reso=4-fps=3-encoder=0",
+                "reso=4-fps=2-encoder=0"
+            ],
+            "score": 0.8700152145314962
+        }
+    }
+}

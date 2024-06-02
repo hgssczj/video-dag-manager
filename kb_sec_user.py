@@ -249,7 +249,9 @@ class  KnowledgeBaseUser():
         flow_mapping = {}
         resource_limit = {}
         # 首先确定section_id
-        assert len(section_ids)
+        if len(section_ids)==0:
+            status=0 #没有配置可用
+            return status, conf, flow_mapping, resource_limit, mul_objects
 
         section_id = trial.suggest_categorical('section_id',section_ids) 
         #print('选择分区是',section_id)
@@ -525,7 +527,10 @@ class  KnowledgeBaseUser():
                                                                                                      section_ids=section_ids_in_cons,\
                                                                                                      section_info=section_info,\
                                                                                                      optimize_goal=optimize_goal)
-        while(status==0):
+         # 为了防止陷入死循环，最多尝试10次
+        try_num=0
+        while(status==0 and try_num < 10):
+            try_num+=1
             next_trial = study.ask()
             status, next_conf, next_flow_mapping, next_resource_limit,mul_objects = self.get_next_params(trial=next_trial,\
                                                                                                      section_ids=section_ids_in_cons,\
@@ -544,8 +549,13 @@ class  KnowledgeBaseUser():
     # 用途：根据当前的conf_and_serv_info里各个配置的范围，找出能够涵盖这些范围的区间，并分类为已经建立的区间和没有建立的区间
     #       需要section_info来进行查找
     # 返回值：1个列表section_ids_in_cons。列表里是已经采样完成的各个区间，并进行排序。
-    def get_section_ids_in_cons(self,section_info,optimze_goal):
-        section_ids=section_info['section_ids']
+    def get_section_ids_in_cons(self,section_info,optimze_goal,section_ids_sub=None):
+
+        section_ids=[]
+        if section_ids_sub!=None:
+            section_ids = section_info['section_ids']
+        else:
+            section_ids = section_ids_sub
        
         # (1)筛选满足精度约束、时延约束、资源约束的分区，求出右上角精度、左下角最小时延、左下角最小资源,记录在section_ids_in_cons之中
         section_ids_info_in_cons=[]
@@ -671,9 +681,9 @@ class  KnowledgeBaseUser():
         return section_ids_in_cons
     
     # 调用以上函数获取约束内配置
-    def get_plan_in_cons(self,n_trials,optimze_goal):
+    def get_plan_in_cons(self,n_trials,optimze_goal,section_ids_sub=None):
         section_info = self.get_section_info()
-        section_ids_in_cons=self.get_section_ids_in_cons(section_info=section_info,optimze_goal=optimze_goal)
+        section_ids_in_cons=self.get_section_ids_in_cons(section_info=section_info,optimze_goal=optimze_goal,section_ids_sub=section_ids_sub)
         params_in_cons,params_out_cons,next_plan=self.get_plan_in_cons_from_sections(n_trials=n_trials,optimize_goal=optimze_goal,section_info=section_info,section_ids_in_cons=section_ids_in_cons)
 
         return params_in_cons,params_out_cons,next_plan
@@ -861,6 +871,8 @@ if __name__ == "__main__":
         optimze_goal=MIN_DELAY
 
         params_in_cons,params_out_cons,next_plan=kb_user.get_plan_in_cons(n_trials=n_trials,optimze_goal=optimze_goal)
+        #section_ids_sub=[]
+        #params_in_cons,params_out_cons,next_plan=kb_user.get_plan_in_cons(n_trials=n_trials,optimze_goal=optimze_goal,section_ids_sub=section_ids_sub)
         print('约束内配置')
         for param in params_in_cons:
             print(param)

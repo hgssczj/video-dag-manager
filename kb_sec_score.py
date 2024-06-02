@@ -119,6 +119,9 @@ class KnowledgeBaseScorer():
         score_dict=dict()
         tested_num=0
         print(tested_num)
+        # 首先确保文件是存在的
+        with open('kb_score'+'/'+kb_name+'/'+runtime_filename+"-"+'optimze_goal='+str(optimze_goal)+"-"+'n_trials='+str(n_trials)+"-"+'search_num='+str(search_num)+".json", 'w') as f:  
+            json.dump(score_dict, f,indent=4) 
         with open('kb_score/'+runtime_filename+'.txt', 'r', encoding='utf-8') as f:   
             for line in f: 
                 tested_num+=1
@@ -217,7 +220,6 @@ class KnowledgeBaseScorer():
         f.close()
 
 
-
     # anylze_score_result
     # 用途：展示不同知识库或同一知识库在不同情境上的打分效果
     # 方法：从runtime_filename里依次读取各个情境，作为横轴；然后查找对应分数，得到纵轴。由此绘制曲线。
@@ -270,6 +272,88 @@ class KnowledgeBaseScorer():
         return 1
                     
 
+    # 分析区间知识库中各个区间的分布
+    # 
+    def anylze_sections_distribution(self,kb_name):
+        
+        # (1)获取section_info
+        dag_name=''
+        for serv_name in self.serv_names:
+            if len(dag_name)==0:
+                dag_name+=serv_name
+            else:
+                dag_name+='-'+serv_name
+        section_info={}
+        with open(kb_name + '/' + dag_name + '/' + 'section_info.json', 'r') as f:  
+            #print('打开知识库section_info:',self.kb_name + '/' + dag_name + '/' + 'section_info.json')
+            section_info=json.load(f) 
+        f.close()
+
+        # （2）获取section_ids并将其转化为一个个坐标
+        section_ids = section_info["section_ids"]
+        fps_sec_choice=[]
+        reso_sec_choice=[]
+        for section_id in section_ids:
+            for part in section_id.split('-'):
+                # 使用 split('=') 分割键值对  
+                conf_name, value = part.split('=')  
+                if conf_name == 'fps':
+                    fps_sec_choice.append(int(value))
+                elif conf_name == 'reso':
+                    reso_sec_choice.append(int(value))
+        print(fps_sec_choice)
+        print(reso_sec_choice)
+
+        
+        #（3）绘制网格图，首先确保横纵坐标分别是帧率和分辨率
+        conf_sections = section_info["conf_sections"]
+        fps_keys = list(conf_sections["fps"].keys())
+        reso_keys = list(conf_sections["reso"].keys())
+        
+        x_labels = fps_keys
+        y_labels = reso_keys
+        print(x_labels)
+        print(y_labels)
+
+        for i in range(1,len(section_ids)):
+            # 设置x轴的刻度标签为字符串  
+            print('展示',i+1,'个区间')
+            x_data = fps_sec_choice[:i+1]
+            y_data = reso_sec_choice[:i+1]
+            plt.xticks(range(len(x_labels)), x_labels) 
+            plt.yticks(range(len(y_labels)), y_labels)  
+            plt.gca().set_aspect('equal', adjustable='box')  #确保横纵坐标间隔一定相同
+            # 画出网格（虽然对于分类数据可能不太常见，但可以根据需要添加）  
+            plt.grid(True, which='major', linestyle='-', linewidth='0.5', color='gray')  
+
+            print(x_data)
+            print(y_data)
+
+            # 创建一个新的图形  
+            #plt.figure() 
+            sizes=[960 for t in range(0,len(x_data))]
+     
+            facecolor=['green' for t in range(0,len(x_data))]
+            
+            # 画出数据点（注意：对于y轴，我们通常不使用字符串标签）  
+            plt.scatter(x_data, y_data,  marker='s', s=sizes, edgecolor='black', facecolor=facecolor)  
+            
+            
+            plt.xlabel("fps区间", fontdict={'fontsize': 13, 'family': 'SimSun'})
+            plt.ylabel("reso区间", fontdict={'fontsize': 13, 'family': 'SimSun'})
+            
+            plt.title('采样区间分布图', fontdict={'fontsize': 15, 'family': 'SimSun'})
+
+            plt.legend(prop={'family': 'SimSun', 'size': 9})
+            plt.show()
+
+        
+        
+
+
+
+
+
 # 下图的conf_names表示流水线上所有服务的conf的总和。
 conf_names=["reso","fps","encoder"]
 
@@ -315,8 +399,10 @@ bandwidth_range=[20000,40000,60000,80000,100000]
 if __name__ == "__main__":
 
     if_need_generate=0
-    if_need_score=0
-    if_need_anylze=1
+    if_need_score=1
+    
+    if_need_draw=0
+    if_need_anylze=0
 
     kb_scorer = KnowledgeBaseScorer(conf_names=conf_names,
                                     serv_names=serv_names,
@@ -337,7 +423,7 @@ if __name__ == "__main__":
             for n_trials in [100,200,300]:
                 kb_scorer.score_kb_by_runtimes(kb_name=kb_name,runtime_filename=runtime_filename,n_trials=n_trials,optimze_goal=optimze_goal,search_num=1)
     
-    if if_need_anylze==1:
+    if if_need_draw==1:
         titlename="最小化时延"
         runtime_filename="runtime2-135cons"
         #'''
@@ -357,3 +443,7 @@ if __name__ == "__main__":
         '''
 
         kb_scorer.anylze_score_result(title_name=titlename,runtime_filename=runtime_filename,file_dict=file_dict)
+
+    if if_need_anylze==1:
+
+        kb_scorer.anylze_sections_distribution(kb_name='kb_data_21i90_no_clst-1')
