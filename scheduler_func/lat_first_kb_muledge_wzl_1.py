@@ -892,7 +892,7 @@ def scheduler(
                 break
             
         if not if_find_best_solution:  # 若根据宏观建议列表未能在知识库中找到一个满足约束的解，则使用next_try_plan进行探索
-            prev_conf[job_uid] = next_try_plan["video_conf"]
+            prev_conf[job_uid] = next_try_plan["conf"]
             prev_flow_mapping[job_uid] = next_try_plan["flow_mapping"]
             prev_resource_limit[job_uid] = next_try_plan["resource_limit"]
             

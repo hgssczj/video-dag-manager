@@ -767,7 +767,7 @@ class  KnowledgeBaseUser():
         next_trial = study.ask()
         next_conf, next_flow_mapping, next_resource_limit = self.get_next_params(next_trial)
         next_plan = {
-            'video_conf': next_conf,
+            'conf': next_conf,
             'flow_mapping': next_flow_mapping,
             'resource_limit': next_resource_limit
         }
@@ -895,7 +895,7 @@ class  KnowledgeBaseUser():
         next_trial = study.ask()
         next_conf, next_flow_mapping, next_resource_limit = self.get_next_params_1(next_trial)
         next_plan = {
-            'video_conf': next_conf,
+            'conf': next_conf,
             'flow_mapping': next_flow_mapping,
             'resource_limit': next_resource_limit
         }
@@ -1049,7 +1049,7 @@ class  KnowledgeBaseUser():
         next_trial = study.ask()
         next_conf, next_flow_mapping, next_resource_limit = self.get_next_params_1(next_trial)
         next_plan = {
-            'video_conf': next_conf,
+            'conf': next_conf,
             'flow_mapping': next_flow_mapping,
             'resource_limit': next_resource_limit
         }

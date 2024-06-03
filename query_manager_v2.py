@@ -679,6 +679,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
                                                resource_limit=cached_info['scheduling_strategy']["resource_limit"])
                             else:  # 否则进行查表
                                 root_logger.info('当前情境下最优的调度策略不在缓存中, 需要重新查表, 并将新的情境字符串及其对应的调度策略进行缓存. runtime_str:%s', runtime_str)
+                                start_time = time.time()
                                 conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge_wzl_1.scheduler(
                                                                         job_uid=query_id,
                                                                         dag={"generator": "x", "flow": query.pipeline},
@@ -686,7 +687,8 @@ def cloud_scheduler_loop_kb(query_manager=None):
                                                                         portrait_info=portrait_info,
                                                                         user_constraint=user_constraint,
                                                                         bandwidth_dict=bandwidth_dict[node_addr])
-                                
+                                end_time = time.time()
+                                root_logger.info("调度策略制定的时间:{}".format(end_time - start_time))
                                 scheduling_dict = {
                                     "video_conf": conf,
                                     "flow_mapping": flow_mapping,
@@ -696,6 +698,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
                         
                         else:  # 进行冷启动
                             root_logger.info('进行冷启动, 需要重新查表!')
+                            start_time = time.time()
                             conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge_wzl_1.scheduler(
                                                                         job_uid=query_id,
                                                                         dag={"generator": "x", "flow": query.pipeline},
@@ -703,7 +706,8 @@ def cloud_scheduler_loop_kb(query_manager=None):
                                                                         portrait_info=portrait_info,
                                                                         user_constraint=user_constraint,
                                                                         bandwidth_dict=bandwidth_dict[node_addr])
-                            
+                            end_time = time.time()
+                            root_logger.info("调度策略制定的时间:{}".format(end_time - start_time))
                             query.set_plan(video_conf=conf, flow_mapping=flow_mapping, resource_limit=resource_limit)  # 注意，冷启动的时候由于不存在情境字符串，因此直接设置调度策略即可，无需缓存
                             
                               
