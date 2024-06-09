@@ -130,12 +130,10 @@ service_info_dict={
 }
 
 
-reso_range=list(resolution_wh.keys())
-#reso_range=['360p','480p','720p','1080p']
 
-#fps_range=fps_list
-fps_range=[1,5,10,20,30]
-fps_range=fps_list
+#reso_range=['360p','480p','720p','1080p']
+#fps_range=[1,5,10,20,30]
+
 
 encoder_range=['JPEG']
 
@@ -148,14 +146,16 @@ edge_ip = "192.168.1.7"
 #serv_names = ['face_detection', 'gender_classification']
 
 #edge_cloud_cut_range = [i for i in range(len(serv_names) + 1)]
-edge_cloud_cut_range = []
 
 
+reso_range=list(resolution_wh.keys())
+fps_range=fps_list
 cpu_range=[0.05,0.10,0.15,0.20,
            0.25,0.30,0.35,0.40,
            0.45,0.50,0.55,0.60,
            0.65,0.70,0.75,0.80,
            0.85,0.90,0.95,1.00]
+edge_cloud_cut_range = []
 
 conf_and_serv_info={  #各种配置参数的可选值
     
