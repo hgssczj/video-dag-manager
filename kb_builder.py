@@ -55,6 +55,8 @@ class KnowledgeBaseBuilder():
         self.writer = None
         self.sample_bound = None
         
+        self.fp_txt = None
+        
 
         #(4)贝叶斯初始化：基于贝叶斯优化建立稀疏知识库时，为了测算采样的均匀程度，所需要的字典、区间划分数、bayes优化目标
         self.explore_conf_dict=dict()  # 用于记录字典查询过程中设计到的配置，不希望其重复
@@ -203,6 +205,7 @@ class KnowledgeBaseBuilder():
                      'frame_id',
                      'all_delay',
                      # 'edge_mem_ratio',
+                     'proc_delay',
                      'obj_n',
                      'bandwidth'
                      ]
@@ -269,6 +272,24 @@ class KnowledgeBaseBuilder():
 
         return filename
 
+    
+    # init_record_file_txt：
+    # 用途：初始化一个txt文件，fieldnames包括'frame_id','reso', 'obj_n', 所有目标的坐标。
+    # 方法：
+    # 返回值：该txt文件名，同时在当前目录下生成一个txt文件
+    def init_record_file_txt(self):
+        filename = KB_DATA_PATH+'/'+datetime.datetime.now().strftime('%Y%m%d_%H_%M_%S') + \
+            '_' + os.path.basename(__file__).split('.')[0] + \
+            '_' + str(self.query_body['user_constraint']['delay']) + \
+            '_' + self.expr_name + \
+            '.txt'
+
+        self.fp_txt = open(filename, 'w', encoding='utf-8')
+        
+
+        return filename
+    
+    
     # write_in_file：
     # 用途：在csv文件中写入一条执行记录
     # 方法：参数r2r3r4分别表示资源信息、执行回应和runtime_info，从中提取可以填充csv文件的信息，利用字典把所有不重复的感知结果都保存在updatetd_result之中
@@ -481,9 +502,9 @@ class KnowledgeBaseBuilder():
             # print("查看待处理结果")
             # print(res)
             row['n_loop'] = res['n_loop']
-            row['frame_id'] = res['frame_id']
-            # row['all_delay']=res['delay']
-            row['all_delay'] = res['proc_delay']
+            row['frame_id'] = int(res['frame_id'])
+            row['all_delay'] = res['delay']
+            row['proc_delay'] = res['proc_delay']
             row['obj_n'] = res['obj_n']
             row['bandwidth'] = res['bandwidth']
             # row['edge_mem_ratio']=self.edge_mem_ratio
@@ -544,6 +565,18 @@ class KnowledgeBaseBuilder():
                 # field_name = serv_name + '_trans'+'_mem_util_use'
                 # row[field_name] = res['ext_runtime']['proc_resource_info'][serv_name]['mem_util_use']
                        
+            
+            txt_row = []
+            txt_row.append(int(res['frame_id']))
+            txt_row.append(res['ext_plan']['video_conf']['reso'])
+            txt_row.append(res['obj_n'])
+            for i in range(res['obj_n']):
+                x1, y1, x2, y2 = res['bbox'][i][0], res['bbox'][i][1], res['bbox'][i][2], res['bbox'][i][3]
+                txt_row.append(x1)
+                txt_row.append(y1)
+                txt_row.append(x2)
+                txt_row.append(y2)
+            
             n_loop = res['n_loop']
             if n_loop not in self.written_n_loop:  #以字典为参数，只有那些没有在字典里出现过的row才会被写入文件，
                 print('n_loop', n_loop)
@@ -579,6 +612,10 @@ class KnowledgeBaseBuilder():
                 self.written_n_loop[n_loop] = 1
                 #完成文件写入之后，将对应的row和配置返回以供分析。由于存在延迟，这些新数据对应的conf和flow_mapping可能和前文指定的不同
                 updatetd_result.append({"row":row,"conf":res['ext_plan']['video_conf'],"flow_mapping":res['ext_plan']['flow_mapping'],"resource_limit":res['ext_plan']['resource_limit']})
+                
+                txt_row_str = ' '.join(map(str, txt_row))
+                if self.fp_txt is not None:
+                    self.fp_txt.write(txt_row_str + '\n')
 
         #updatetd_result会返回本轮真正检测到的全新数据。在最糟糕的情况下，updatetd_result会是一个空列表。
         return updatetd_result
@@ -711,6 +748,7 @@ class KnowledgeBaseBuilder():
     # 返回值：csv的文件名
     def just_record(self,record_num):
         filename = self.init_record_file()
+        filename_txt = self.init_record_file_txt()
         record_sum = 0
         while(record_sum < record_num):
             get_resopnse = self.get_write()
@@ -724,6 +762,7 @@ class KnowledgeBaseBuilder():
                 # print(get_resopnse['des'])
 
         self.fp.close()
+        self.fp_txt.close()
         print("记录结束，查看文件")
         return filename 
     
@@ -1308,7 +1347,13 @@ class KnowledgeBaseBuilder():
             cons_delay.append(self.query_body['user_constraint']['delay'])
 
         # 绘制总时延和约束时延
-        self.draw_delay_and_cons(x_value1=x_list, y_value1=df['all_delay'], y_value2=cons_delay, title_name="执行时延随时间变化图")
+        print("总时延的平均值为:{}".format(df['all_delay'].mean()))
+        self.draw_delay_and_cons(x_value1=x_list, y_value1=df['all_delay'], y_value2=cons_delay, title_name="总时延随时间变化图")
+        
+        # 绘制执行时延和约束时延
+        print("执行时延的平均值为:{}".format(df['proc_delay'].mean()))
+        self.draw_delay_and_cons(x_value1=x_list, y_value1=df['proc_delay'], y_value2=cons_delay, title_name="执行时延随时间变化图")
+
 
         bandwidth_list = []
         for bandwidth in df['bandwidth']:

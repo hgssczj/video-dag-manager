@@ -45,7 +45,8 @@ def sfg_get_next_init_task(
     video_cap=None,
     video_conf=None,
     curr_cam_frame_id=None,
-    curr_conf_frame_id=None
+    curr_conf_frame_id=None,
+    video_path=None
 ):
     assert video_cap
 
@@ -93,14 +94,39 @@ def sfg_get_next_init_task(
     st_time = time.time()
     input_ctx['image'] = field_codec_utils.encode_image(frame)
     ed_time = time.time()
-    root_logger.info(
-        "time consumed in encode-decode: {}".format(ed_time - st_time))
+    # root_logger.info(
+    #     "time consumed in encode-decode: {}".format(ed_time - st_time))
     # input_ctx['image'] = frame.tolist()
 
-    root_logger.warning(
-        "only unsupport init task with one image frame as input")
+    # root_logger.warning(
+    #     "only unsupport init task with one image frame as input")
 
-    return new_cam_frame_id, new_conf_frame_id, input_ctx
+    
+    # 获取当前处理帧的前面一部分帧（后面一部分帧也可，可根据需求更改），用于在黄金配置下获取真实的工况
+    # 注：由于本系统获取视频帧的方式是拉取模式而非推送模式，视频数据以帧为单位而非视频块为单位，因此想要在调度阶段以黄金配置运行来获取真实工况比较困难，只能使用小的trick来获取除当前正在处理的视频帧之外的其他视频帧
+    video_cap_1 = cv2.VideoCapture(video_path)
+    adjacent_frames = []
+    
+    for i in range(4):  # 获取当前处理帧的前四帧
+        temp_frame_id = new_cam_frame_id - (i + 1)
+        if temp_frame_id < 0:  # 负数，直接跳出循环
+            break
+        
+        else:
+            video_cap_1.set(cv2.CAP_PROP_POS_FRAMES, temp_frame_id)
+            temp_res, temp_frame = video_cap_1.read()
+            
+            if not temp_res:
+                root_logger.error("获取当前处理帧的相邻帧时出现错误, frame_id:{}".format(temp_frame_id))
+            assert temp_res
+            
+            temp_frame = cv2.resize(temp_frame, (480, 360))
+            temp_frame_str = field_codec_utils.encode_image(temp_frame)
+            adjacent_frames.append(temp_frame_str)
+
+    root_logger.info("In sfg_get_next_init_task, get {} adjacent_frames!".format(len(adjacent_frames)))
+    
+    return new_cam_frame_id, new_conf_frame_id, input_ctx, adjacent_frames
 
 class JobManager():
     # 保存执行结果的缓冲大小
@@ -382,12 +408,13 @@ class Job():
         while True:
             cur_plan = self.get_plan()  # 保存本次执行任务时的计划，避免出现执行任务过程中云端修改了执行计划，而导致任务执行前后计划不一致
             # 1、根据video_conf，获取本次循环的输入数据（TODO：从缓存区读取）
-            cam_frame_id, conf_frame_id, output_ctx = \
+            cam_frame_id, conf_frame_id, output_ctx, adjacent_frames = \
                 sfg_get_next_init_task(job_uid=self.get_job_uid(),
                                        video_cap=cap,
                                        video_conf=cur_plan[common.PLAN_KEY_VIDEO_CONF],
                                        curr_cam_frame_id=curr_cam_frame_id,
-                                       curr_conf_frame_id=curr_conf_frame_id)
+                                       curr_conf_frame_id=curr_conf_frame_id,
+                                       video_path=self.manager.get_video_info_by_id(self.video_id)['url'])
             frame_encoded = output_ctx['image']
             root_logger.info("done generator task, get_next_init_task({})".format(output_ctx.keys()))
             
@@ -504,6 +531,7 @@ class Job():
             runtime_dict['exe_plan'] = cur_plan  # 将当前任务的执行计划也报告给运行时情境，之所以这么做是为了避免并发导致的云、边执行计划不一致
             runtime_dict['frame'] = frame_encoded  # 将视频帧编码后上云，是为了计算目标速度
             runtime_dict['cap_fps'] = cap_fps  # 视频的原始帧率，为了计算目标速度
+            runtime_dict['adjacent_frames'] = adjacent_frames  # 当前帧的相邻视频帧，为了使用黄金配置运行来获取真实工况
             # DAG执行结束之后再次更新运行时情境，主要用于运行时情境画像，为知识库建立提供数据
             runtime_dict['user_constraint'] = self.user_constraint
             runtime_dict['bandwidth'] = self.manager.bandwidth_2_cloud  # 本次执行任务时边缘到云的带宽

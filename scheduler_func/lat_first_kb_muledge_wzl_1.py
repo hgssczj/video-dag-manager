@@ -50,7 +50,8 @@ def get_combination(list_dict, depth, length):
 # 宏观调度计划制定函数，返回所有可能的宏观调度计划
 def macro_judge(
     job_uid=None,
-    work_condition=None,
+    exec_work_condition=None,
+    act_work_condition=None,
     portrait_info=None,
     user_constraint=None,
     rsc_constraint=None,
@@ -62,7 +63,7 @@ def macro_judge(
 ):
 
     # 工况为空或没有执行时延（执行结果），说明视频流分析还未开始，此时进行冷启动
-    if not bool(work_condition) or not bool(user_constraint) or all_proc_delay == 0:
+    if not bool(exec_work_condition) or not bool(user_constraint) or all_proc_delay == 0:
         return {
             'cold_start_flag': True,
             'macro_plans': [],
@@ -75,13 +76,14 @@ def macro_judge(
     macro_plans = []
     
     ########################## 1. 确定各类配置的调整方向和范围 ##########################
+    assert act_work_condition is not None
     conf_adjust_plans = []  # 配置调整的方向列表，每个元素为一个列表:[帧率调整方向, 分辨率调整方向]
     conf_adjust_direction = 0  # 配置应该提高还是降低
     conf_upper_bound = dict()  # 配置提高的上界
     conf_lower_bound = dict()  # 配置降低的下界
     
     acc_predict_model = AccuracyPrediction()
-    middle_conf_list, middle_plus_conf_list = acc_predict_model.get_middle_conf(serv_names[0], user_constraint['accuracy'], work_condition['obj_size'], work_condition['obj_speed'])
+    middle_conf_list, middle_plus_conf_list = acc_predict_model.get_middle_conf(serv_names[0], user_constraint['accuracy'], act_work_condition['obj_size'], act_work_condition['obj_speed'])
     old_reso = old_conf['reso']
     old_fps = old_conf['fps']
     old_accuracy = acc_predict_model.predict(
@@ -90,8 +92,8 @@ def macro_judge(
             'reso': old_reso,
             'fps': old_fps
         },
-        work_condition['obj_size'], 
-        work_condition['obj_speed']
+        act_work_condition['obj_size'], 
+        act_work_condition['obj_speed']
     )
     acc_constraint = user_constraint['accuracy']
     
@@ -157,7 +159,7 @@ def macro_judge(
                     }
                 })
         elif serv_names[try_move_index] == 'gender_classification':
-            temp_obj_n = work_condition['obj_n']
+            temp_obj_n = act_work_condition['obj_n']
             cloud_exe_delay = delay_predictor.predict({
                 'delay_type': 'proc_delay',
                 'predict_info': {
@@ -195,7 +197,7 @@ def macro_judge(
                     }
                 })
         elif serv_names[cur_cut_point_index] == 'gender_classification':
-            temp_obj_n = work_condition['obj_n']
+            temp_obj_n = act_work_condition['obj_n']
             edge_exe_delay = delay_predictor.predict({
                 'delay_type': 'proc_delay',
                 'predict_info': {
@@ -716,7 +718,8 @@ def scheduler(
     system_status=None,
     portrait_info=None,
     user_constraint=None,
-    bandwidth_dict=None
+    bandwidth_dict=None,
+    act_work_condition=None
 ):
     root_logger.info('当前调度器感知到边缘到云端的带宽是:{}'.format(bandwidth_dict))
 
@@ -751,10 +754,10 @@ def scheduler(
         root_logger.info('感知到总处理时延是:{}'.format(all_proc_delay))
     
     # 获取当前工况
-    work_condition = dict()
+    exec_work_condition = dict()
     if portrait_info:
         assert 'work_condition' in portrait_info
-        work_condition = portrait_info['work_condition']
+        exec_work_condition = portrait_info['work_condition']
     
     # 获得设备的资源约束rsc_constraint
     rsc_constraint = user_constraint['rsc_constraint']
@@ -763,7 +766,8 @@ def scheduler(
     ############### 1. 获取宏观调度建议列表 ###############
     macro_plan_dict = macro_judge(
                                 job_uid=job_uid,
-                                work_condition=work_condition,
+                                exec_work_condition=exec_work_condition,
+                                act_work_condition=act_work_condition,
                                 portrait_info=portrait_info,
                                 user_constraint=user_constraint,
                                 rsc_constraint=rsc_constraint,
@@ -797,7 +801,7 @@ def scheduler(
                                                                                 user_constraint=user_constraint,
                                                                                 rsc_upper_bound=rsc_upper_bound,
                                                                                 rsc_down_bound=rsc_down_bound,
-                                                                                work_condition=work_condition,
+                                                                                work_condition=exec_work_condition,
                                                                                 portrait_info=portrait_info,
                                                                                 bandwidth_dict=bandwidth_dict)
         
@@ -842,7 +846,7 @@ def scheduler(
                 user_constraint=user_constraint,
                 rsc_upper_bound=rsc_upper_bound,
                 rsc_down_bound=rsc_down_bound,
-                work_condition=work_condition,
+                work_condition=exec_work_condition,
                 portrait_info=portrait_info,
                 bandwidth_dict=bandwidth_dict
             )
@@ -856,7 +860,7 @@ def scheduler(
                                             user_constraint=user_constraint,
                                             rsc_upper_bound=rsc_upper_bound,
                                             rsc_down_bound=rsc_down_bound,
-                                            work_condition=work_condition,
+                                            work_condition=act_work_condition,
                                             portrait_info=portrait_info,
                                             bandwidth_dict=bandwidth_dict,
                                             macro_plan_dict=macro_plan_dict)
@@ -875,7 +879,7 @@ def scheduler(
                                                                                     user_constraint=user_constraint,
                                                                                     rsc_upper_bound=rsc_upper_bound,
                                                                                     rsc_down_bound=rsc_down_bound,
-                                                                                    work_condition=work_condition,
+                                                                                    work_condition=act_work_condition,
                                                                                     portrait_info=portrait_info,
                                                                                     bandwidth_dict=bandwidth_dict,
                                                                                     macro_plan=macro_plan_dict['macro_plans'][macro_plan_index],

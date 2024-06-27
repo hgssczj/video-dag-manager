@@ -8,11 +8,12 @@ import cv2
 import math
 from AccuracyPrediction import AccuracyPrediction
 import DelayPredictModel
+from logging_utils import root_logger
 
 class RuntimePortrait():
     CONTENT_ELE_MAXN = 50
-    def __init__(self, pipeline, user_constraint):
-        self.service_cloud_addr = "114.212.81.11:4500"
+    def __init__(self, pipeline, user_constraint, serv_cloud_addr=None):
+        self.service_cloud_addr = serv_cloud_addr
         self.sess = requests.Session()
         
         # 存储工况情境的字段
@@ -164,15 +165,23 @@ class RuntimePortrait():
                 ##### 3.获取当前目标速度
                 cap_fps = runtime_info['cap_fps']
                 
-                if len(self.runtime_info_list) == 1 or len(runtime_info[taskname]['bbox']) == 0:  # 目前没有之前的结果则无法计算两帧之间的移动，也就无法计算速度；当前帧没有检测到人脸，也无法计算速度
-                    obj_speed = 314  # 设置为默认速度
+                if len(self.runtime_info_list) == 1:  # 目前没有之前的结果则无法计算两帧之间的移动
+                    if len(runtime_info[taskname]['bbox']) == 0:  # 当前帧没有检测到人脸
+                        obj_speed = 0  # 没有目标，则默认速度为0
+                    else:
+                        obj_speed = -1  # 有目标，但无法计算速度，则默认速度为-1
+                elif len(runtime_info[taskname]['bbox']) == 0:  # 当前帧没有检测到人脸
+                    if len(self.runtime_info_list[-2][taskname]['bbox']) == 0:  # 前一帧也没有检测到人脸
+                        obj_speed = 0  # 没有目标，则默认速度为0
+                    else:
+                        obj_speed = -1  # 前一帧有目标，但当前帧没有目标，无法计算速度，则默认速度为-1
                 else:
                     pre_frame = field_codec_utils.decode_image(self.runtime_info_list[-2]['frame'])
                     pre_bbox = self.runtime_info_list[-2][taskname]['bbox']
                     pre_frame_id = self.runtime_info_list[-2]['end_pipe']["frame_id"]
                     
-                    if len(pre_bbox) == 0:  # 前一帧也没有目标，无法计算速度
-                         obj_speed = 314  # 设置为默认速度
+                    if len(pre_bbox) == 0:  # 前一帧没有目标，但当前帧有目标
+                        obj_speed = -1  # 设置默认速度为-1
                     else:
                         cur_frame = field_codec_utils.decode_image(runtime_info['frame'])
                         cur_bbox = runtime_info[taskname]['bbox']
@@ -814,3 +823,107 @@ class RuntimePortrait():
         
         return resource_threshold
     
+    
+    def get_golden_conf_work_condition(self):
+        # 使用黄金配置进行少量的视频流分析并获取真实的工况
+        ############ 1. 获取当前处理的视频帧及其相邻的视频帧 ############
+        assert len(self.runtime_info_list) > 0
+        cur_frame_str = self.runtime_info_list[-1]['frame']  # 当前帧
+        cur_frame_adjacent_frames = self.runtime_info_list[-1]['adjacent_frames']  # 当前帧相邻的视频帧
+        video_fps = self.runtime_info_list[-1]['cap_fps']  # 该视频流原始的帧率
+        
+        
+        ############ 2. 以黄金配置处理视频帧并获取真实的工况 ############
+        ############ 2.1 将所有帧转换为最大分辨率下的视频帧 ############
+        cur_frame = field_codec_utils.decode_image(cur_frame_str)
+        cur_frame_golden_reso = cv2.resize(cur_frame, (1920, 1080))
+        cur_frame_golden_reso_str = field_codec_utils.encode_image(cur_frame_golden_reso)
+        
+        cur_frame_adjacent_frames_golden_reso = []
+        for temp_frame_str in cur_frame_adjacent_frames:
+            temp_frame = field_codec_utils.decode_image(temp_frame_str)
+            temp_frame_golden_reso = cv2.resize(temp_frame, (1920, 1080))
+            temp_frame_golden_reso_str = field_codec_utils.encode_image(temp_frame_golden_reso)
+            cur_frame_adjacent_frames_golden_reso.append(temp_frame_golden_reso_str)
+        
+        
+        ############ 2.2 使用黄金配置调用服务，获取执行结果 ############
+        assert self.service_cloud_addr is not None
+        exec_url = "http://{}/execute_task/{}".format(self.service_cloud_addr, self.pipeline[0])
+        root_logger.info("In get_golden_conf_work_condition, 执行服务的url:{}".format(exec_url))
+        
+        cur_frame_exec_res = self.sess.post(url=exec_url, json={  
+            'image': cur_frame_golden_reso_str
+        })  # 以黄金配置执行当前帧
+        assert cur_frame_exec_res.json()
+        cur_frame_exec_res = cur_frame_exec_res.json()
+        
+        cur_frame_adjacent_frames_exec_res = []
+        for i in range(len(cur_frame_adjacent_frames_golden_reso)):
+            if i == len(cur_frame_adjacent_frames_golden_reso) - 1:  # 目前只以黄金配置执行当前帧的前面第若干帧，若有需要可改为所有相邻帧都执行
+                temp_frame_str = cur_frame_adjacent_frames_golden_reso[i]
+                temp_frame_exec_res = self.sess.post(url=exec_url, json={
+                    'image': temp_frame_str
+                })
+                assert temp_frame_exec_res.json()
+                temp_frame_exec_res = temp_frame_exec_res.json()
+                cur_frame_adjacent_frames_exec_res.append(temp_frame_exec_res)  
+        
+        
+        ############ 2.3 从执行结果中提取真实的工况 ############
+        work_condition = dict()
+        
+        ###### 2.3.1 提取目标数量 ######
+        if self.pipeline[0] == 'face_detection':
+            work_condition['obj_n'] = len(cur_frame_exec_res['faces'])
+        assert 'obj_n' in work_condition
+        
+        ###### 2.3.2 提取目标大小 ######
+        if self.pipeline[0] == 'face_detection':
+            obj_size = 0
+            for x_min, y_min, x_max, y_max in cur_frame_exec_res['bbox']:
+                obj_size += (x_max - x_min) * (y_max - y_min)
+            if len(cur_frame_exec_res['bbox']) > 0:
+                obj_size /= len(cur_frame_exec_res['bbox'])
+
+            work_condition['obj_size'] = obj_size
+        assert 'obj_size' in work_condition
+        
+        
+        ###### 2.3.3 提取目标速度 ######
+        if self.pipeline[0] == 'face_detection':
+            if len(cur_frame_adjacent_frames) == 0:  # 当前帧没有相邻帧则无法计算两帧之间的移动
+                if len(cur_frame_exec_res['bbox']) == 0: 
+                    obj_speed = 0  # 没有目标，则默认速度为0
+                else:
+                    obj_speed = -1  # 有目标，但无法计算速度，则默认速度为-1
+            elif len(cur_frame_exec_res['bbox']) == 0:  # 当前帧没有检测到人脸
+                if len(cur_frame_adjacent_frames_exec_res[-1]['bbox']) == 0:  # 前一帧也没有检测到人脸
+                    obj_speed = 0  # 没有目标，则默认速度为0
+                else:
+                    obj_speed = -1  # 前一帧有目标，但当前帧没有目标，无法计算速度，则默认速度为-1
+            else:
+                pre_frame = field_codec_utils.decode_image(cur_frame_adjacent_frames_golden_reso[-1])
+                pre_bbox = cur_frame_adjacent_frames_exec_res[-1]['bbox']
+                pre_frame_id = 0
+                
+                if len(pre_bbox) == 0:  # 前一帧没有目标，但当前帧有目标
+                    obj_speed = -1  # 设置默认速度为-1
+                else:
+                    cur_frame = field_codec_utils.decode_image(cur_frame_golden_reso_str)
+                    cur_bbox = cur_frame_exec_res['bbox']
+                    cur_frame_id = len(cur_frame_adjacent_frames_golden_reso)
+                    
+                    obj_speed = self.cal_obj_speed(pre_frame, pre_bbox, pre_frame_id, cur_frame, cur_bbox, cur_frame_id, video_fps)
+                        
+            work_condition['obj_speed'] = obj_speed
+        
+        assert 'obj_speed' in work_condition
+        
+        return work_condition
+        
+        
+             
+        
+        
+        

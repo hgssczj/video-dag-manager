@@ -102,9 +102,15 @@ class  KnowledgeBaseUser():
             
             # 3. 判断当前调度策略是否在知识库中，若不在，则写入知识库
             if temp_key_str not in evaluator:
-                evaluator[temp_key_str] = temp_proc_delay
-                with open(kb_file_name, 'w', encoding='utf-8') as file:
-                    json.dump(evaluator, file)
+                if not service_info_dict[serv_name]['vary_with_obj_n']:
+                    evaluator[temp_key_str] = temp_proc_delay
+                    with open(kb_file_name, 'w', encoding='utf-8') as file:
+                        json.dump(evaluator, file)
+                else:
+                    if 'obj_n' in self.work_condition and int(self.work_condition['obj_n']) != 0:
+                        evaluator[temp_key_str] = temp_proc_delay / int(self.work_condition['obj_n'])
+                        with open(kb_file_name, 'w', encoding='utf-8') as file:
+                            json.dump(evaluator, file)
 
                 root_logger.info("更新服务{}的知识库, key为:{}".format(serv_name, temp_key_str))
     

@@ -32,7 +32,7 @@ import scheduler_func.lat_first_kb_muledge_wzl_1
 class Query():
     CONTENT_ELE_MAXN = 50
 
-    def __init__(self, query_id, node_addr, video_id, pipeline, user_constraint, job_info):
+    def __init__(self, query_id, node_addr, video_id, pipeline, user_constraint, job_info, serv_cloud_addr):
         self.query_id = query_id
         # 查询指令信息
         self.node_addr = node_addr
@@ -40,6 +40,7 @@ class Query():
         self.pipeline = pipeline
         self.user_constraint = user_constraint
         self.job_info = job_info
+        self.serv_cloud_addr = serv_cloud_addr
 
 
         self.flow_mapping = None
@@ -55,7 +56,7 @@ class Query():
         self.plan_list = []
         
         # 运行时情境画像模块
-        self.runtime_portrait = RuntimePortrait(pipeline, user_constraint)
+        self.runtime_portrait = RuntimePortrait(pipeline, user_constraint, self.serv_cloud_addr)
         
         # 调度策略缓存
         self.runtime_cache = []  # 缓存该query最近CONTENT_ELE_MAXN种情境对应的字符串
@@ -195,6 +196,9 @@ class Query():
                       flow_mapping=scheduling_strategy_dict["flow_mapping"],
                       resource_limit=scheduling_strategy_dict["resource_limit"])
 
+    def get_golden_conf_work_condition(self):
+        return self.runtime_portrait.get_golden_conf_work_condition()
+    
 
 class QueryManager():
     # 保存执行结果的缓冲大小
@@ -230,12 +234,15 @@ class QueryManager():
     def submit_query(self, query_id, node_addr, video_id, pipeline, user_constraint, job_info):
         # 在本地启动新的job
         assert query_id not in self.query_dict.keys()
+        assert self.service_cloud_addr is not None
         query = Query(query_id=query_id,
                       node_addr=node_addr,
                       video_id=video_id,
                       pipeline=pipeline,
                       user_constraint=user_constraint,
-                      job_info=job_info)
+                      job_info=job_info,
+                      serv_cloud_addr=self.service_cloud_addr
+                      )
         # job.set_manager(self)
         self.query_dict[query.get_query_id()] = query
         root_logger.info("current query_dict={}".format(self.query_dict.keys()))
@@ -517,7 +524,7 @@ def node_join_cbk():
 def start_query_listener(serv_port=4000):
     query_app.run(host="0.0.0.0", port=serv_port)
 
-def get_runtime_str(portrait_info, pipeline, bandwidth_dict):
+def get_runtime_str(portrait_info, pipeline, bandwidth_dict, act_work_condition):
     runtime_str = ''
     
     ############ 1. 拼接当前的调度策略 ############
@@ -595,19 +602,21 @@ def get_runtime_str(portrait_info, pipeline, bandwidth_dict):
     runtime_str += ' '
     
     ###### 2.2 拼接当前的工况情境 ######
-    assert 'work_condition' in portrait_info
-    work_condition = portrait_info['work_condition']
+    # assert 'work_condition' in portrait_info
+    # work_condition = portrait_info['work_condition']
     
-    assert 'obj_n' in work_condition
+    assert 'obj_n' in act_work_condition
     runtime_str += 'obj_n='
-    runtime_str += str(int(work_condition['obj_n']))
+    runtime_str += str(int(act_work_condition['obj_n']))
     runtime_str += ' '
     
-    assert 'obj_size' in work_condition
+    assert 'obj_size' in act_work_condition
     obj_size_level = -1
-    if work_condition['obj_n'] <= 50000:
+    if int(act_work_condition['obj_size']) == 0:
+        obj_size_level = 2
+    elif act_work_condition['obj_size'] <= 50000:
         obj_size_level = 1
-    elif work_condition['obj_n'] <= 100000:
+    elif act_work_condition['obj_size'] <= 100000:
         obj_size_level = 2
     else:
         obj_size_level = 3
@@ -615,13 +624,15 @@ def get_runtime_str(portrait_info, pipeline, bandwidth_dict):
     runtime_str += str(obj_size_level)
     runtime_str += ' '
     
-    assert 'obj_speed' in work_condition
+    assert 'obj_speed' in act_work_condition
     obj_speed_level = -1
-    if work_condition['obj_speed'] <= 260:
-        obj_speed_level = 1
-    elif work_condition['obj_speed'] <= 520:
+    if int(act_work_condition['obj_speed']) == 0:
         obj_speed_level = 2
-    elif work_condition['obj_speed'] <= 780:
+    elif act_work_condition['obj_speed'] <= 260:
+        obj_speed_level = 1
+    elif act_work_condition['obj_speed'] <= 520:
+        obj_speed_level = 2
+    elif act_work_condition['obj_speed'] <= 780:
         obj_speed_level = 3
     else:
         obj_speed_level = 4
@@ -652,7 +663,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
             for qid, query in query_dict.items():
                 assert isinstance(query, Query)
                 query_id = query.query_id
-                work_condition = query.get_latest_work_condition()
+                exec_work_condition = query.get_latest_work_condition()  # 执行视频流分析任务获得的工况（未必等同于真实的工况）
                 # work_condition = query.get_aggregate_work_condition()
                 portrait_info = query.get_portrait_info()
                 # appended_result_list = query.get_appended_result_list()
@@ -666,10 +677,13 @@ def cloud_scheduler_loop_kb(query_manager=None):
                     # print(work_condition)
                     # 只有当runtime_info不存在(视频流分析还未开始，进行冷启动)或者含有delay的时候(正常的视频流调度)才运行。
                     bandwidth_dict = query_manager.bandwidth_dict.copy()
-                    if not work_condition or 'delay' in work_condition:
+                    if not exec_work_condition or 'delay' in exec_work_condition:
                         assert node_addr in bandwidth_dict
-                        if 'delay' in work_condition:  # 若存在情境信息，则判断是否缓存了当前情境对应的调度策略
-                            runtime_str = get_runtime_str(portrait_info, query.pipeline, bandwidth_dict[node_addr])
+                        if 'delay' in exec_work_condition:  # 若存在情境信息，则判断是否缓存了当前情境对应的调度策略
+                            act_work_condition = query.get_golden_conf_work_condition()  # 执行黄金配置获得的真实工况
+                            root_logger.info("In cloud_scheduler_loop_kb, act_work_condition is:{}".format(act_work_condition))
+                            
+                            runtime_str = get_runtime_str(portrait_info, query.pipeline, bandwidth_dict[node_addr], act_work_condition)
                             cached_info = query.get_if_cached(runtime_str)
                             
                             if cached_info['if_cached']:  # 若缓存了对应的调度策略，则直接使用该策略，无需重新查表
@@ -686,7 +700,8 @@ def cloud_scheduler_loop_kb(query_manager=None):
                                                                         system_status=system_status,
                                                                         portrait_info=portrait_info,
                                                                         user_constraint=user_constraint,
-                                                                        bandwidth_dict=bandwidth_dict[node_addr])
+                                                                        bandwidth_dict=bandwidth_dict[node_addr],
+                                                                        act_work_condition=act_work_condition)
                                 end_time = time.time()
                                 root_logger.info("调度策略制定的时间:{}".format(end_time - start_time))
                                 scheduling_dict = {
