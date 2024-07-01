@@ -96,8 +96,19 @@ def macro_judge(
         act_work_condition['obj_speed']
     )
     acc_constraint = user_constraint['accuracy']
+    assert 'conf_portrait' in portrait_info
+    
+    # 说明：配置的强中弱类别划分应该使用真实的工况（在黄金配置下得到的工况）计算当前配置的精度，而不是使用执行结果提取的工况计算当前配置的精度。
+    # 但由于目前画像的实现为每一帧结果都产生画像，若每一帧都计算真实工况则代价太大，因此修改调度器为每个调度周期在重新制定调度策略时对少量帧进行分析获取真实工况
+    # 为了快速实现这一想法，将配置的画像类别在调度器中重新计算
+    if old_accuracy < acc_constraint:
+        portrait_info['conf_portrait'] = 0  # 低于精度约束，则配置画像类别为弱
+    else:
+        portrait_info['conf_portrait'] = 3  # 高于精度约束，则配置画像类别为强或中，具体类别放到下面进行判定
+        
     
     if (old_fps, old_reso) in middle_conf_list:  # 若当前配置已经为中配置，则所有配置无需再调整
+        portrait_info['conf_portrait'] = 1  # 配置画像类别为中
         conf_adjust_direction = 0
         conf_adjust_plans = [[0, 0]]
     else:
@@ -124,7 +135,7 @@ def macro_judge(
             conf_adjust_plans.append(temp_conf_adjust_plan)
             temp_conf_adjust_plan_str = str(temp_conf_adjust_plan[0]) + '_' + str(temp_conf_adjust_plan[1])
             
-            if old_accuracy < acc_constraint:  # 提高配置，给出配置提升的上界：当前中配置高一档
+            if portrait_info['conf_portrait'] == 0:  # 提高配置，给出配置提升的上界：当前中配置高一档
                 conf_adjust_direction = 1
                 conf_upper_bound[temp_conf_adjust_plan_str] = middle_plus_conf_list[i]
             else:
@@ -262,7 +273,25 @@ def macro_judge(
                 
                 else:  # 在边端执行的服务满足计算资源约束
                     edge_rsc_adjust_dict = dict()
+                    assert 'resource_portrait' in portrait_info
                     for i in range(cur_cut_point_index):  # 判断各个在边端执行的服务的强中弱，并给出调整建议
+                        if portrait_info['resource_portrait'] == 3:  # 满足资源约束且资源画像为强或中，则调整建议为不变
+                            edge_rsc_adjust_dict[i] = [[0, 0]]
+                        else:  # 资源画像为弱
+                            ### 1.判断CPU资源是否为弱
+                            temp_cpu_limit = old_resource_limit[serv_names[i]]["cpu_util_limit"]
+                        
+                            temp_cpu_demand = portrait_info['resource_info'][serv_names[i]]['resource_demand']['cpu']['edge']
+                            temp_cpu_demand_upper_bound = temp_cpu_demand['upper_bound']
+                            temp_cpu_demand_lower_bound = temp_cpu_demand['lower_bound']
+                            
+                            if temp_cpu_limit < temp_cpu_demand_lower_bound:  # CPU处于弱资源，调整建议为不变或提高资源
+                                edge_rsc_adjust_dict[i] = [[0, 0], [1, 0]]
+                            else:  # CPU资源处于中或强，但资源画像为弱，说明其他资源为弱，需要进一步判断其他资源。但由于目前只考虑CPU，所以代码先这样实现
+                                edge_rsc_adjust_dict[i] = [[0, 0]]
+                            
+                            ### TODO：判断其他类型资源
+                        '''
                         temp_cpu_limit = old_resource_limit[serv_names[i]]["cpu_util_limit"]
                         
                         temp_cpu_demand = portrait_info['resource_info'][serv_names[i]]['resource_demand']['cpu']['edge']
@@ -275,6 +304,7 @@ def macro_judge(
                             edge_rsc_adjust_dict[i] = [[0, 0]]
                         else:  # 处于强资源的服务，调整建议为不变或降低
                             edge_rsc_adjust_dict[i] = [[0, 0], [-1, 0]]
+                        '''
                     
                     edge_rsc_adjust_plans = get_combination(edge_rsc_adjust_dict, 0, cur_cut_point_index-1)
                     
