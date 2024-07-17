@@ -294,24 +294,24 @@ class  KnowledgeBaseUser():
   
 
         # 3、计算资源约束违反程度
-        deg_violate = 0 #违反资源约束的程度
+        deg_violate = 0 #违反资源约束的程度 暂不考虑资源约束的问题
         for device_ip in self.rsc_constraint.keys():
             # 只针对非云设备计算违反资源约束程度
             if model_op[device_ip]['node_role'] != 'cloud':
                 cpu_util = 0
-                mem_util = 0
+                #mem_util = 0
                 for serv_name in resource_limit.keys():
                     if flow_mapping[serv_name]['node_ip'] == device_ip:
                         # 必须用round保留小数点，因为python对待浮点数不精确，0.35加上0.05会得到0.39999……
                         cpu_util = round(cpu_util + resource_limit[serv_name]['cpu_util_limit'], 2)
-                        mem_util = round(mem_util + resource_limit[serv_name]['mem_util_limit'], 2)
+                        #mem_util = round(mem_util + resource_limit[serv_name]['mem_util_limit'], 2)
                 cpu_util_ratio = float(cpu_util) / float(self.rsc_constraint[device_ip]['cpu'])
-                mem_util_ratio = float(mem_util) / float(self.rsc_constraint[device_ip]['mem'])
+                #mem_util_ratio = float(mem_util) / float(self.rsc_constraint[device_ip]['mem'])
                 
                 if cpu_util_ratio > 1:
                     deg_violate += cpu_util_ratio
-                if mem_util_ratio > 1:
-                    deg_violate += mem_util_ratio
+                #if mem_util_ratio > 1:
+                #    deg_violate += mem_util_ratio
         
 
        # 4、计算边端资源总消耗量
@@ -1159,9 +1159,6 @@ class  KnowledgeBaseUser():
         potential_section_id = sorted_potential_section_ids[0]
         return status, potential_section_id, 
 
-
-        
-
     # get_potential_section_ids_info
     # 用途：梯度下降，从section_ids_in_cons里找到至多max_directions个潜力区间
     # 方法：目前靠一些粗暴方法，选择表现优秀的解，将这些解的得分作为相应区间的潜力
@@ -1272,8 +1269,6 @@ class  KnowledgeBaseUser():
         # 最终返回的列表信息一定不为空
         return potential_section_ids_info
 
-
-
     # get_start_param_GD
     # 用途：在一个新区间完成贝叶斯优化采样后，为了进行梯度下降，需要从中寻找一个初始点start_parma
     # 方法：从该区间中已经按照潜力得分排序的解中，选择一个大于等于区间潜力的最小的解；如果没有这样的解，选择最大的。
@@ -1285,7 +1280,6 @@ class  KnowledgeBaseUser():
         # 如果都不行，那就返回最大解了
         return cur_sorted_potential_params[0]
                                                                                     
-
     # get_plan_in_cons_from_sections_GD：
     # 用途：基于梯度下降的方法，从section_ids_in_cons中不断选择合适的section_id来尝试查找最优解.
     #       参数max_directions表示每次进行梯度下降的时候至多选择几个有潜力的区间
@@ -1334,6 +1328,17 @@ class  KnowledgeBaseUser():
         #    文件描述符，记录每一次梯度下降的选择
         filename = 'kb_GD/' + self.kb_name + '/' +datetime.datetime.now().strftime('%Y%m%d_%H_%M_%S')+'_GD_record.json'
         f = open(filename, 'a', encoding='utf-8')
+        #   最开始，要往里面写入本次梯度下降相关的初始信息
+        basic_info={}
+        basic_info['n_descent']=n_descent
+        basic_info['max_directions']=max_directions
+        basic_info['n_trials']=n_trials
+        basic_info['optimize_goal']=optimize_goal
+        basic_info['section_ids_in_cons']=section_ids_in_cons
+        basic_info['start_param']=start_param
+        basic_info['max_in_cons']=max_in_cons
+        basic_info['max_out_cons']=max_out_cons
+        json.dump(basic_info,f,indent=4) 
         
 
         # 1.1 start_param作为梯度下降的起点，需要判断其所在的起始区间start_section_id
@@ -1538,16 +1543,16 @@ portrait_info['data_trans_size']['face_detection']=1200000
 portrait_info['data_trans_size']['gender_classification']=70000
 
 bandwidth_dict={}
+bandwidth_dict['kB/s']=1000
 #bandwidth_dict['kB/s']=100000
-bandwidth_dict['kB/s']=100
 
 
 # 4、用户约束
 #    一般情况下优化目标是在满足精度约束的时候最小化时延，此时精度不能小于约束，时延不能超过约束且需要最小化
 #
 user_constraint={  
-    "delay": 0.2,
-    "accuracy": 0.9
+    "delay": 0.3,
+    "accuracy": 0.8
 }
 
 
@@ -1600,9 +1605,9 @@ if __name__ == "__main__":
      
     need_pred_delay=0
 
-    need_to_cold_start=0
+    need_to_cold_start=1
 
-    need_to_search_GD=1
+    need_to_search_GD=0
 
     if need_to_cold_start==1:
         n_trials=200
@@ -1626,20 +1631,22 @@ if __name__ == "__main__":
         max_directions = 4
         n_trials = 20
         optimze_goal=MIN_DELAY
+        # 处理时延约束0.3，精度约束0.8，最小化时延
         start_param={
-            'conf': {'reso': '480p', 'fps': 1, 'encoder': 'JPEG'}, 
-            'flow_mapping': 
-                {
-                'face_detection': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'}, 
-                'gender_classification': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'}
-                }, 
-            'resource_limit': 
-                {
-                'face_detection': {'cpu_util_limit': 1.0, 'mem_util_limit': 1.0}, 
-                'gender_classification': {'cpu_util_limit': 1.0, 'mem_util_limit': 1.0}
-                }, 
+            'conf': {'reso': '630p', 'fps': 5, 'encoder': 'JPEG'}, 
+            'flow_mapping': {'face_detection': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'}, 
+                             'gender_classification': {'model_id': 0, 'node_ip': '114.212.81.11', 'node_role': 'cloud'}
+                             }, 
+            'resource_limit': {'face_detection': {'cpu_util_limit': 1.0, 'mem_util_limit': 1.0}, 
+                               'gender_classification': {'cpu_util_limit': 1.0, 'mem_util_limit': 1.0}
+                               }, 
             'edge_cloud_cut_choice': 0, 
-        }
+            #'pred_delay_list': [0.07089373221000031, 0.0016100505987802624], 
+            #'pred_delay_total': 0.08281311280878058, 
+            #'deg_violate': 0, 
+            #'task_accuracy': 0.8889335539766028
+            }
+        
         max_in_cons=3
         max_out_cons=3
         params_in_cons,params_out_cons = kb_user.get_plan_in_cons_GD(n_descent=n_descent,

@@ -489,7 +489,7 @@ class  KnowledgeBaseUser():
                         'reso':conf['reso']
                     }, obj_size=obj_size, obj_speed=obj_speed)
                     
-            if status != 0:  # 如果status不为0，才说明这个配置是有效的，否则是无效的
+            if status != 0:  # 如果status不为0，才说明这个配置是有效的，否则是无效的，暂不考虑资源约束问题
                 deg_violate = 0 #违反资源约束的程度
                 for device_ip in self.rsc_constraint.keys():
                     # 只针对非云设备计算违反资源约束程度
@@ -506,8 +506,8 @@ class  KnowledgeBaseUser():
                         
                         if cpu_util_ratio > 1:
                             deg_violate += cpu_util_ratio
-                        if mem_util_ratio > 1:
-                            deg_violate += mem_util_ratio
+                        #if mem_util_ratio > 1:
+                        #    deg_violate += mem_util_ratio
                     
                 ans_dict['pred_delay_list'] = pred_delay_list
                 ans_dict['pred_delay_total'] = pred_delay_total

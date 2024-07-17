@@ -1,0 +1,4739 @@
+{
+    "n_descent": 10,
+    "max_directions": 4,
+    "n_trials": 20,
+    "optimize_goal": 0,
+    "section_ids_in_cons": [
+        "reso=3-fps=0-encoder=0",
+        "reso=5-fps=0-encoder=0",
+        "reso=4-fps=1-encoder=0",
+        "reso=2-fps=3-encoder=0",
+        "reso=5-fps=1-encoder=0",
+        "reso=2-fps=2-encoder=0",
+        "reso=3-fps=1-encoder=0",
+        "reso=3-fps=2-encoder=0",
+        "reso=6-fps=0-encoder=0",
+        "reso=7-fps=0-encoder=0",
+        "reso=8-fps=0-encoder=0",
+        "reso=2-fps=1-encoder=0",
+        "reso=4-fps=0-encoder=0"
+    ],
+    "start_param": {
+        "conf": {
+            "reso": "630p",
+            "fps": 5,
+            "encoder": "JPEG"
+        },
+        "flow_mapping": {
+            "face_detection": {
+                "model_id": 0,
+                "node_ip": "114.212.81.11",
+                "node_role": "cloud"
+            },
+            "gender_classification": {
+                "model_id": 0,
+                "node_ip": "114.212.81.11",
+                "node_role": "cloud"
+            }
+        },
+        "resource_limit": {
+            "face_detection": {
+                "cpu_util_limit": 1.0,
+                "mem_util_limit": 1.0
+            },
+            "gender_classification": {
+                "cpu_util_limit": 1.0,
+                "mem_util_limit": 1.0
+            }
+        },
+        "edge_cloud_cut_choice": 0
+    },
+    "max_in_cons": 3,
+    "max_out_cons": 3
+}{
+    "cur_section_id": "reso=3-fps=1-encoder=0",
+    "start_param": {
+        "conf": {
+            "reso": "630p",
+            "fps": 5,
+            "encoder": "JPEG"
+        },
+        "flow_mapping": {
+            "face_detection": {
+                "model_id": 0,
+                "node_ip": "114.212.81.11",
+                "node_role": "cloud"
+            },
+            "gender_classification": {
+                "model_id": 0,
+                "node_ip": "114.212.81.11",
+                "node_role": "cloud"
+            }
+        },
+        "resource_limit": {
+            "face_detection": {
+                "cpu_util_limit": 1.0,
+                "mem_util_limit": 1.0
+            },
+            "gender_classification": {
+                "cpu_util_limit": 1.0,
+                "mem_util_limit": 1.0
+            }
+        },
+        "edge_cloud_cut_choice": 0,
+        "pred_delay_list": [
+            0.07089373221000031,
+            0.0016100505987802624
+        ],
+        "pred_delay_total": 0.5879702828087806,
+        "deg_violate": 0,
+        "task_accuracy": 0.8889335539766028,
+        "potential_score": 1.0
+    },
+    "cur_sorted_potential_params": [
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 4,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.15,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.22989922123295922,
+                0.001260294091133796
+            ],
+            "pred_delay_total": 0.266159515324093,
+            "deg_violate": 0,
+            "task_accuracy": 0.8619581628155805,
+            "potential_score": 1.9733840484675906
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 4,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.15,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 0.85,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 2,
+            "pred_delay_list": [
+                0.22989922123295922,
+                0.04117556625888457
+            ],
+            "pred_delay_total": 0.27107478749184377,
+            "deg_violate": 0,
+            "task_accuracy": 0.8619581628155805,
+            "potential_score": 1.9728925212508157
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 6,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.1,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.544890558719635,
+                0.0019517293343176696
+            ],
+            "pred_delay_total": 0.5818422880539527,
+            "deg_violate": 0,
+            "task_accuracy": 0.9012992354421253,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 5,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.07089373221000031,
+                0.0016100505987802624
+            ],
+            "pred_delay_total": 0.5879702828087806,
+            "deg_violate": 0,
+            "task_accuracy": 0.8889335539766028,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 6,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.07872679914746962,
+                0.0019517293343176696
+            ],
+            "pred_delay_total": 0.5961450284817873,
+            "deg_violate": 0,
+            "task_accuracy": 0.9012992354421253,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 4,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.07536415613832922,
+                0.001260294091133796
+            ],
+            "pred_delay_total": 0.5920909502294631,
+            "deg_violate": 0,
+            "task_accuracy": 0.8619581628155805,
+            "potential_score": 1.0
+        }
+    ],
+    "potential_section_ids_info_list": [
+        {
+            "section_id": "reso=3-fps=0-encoder=0",
+            "potential_score": 1.9733840484675906,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.22989922123295922,
+                    0.001260294091133796
+                ],
+                "pred_delay_total": 0.266159515324093,
+                "deg_violate": 0,
+                "task_accuracy": 0.8619581628155805,
+                "potential_score": 1.9733840484675906
+            }
+        },
+        {
+            "section_id": "reso=3-fps=2-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 6,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.544890558719635,
+                    0.0019517293343176696
+                ],
+                "pred_delay_total": 0.5818422880539527,
+                "deg_violate": 0,
+                "task_accuracy": 0.9012992354421253,
+                "potential_score": 1.0
+            }
+        }
+    ]
+}{
+    "cur_section_id": "reso=3-fps=0-encoder=0",
+    "start_param": {
+        "conf": {
+            "reso": "630p",
+            "fps": 3,
+            "encoder": "JPEG"
+        },
+        "flow_mapping": {
+            "face_detection": {
+                "model_id": 0,
+                "node_ip": "114.212.81.11",
+                "node_role": "cloud"
+            },
+            "gender_classification": {
+                "model_id": 0,
+                "node_ip": "114.212.81.11",
+                "node_role": "cloud"
+            }
+        },
+        "resource_limit": {
+            "face_detection": {
+                "cpu_util_limit": 1.0,
+                "mem_util_limit": 1.0
+            },
+            "gender_classification": {
+                "cpu_util_limit": 1.0,
+                "mem_util_limit": 1.0
+            }
+        },
+        "edge_cloud_cut_choice": 0,
+        "pred_delay_list": [
+            0.04920074397293975,
+            0.0010567950078533455
+        ],
+        "pred_delay_total": 0.5657240389807932,
+        "deg_violate": 0,
+        "task_accuracy": 0.8031120951468448,
+        "potential_score": 1.0
+    },
+    "cur_sorted_potential_params": [
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 3,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.04920074397293975,
+                0.0010567950078533455
+            ],
+            "pred_delay_total": 0.5657240389807932,
+            "deg_violate": 0,
+            "task_accuracy": 0.8031120951468448,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 2,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.1,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.3006748048065221,
+                0.0009605867813212333
+            ],
+            "pred_delay_total": 0.3366353915878433,
+            "deg_violate": 0,
+            "task_accuracy": 0.6747410305938675,
+            "potential_score": 0.9373705152969337
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 2,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.05,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.2615169286727905,
+                0.0009605867813212333
+            ],
+            "pred_delay_total": 0.2974775154541117,
+            "deg_violate": 0,
+            "task_accuracy": 0.6747410305938675,
+            "potential_score": 0.9373705152969337
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 1,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.25,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.13722583460502133,
+                0.0005512330168342462
+            ],
+            "pred_delay_total": 0.17277706762185557,
+            "deg_violate": 0,
+            "task_accuracy": 0.3947031135790684,
+            "potential_score": 0.7973515567895342
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 1,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.036378799207766016,
+                0.0005512330168342462
+            ],
+            "pred_delay_total": 0.5523965322246003,
+            "deg_violate": 0,
+            "task_accuracy": 0.3947031135790684,
+            "potential_score": 0.7973515567895342
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 1,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.25,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 0.7,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 2,
+            "pred_delay_list": [
+                0.13722583460502133,
+                0.0087439922186044
+            ],
+            "pred_delay_total": 0.14596982682362572,
+            "deg_violate": 0,
+            "task_accuracy": 0.3947031135790684,
+            "potential_score": 0.7973515567895342
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 1,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.25,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 0.25,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 2,
+            "pred_delay_list": [
+                0.13722583460502133,
+                0.02449556421010918
+            ],
+            "pred_delay_total": 0.1617213988151305,
+            "deg_violate": 0,
+            "task_accuracy": 0.3947031135790684,
+            "potential_score": 0.7973515567895342
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 1,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.2,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 0.7,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 2,
+            "pred_delay_list": [
+                0.04081417505557715,
+                0.0087439922186044
+            ],
+            "pred_delay_total": 0.049558167274181546,
+            "deg_violate": 0,
+            "task_accuracy": 0.3947031135790684,
+            "potential_score": 0.7973515567895342
+        }
+    ],
+    "potential_section_ids_info_list": [
+        {
+            "section_id": "reso=4-fps=0-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 0,
+                "pred_delay_list": [
+                    0.04920074397293975,
+                    0.0010567950078533455
+                ],
+                "pred_delay_total": 0.5657240389807932,
+                "deg_violate": 0,
+                "task_accuracy": 0.8031120951468448,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=4-fps=1-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 0,
+                "pred_delay_list": [
+                    0.04920074397293975,
+                    0.0010567950078533455
+                ],
+                "pred_delay_total": 0.5657240389807932,
+                "deg_violate": 0,
+                "task_accuracy": 0.8031120951468448,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=2-fps=1-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 0,
+                "pred_delay_list": [
+                    0.04920074397293975,
+                    0.0010567950078533455
+                ],
+                "pred_delay_total": 0.5657240389807932,
+                "deg_violate": 0,
+                "task_accuracy": 0.8031120951468448,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=5-fps=0-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 0,
+                "pred_delay_list": [
+                    0.04920074397293975,
+                    0.0010567950078533455
+                ],
+                "pred_delay_total": 0.5657240389807932,
+                "deg_violate": 0,
+                "task_accuracy": 0.8031120951468448,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=3-fps=2-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 0,
+                "pred_delay_list": [
+                    0.04920074397293975,
+                    0.0010567950078533455
+                ],
+                "pred_delay_total": 0.5657240389807932,
+                "deg_violate": 0,
+                "task_accuracy": 0.8031120951468448,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=5-fps=1-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 0,
+                "pred_delay_list": [
+                    0.04920074397293975,
+                    0.0010567950078533455
+                ],
+                "pred_delay_total": 0.5657240389807932,
+                "deg_violate": 0,
+                "task_accuracy": 0.8031120951468448,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=2-fps=2-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 0,
+                "pred_delay_list": [
+                    0.04920074397293975,
+                    0.0010567950078533455
+                ],
+                "pred_delay_total": 0.5657240389807932,
+                "deg_violate": 0,
+                "task_accuracy": 0.8031120951468448,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=6-fps=0-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 0,
+                "pred_delay_list": [
+                    0.04920074397293975,
+                    0.0010567950078533455
+                ],
+                "pred_delay_total": 0.5657240389807932,
+                "deg_violate": 0,
+                "task_accuracy": 0.8031120951468448,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=2-fps=3-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 0,
+                "pred_delay_list": [
+                    0.04920074397293975,
+                    0.0010567950078533455
+                ],
+                "pred_delay_total": 0.5657240389807932,
+                "deg_violate": 0,
+                "task_accuracy": 0.8031120951468448,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=7-fps=0-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 0,
+                "pred_delay_list": [
+                    0.04920074397293975,
+                    0.0010567950078533455
+                ],
+                "pred_delay_total": 0.5657240389807932,
+                "deg_violate": 0,
+                "task_accuracy": 0.8031120951468448,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=8-fps=0-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 0,
+                "pred_delay_list": [
+                    0.04920074397293975,
+                    0.0010567950078533455
+                ],
+                "pred_delay_total": 0.5657240389807932,
+                "deg_violate": 0,
+                "task_accuracy": 0.8031120951468448,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=3-fps=0-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 0,
+                "pred_delay_list": [
+                    0.04920074397293975,
+                    0.0010567950078533455
+                ],
+                "pred_delay_total": 0.5657240389807932,
+                "deg_violate": 0,
+                "task_accuracy": 0.8031120951468448,
+                "potential_score": 1.0
+            }
+        }
+    ]
+}{
+    "cur_section_id": "reso=3-fps=2-encoder=0",
+    "start_param": {
+        "conf": {
+            "reso": "630p",
+            "fps": 8,
+            "encoder": "JPEG"
+        },
+        "flow_mapping": {
+            "face_detection": {
+                "model_id": 0,
+                "node_ip": "192.168.1.7",
+                "node_role": "host"
+            },
+            "gender_classification": {
+                "model_id": 0,
+                "node_ip": "114.212.81.11",
+                "node_role": "cloud"
+            }
+        },
+        "resource_limit": {
+            "face_detection": {
+                "cpu_util_limit": 0.15,
+                "mem_util_limit": 1.0
+            },
+            "gender_classification": {
+                "cpu_util_limit": 1.0,
+                "mem_util_limit": 1.0
+            }
+        },
+        "edge_cloud_cut_choice": 1,
+        "pred_delay_list": [
+            0.3294936835765839,
+            0.0020206318451807576
+        ],
+        "pred_delay_total": 0.3665143154217646,
+        "deg_violate": 0,
+        "task_accuracy": 0.9095662138806914,
+        "potential_score": 1.0
+    },
+    "cur_sorted_potential_params": [
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 7,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.2,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 0.7,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 2,
+            "pred_delay_list": [
+                0.22851669788360596,
+                0.046051760514577204
+            ],
+            "pred_delay_total": 0.27456845839818317,
+            "deg_violate": 0,
+            "task_accuracy": 0.9069677381598064,
+            "potential_score": 1.9725431541601817
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 7,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.08623410885532692,
+                0.00189683519157705
+            ],
+            "pred_delay_total": 0.6035974440469041,
+            "deg_violate": 0,
+            "task_accuracy": 0.9069677381598064,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 8,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.08746652144652142,
+                0.0020206318451807576
+            ],
+            "pred_delay_total": 0.6049536532917023,
+            "deg_violate": 0,
+            "task_accuracy": 0.9095662138806914,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 9,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.05,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                1.0925326214896307,
+                0.0023238162199655664
+            ],
+            "pred_delay_total": 1.129856437709596,
+            "deg_violate": 0,
+            "task_accuracy": 0.9107573707713758,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 8,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.15,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.3294936835765839,
+                0.0020206318451807576
+            ],
+            "pred_delay_total": 0.3665143154217646,
+            "deg_violate": 0,
+            "task_accuracy": 0.9095662138806914,
+            "potential_score": 1.0
+        }
+    ],
+    "potential_section_ids_info_list": [
+        {
+            "section_id": "reso=3-fps=1-encoder=0",
+            "potential_score": 1.9725431541601817,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 7,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.2,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 0.7,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 2,
+                "pred_delay_list": [
+                    0.22851669788360596,
+                    0.046051760514577204
+                ],
+                "pred_delay_total": 0.27456845839818317,
+                "deg_violate": 0,
+                "task_accuracy": 0.9069677381598064,
+                "potential_score": 1.9725431541601817
+            }
+        }
+    ]
+}{
+    "cur_section_id": "reso=3-fps=1-encoder=0",
+    "start_param": {
+        "conf": {
+            "reso": "630p",
+            "fps": 4,
+            "encoder": "JPEG"
+        },
+        "flow_mapping": {
+            "face_detection": {
+                "model_id": 0,
+                "node_ip": "192.168.1.7",
+                "node_role": "host"
+            },
+            "gender_classification": {
+                "model_id": 0,
+                "node_ip": "114.212.81.11",
+                "node_role": "cloud"
+            }
+        },
+        "resource_limit": {
+            "face_detection": {
+                "cpu_util_limit": 0.15,
+                "mem_util_limit": 1.0
+            },
+            "gender_classification": {
+                "cpu_util_limit": 1.0,
+                "mem_util_limit": 1.0
+            }
+        },
+        "edge_cloud_cut_choice": 1,
+        "pred_delay_list": [
+            0.22989922123295922,
+            0.001260294091133796
+        ],
+        "pred_delay_total": 0.266159515324093,
+        "deg_violate": 0,
+        "task_accuracy": 0.8619581628155805,
+        "potential_score": 1.9733840484675906
+    },
+    "cur_sorted_potential_params": [
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 4,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.15,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.22989922123295922,
+                0.001260294091133796
+            ],
+            "pred_delay_total": 0.266159515324093,
+            "deg_violate": 0,
+            "task_accuracy": 0.8619581628155805,
+            "potential_score": 1.9733840484675906
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 4,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.15,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 0.15,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 2,
+            "pred_delay_list": [
+                0.22989922123295922,
+                0.04879813180083314
+            ],
+            "pred_delay_total": 0.27869735303379234,
+            "deg_violate": 0,
+            "task_accuracy": 0.8619581628155805,
+            "potential_score": 1.9721302646966208
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 5,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.05,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.5668095615175035,
+                0.0016100505987802624
+            ],
+            "pred_delay_total": 0.6034196121162838,
+            "deg_violate": 0,
+            "task_accuracy": 0.8889335539766028,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 6,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.1,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.544890558719635,
+                0.0019517293343176696
+            ],
+            "pred_delay_total": 0.5818422880539527,
+            "deg_violate": 0,
+            "task_accuracy": 0.9012992354421253,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 6,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.07872679914746962,
+                0.0019517293343176696
+            ],
+            "pred_delay_total": 0.5961450284817873,
+            "deg_violate": 0,
+            "task_accuracy": 0.9012992354421253,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 5,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.07089373221000031,
+                0.0016100505987802624
+            ],
+            "pred_delay_total": 0.5879702828087806,
+            "deg_violate": 0,
+            "task_accuracy": 0.8889335539766028,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "630p",
+                "fps": 4,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.1,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.3023847824051266,
+                0.001260294091133796
+            ],
+            "pred_delay_total": 0.3386450764962604,
+            "deg_violate": 0,
+            "task_accuracy": 0.8619581628155805,
+            "potential_score": 1.0
+        }
+    ],
+    "potential_section_ids_info_list": [
+        {
+            "section_id": "reso=4-fps=1-encoder=0",
+            "potential_score": 1.9733840484675906,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.22989922123295922,
+                    0.001260294091133796
+                ],
+                "pred_delay_total": 0.266159515324093,
+                "deg_violate": 0,
+                "task_accuracy": 0.8619581628155805,
+                "potential_score": 1.9733840484675906
+            }
+        },
+        {
+            "section_id": "reso=2-fps=1-encoder=0",
+            "potential_score": 1.9733840484675906,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.22989922123295922,
+                    0.001260294091133796
+                ],
+                "pred_delay_total": 0.266159515324093,
+                "deg_violate": 0,
+                "task_accuracy": 0.8619581628155805,
+                "potential_score": 1.9733840484675906
+            }
+        },
+        {
+            "section_id": "reso=2-fps=2-encoder=0",
+            "potential_score": 1.9733840484675906,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.22989922123295922,
+                    0.001260294091133796
+                ],
+                "pred_delay_total": 0.266159515324093,
+                "deg_violate": 0,
+                "task_accuracy": 0.8619581628155805,
+                "potential_score": 1.9733840484675906
+            }
+        },
+        {
+            "section_id": "reso=4-fps=0-encoder=0",
+            "potential_score": 1.9733840484675906,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.22989922123295922,
+                    0.001260294091133796
+                ],
+                "pred_delay_total": 0.266159515324093,
+                "deg_violate": 0,
+                "task_accuracy": 0.8619581628155805,
+                "potential_score": 1.9733840484675906
+            }
+        },
+        {
+            "section_id": "reso=5-fps=1-encoder=0",
+            "potential_score": 1.9733840484675906,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.22989922123295922,
+                    0.001260294091133796
+                ],
+                "pred_delay_total": 0.266159515324093,
+                "deg_violate": 0,
+                "task_accuracy": 0.8619581628155805,
+                "potential_score": 1.9733840484675906
+            }
+        },
+        {
+            "section_id": "reso=5-fps=0-encoder=0",
+            "potential_score": 1.9733840484675906,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.22989922123295922,
+                    0.001260294091133796
+                ],
+                "pred_delay_total": 0.266159515324093,
+                "deg_violate": 0,
+                "task_accuracy": 0.8619581628155805,
+                "potential_score": 1.9733840484675906
+            }
+        },
+        {
+            "section_id": "reso=2-fps=3-encoder=0",
+            "potential_score": 1.9733840484675906,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.22989922123295922,
+                    0.001260294091133796
+                ],
+                "pred_delay_total": 0.266159515324093,
+                "deg_violate": 0,
+                "task_accuracy": 0.8619581628155805,
+                "potential_score": 1.9733840484675906
+            }
+        },
+        {
+            "section_id": "reso=6-fps=0-encoder=0",
+            "potential_score": 1.9733840484675906,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.22989922123295922,
+                    0.001260294091133796
+                ],
+                "pred_delay_total": 0.266159515324093,
+                "deg_violate": 0,
+                "task_accuracy": 0.8619581628155805,
+                "potential_score": 1.9733840484675906
+            }
+        },
+        {
+            "section_id": "reso=7-fps=0-encoder=0",
+            "potential_score": 1.9733840484675906,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.22989922123295922,
+                    0.001260294091133796
+                ],
+                "pred_delay_total": 0.266159515324093,
+                "deg_violate": 0,
+                "task_accuracy": 0.8619581628155805,
+                "potential_score": 1.9733840484675906
+            }
+        },
+        {
+            "section_id": "reso=8-fps=0-encoder=0",
+            "potential_score": 1.9733840484675906,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.22989922123295922,
+                    0.001260294091133796
+                ],
+                "pred_delay_total": 0.266159515324093,
+                "deg_violate": 0,
+                "task_accuracy": 0.8619581628155805,
+                "potential_score": 1.9733840484675906
+            }
+        },
+        {
+            "section_id": "reso=3-fps=1-encoder=0",
+            "potential_score": 1.9733840484675906,
+            "potential_param": {
+                "conf": {
+                    "reso": "630p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.22989922123295922,
+                    0.001260294091133796
+                ],
+                "pred_delay_total": 0.266159515324093,
+                "deg_violate": 0,
+                "task_accuracy": 0.8619581628155805,
+                "potential_score": 1.9733840484675906
+            }
+        }
+    ]
+}{
+    "cur_section_id": "reso=4-fps=1-encoder=0",
+    "start_param": {
+        "conf": {
+            "reso": "720p",
+            "fps": 5,
+            "encoder": "JPEG"
+        },
+        "flow_mapping": {
+            "face_detection": {
+                "model_id": 0,
+                "node_ip": "114.212.81.11",
+                "node_role": "cloud"
+            },
+            "gender_classification": {
+                "model_id": 0,
+                "node_ip": "114.212.81.11",
+                "node_role": "cloud"
+            }
+        },
+        "resource_limit": {
+            "face_detection": {
+                "cpu_util_limit": 1.0,
+                "mem_util_limit": 1.0
+            },
+            "gender_classification": {
+                "cpu_util_limit": 1.0,
+                "mem_util_limit": 1.0
+            }
+        },
+        "edge_cloud_cut_choice": 0,
+        "pred_delay_list": [
+            0.08216336462232796,
+            0.0016557804743448398
+        ],
+        "pred_delay_total": 0.6210686450966728,
+        "deg_violate": 0,
+        "task_accuracy": 0.9132199523213407,
+        "potential_score": 1.0
+    },
+    "cur_sorted_potential_params": [
+        {
+            "conf": {
+                "reso": "720p",
+                "fps": 5,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.08216336462232796,
+                0.0016557804743448398
+            ],
+            "pred_delay_total": 0.6210686450966728,
+            "deg_violate": 0,
+            "task_accuracy": 0.9132199523213407,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "720p",
+                "fps": 6,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.12851227919260658,
+                0.0021431665794521652
+            ],
+            "pred_delay_total": 0.6679049457720587,
+            "deg_violate": 0,
+            "task_accuracy": 0.9259234744100823,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "720p",
+                "fps": 6,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.15,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.460216389280377,
+                0.0021431665794521652
+            ],
+            "pred_delay_total": 0.49735955585982916,
+            "deg_violate": 0,
+            "task_accuracy": 0.9259234744100823,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "720p",
+                "fps": 4,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.10811817940774851,
+                0.0015928918974739761
+            ],
+            "pred_delay_total": 0.6469605713052226,
+            "deg_violate": 0,
+            "task_accuracy": 0.8855075712106072,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "720p",
+                "fps": 6,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.15,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 0.85,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 2,
+            "pred_delay_list": [
+                0.460216389280377,
+                0.06066555976867672
+            ],
+            "pred_delay_total": 0.5208819490490537,
+            "deg_violate": 0,
+            "task_accuracy": 0.9259234744100823,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "720p",
+                "fps": 5,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.1,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 0.05,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 2,
+            "pred_delay_list": [
+                0.5081964678234524,
+                0.20918239090177745
+            ],
+            "pred_delay_total": 0.7173788587252299,
+            "deg_violate": 0,
+            "task_accuracy": 0.9132199523213407,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "720p",
+                "fps": 6,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.25,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.3814076761404674,
+                0.0021431665794521652
+            ],
+            "pred_delay_total": 0.4185508427199196,
+            "deg_violate": 0,
+            "task_accuracy": 0.9259234744100823,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "720p",
+                "fps": 5,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.1,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.5081964678234524,
+                0.0016557804743448398
+            ],
+            "pred_delay_total": 0.5448522482977973,
+            "deg_violate": 0,
+            "task_accuracy": 0.9132199523213407,
+            "potential_score": 1.0
+        }
+    ],
+    "potential_section_ids_info_list": [
+        {
+            "section_id": "reso=4-fps=0-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "720p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 0,
+                "pred_delay_list": [
+                    0.10811817940774851,
+                    0.0015928918974739761
+                ],
+                "pred_delay_total": 0.6469605713052226,
+                "deg_violate": 0,
+                "task_accuracy": 0.8855075712106072,
+                "potential_score": 1.0
+            }
+        }
+    ]
+}{
+    "cur_section_id": "reso=2-fps=1-encoder=0",
+    "start_param": {
+        "conf": {
+            "reso": "540p",
+            "fps": 4,
+            "encoder": "JPEG"
+        },
+        "flow_mapping": {
+            "face_detection": {
+                "model_id": 0,
+                "node_ip": "192.168.1.7",
+                "node_role": "host"
+            },
+            "gender_classification": {
+                "model_id": 0,
+                "node_ip": "192.168.1.7",
+                "node_role": "host"
+            }
+        },
+        "resource_limit": {
+            "face_detection": {
+                "cpu_util_limit": 0.15,
+                "mem_util_limit": 1.0
+            },
+            "gender_classification": {
+                "cpu_util_limit": 0.1,
+                "mem_util_limit": 1.0
+            }
+        },
+        "edge_cloud_cut_choice": 2,
+        "pred_delay_list": [
+            0.11720067972228636,
+            0.10678776792117521
+        ],
+        "pred_delay_total": 0.22398844764346157,
+        "deg_violate": 0,
+        "task_accuracy": 0.8135774761178214,
+        "potential_score": 1.9776011552356538
+    },
+    "cur_sorted_potential_params": [
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 4,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.2,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.16965454936027521,
+                0.0012802090171321631
+            ],
+            "pred_delay_total": 0.20593475837740738,
+            "deg_violate": 0,
+            "task_accuracy": 0.8135774761178214,
+            "potential_score": 1.9794065241622594
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 4,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.15,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 0.1,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 2,
+            "pred_delay_list": [
+                0.11720067972228636,
+                0.10678776792117521
+            ],
+            "pred_delay_total": 0.22398844764346157,
+            "deg_violate": 0,
+            "task_accuracy": 0.8135774761178214,
+            "potential_score": 1.9776011552356538
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 6,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.07179571688175196,
+                0.0019722248117128435
+            ],
+            "pred_delay_total": 0.5589124416934648,
+            "deg_violate": 0,
+            "task_accuracy": 0.8507103811195231,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 4,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.043893059486238784,
+                0.0012802090171321631
+            ],
+            "pred_delay_total": 0.5303177685033709,
+            "deg_violate": 0,
+            "task_accuracy": 0.8135774761178214,
+            "potential_score": 1.0
+        }
+    ],
+    "potential_section_ids_info_list": [
+        {
+            "section_id": "reso=2-fps=2-encoder=0",
+            "potential_score": 1.9776011552356538,
+            "potential_param": {
+                "conf": {
+                    "reso": "540p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 2,
+                "pred_delay_list": [
+                    0.11720067972228636,
+                    0.10678776792117521
+                ],
+                "pred_delay_total": 0.22398844764346157,
+                "deg_violate": 0,
+                "task_accuracy": 0.8135774761178214,
+                "potential_score": 1.9776011552356538
+            }
+        },
+        {
+            "section_id": "reso=2-fps=3-encoder=0",
+            "potential_score": 1.9776011552356538,
+            "potential_param": {
+                "conf": {
+                    "reso": "540p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 2,
+                "pred_delay_list": [
+                    0.11720067972228636,
+                    0.10678776792117521
+                ],
+                "pred_delay_total": 0.22398844764346157,
+                "deg_violate": 0,
+                "task_accuracy": 0.8135774761178214,
+                "potential_score": 1.9776011552356538
+            }
+        },
+        {
+            "section_id": "reso=4-fps=0-encoder=0",
+            "potential_score": 1.9776011552356538,
+            "potential_param": {
+                "conf": {
+                    "reso": "540p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 2,
+                "pred_delay_list": [
+                    0.11720067972228636,
+                    0.10678776792117521
+                ],
+                "pred_delay_total": 0.22398844764346157,
+                "deg_violate": 0,
+                "task_accuracy": 0.8135774761178214,
+                "potential_score": 1.9776011552356538
+            }
+        },
+        {
+            "section_id": "reso=5-fps=1-encoder=0",
+            "potential_score": 1.9776011552356538,
+            "potential_param": {
+                "conf": {
+                    "reso": "540p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 2,
+                "pred_delay_list": [
+                    0.11720067972228636,
+                    0.10678776792117521
+                ],
+                "pred_delay_total": 0.22398844764346157,
+                "deg_violate": 0,
+                "task_accuracy": 0.8135774761178214,
+                "potential_score": 1.9776011552356538
+            }
+        },
+        {
+            "section_id": "reso=5-fps=0-encoder=0",
+            "potential_score": 1.9776011552356538,
+            "potential_param": {
+                "conf": {
+                    "reso": "540p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 2,
+                "pred_delay_list": [
+                    0.11720067972228636,
+                    0.10678776792117521
+                ],
+                "pred_delay_total": 0.22398844764346157,
+                "deg_violate": 0,
+                "task_accuracy": 0.8135774761178214,
+                "potential_score": 1.9776011552356538
+            }
+        },
+        {
+            "section_id": "reso=6-fps=0-encoder=0",
+            "potential_score": 1.9776011552356538,
+            "potential_param": {
+                "conf": {
+                    "reso": "540p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 2,
+                "pred_delay_list": [
+                    0.11720067972228636,
+                    0.10678776792117521
+                ],
+                "pred_delay_total": 0.22398844764346157,
+                "deg_violate": 0,
+                "task_accuracy": 0.8135774761178214,
+                "potential_score": 1.9776011552356538
+            }
+        },
+        {
+            "section_id": "reso=7-fps=0-encoder=0",
+            "potential_score": 1.9776011552356538,
+            "potential_param": {
+                "conf": {
+                    "reso": "540p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 2,
+                "pred_delay_list": [
+                    0.11720067972228636,
+                    0.10678776792117521
+                ],
+                "pred_delay_total": 0.22398844764346157,
+                "deg_violate": 0,
+                "task_accuracy": 0.8135774761178214,
+                "potential_score": 1.9776011552356538
+            }
+        },
+        {
+            "section_id": "reso=8-fps=0-encoder=0",
+            "potential_score": 1.9776011552356538,
+            "potential_param": {
+                "conf": {
+                    "reso": "540p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 2,
+                "pred_delay_list": [
+                    0.11720067972228636,
+                    0.10678776792117521
+                ],
+                "pred_delay_total": 0.22398844764346157,
+                "deg_violate": 0,
+                "task_accuracy": 0.8135774761178214,
+                "potential_score": 1.9776011552356538
+            }
+        },
+        {
+            "section_id": "reso=2-fps=1-encoder=0",
+            "potential_score": 1.9776011552356538,
+            "potential_param": {
+                "conf": {
+                    "reso": "540p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 2,
+                "pred_delay_list": [
+                    0.11720067972228636,
+                    0.10678776792117521
+                ],
+                "pred_delay_total": 0.22398844764346157,
+                "deg_violate": 0,
+                "task_accuracy": 0.8135774761178214,
+                "potential_score": 1.9776011552356538
+            }
+        }
+    ]
+}{
+    "cur_section_id": "reso=2-fps=2-encoder=0",
+    "start_param": {
+        "conf": {
+            "reso": "540p",
+            "fps": 7,
+            "encoder": "JPEG"
+        },
+        "flow_mapping": {
+            "face_detection": {
+                "model_id": 0,
+                "node_ip": "192.168.1.7",
+                "node_role": "host"
+            },
+            "gender_classification": {
+                "model_id": 0,
+                "node_ip": "192.168.1.7",
+                "node_role": "host"
+            }
+        },
+        "resource_limit": {
+            "face_detection": {
+                "cpu_util_limit": 0.2,
+                "mem_util_limit": 1.0
+            },
+            "gender_classification": {
+                "cpu_util_limit": 0.7,
+                "mem_util_limit": 1.0
+            }
+        },
+        "edge_cloud_cut_choice": 2,
+        "pred_delay_list": [
+            0.2576006031036377,
+            0.03114660978317257
+        ],
+        "pred_delay_total": 0.28874721288681027,
+        "deg_violate": 0,
+        "task_accuracy": 0.8560607175202525,
+        "potential_score": 1.0
+    },
+    "cur_sorted_potential_params": [
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 7,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.2,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 0.7,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 2,
+            "pred_delay_list": [
+                0.2576006031036377,
+                0.03114660978317257
+            ],
+            "pred_delay_total": 0.28874721288681027,
+            "deg_violate": 0,
+            "task_accuracy": 0.8560607175202525,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 7,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.2,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.2576006031036377,
+                0.0018439398493085204
+            ],
+            "pred_delay_total": 0.2944445429529462,
+            "deg_violate": 0,
+            "task_accuracy": 0.8560607175202525,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 8,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.15,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.2495421699115208,
+                0.0019928446003034473
+            ],
+            "pred_delay_total": 0.2865350145118243,
+            "deg_violate": 0,
+            "task_accuracy": 0.8585133438888519,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 8,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.1,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 0.6,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 2,
+            "pred_delay_list": [
+                0.3651589836393084,
+                0.04223034211567467
+            ],
+            "pred_delay_total": 0.40738932575498304,
+            "deg_violate": 0,
+            "task_accuracy": 0.8585133438888519,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 8,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.07486586570739742,
+                0.0019928446003034473
+            ],
+            "pred_delay_total": 0.5620032103077008,
+            "deg_violate": 0,
+            "task_accuracy": 0.8585133438888519,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 7,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.05,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.6746968799167209,
+                0.0018439398493085204
+            ],
+            "pred_delay_total": 0.7115408197660295,
+            "deg_violate": 0,
+            "task_accuracy": 0.8560607175202525,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 9,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.2,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.27039738827281523,
+                0.0032677584224276596
+            ],
+            "pred_delay_total": 0.3086651466952429,
+            "deg_violate": 0,
+            "task_accuracy": 0.8596376425597037,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 7,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.2,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 0.75,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 2,
+            "pred_delay_list": [
+                0.2576006031036377,
+                0.04747432404094267
+            ],
+            "pred_delay_total": 0.30507492714458034,
+            "deg_violate": 0,
+            "task_accuracy": 0.8560607175202525,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 7,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.05,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 0.7,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 2,
+            "pred_delay_list": [
+                0.6746968799167209,
+                0.03114660978317257
+            ],
+            "pred_delay_total": 0.7058434896998934,
+            "deg_violate": 0,
+            "task_accuracy": 0.8560607175202525,
+            "potential_score": 1.0
+        }
+    ],
+    "potential_section_ids_info_list": [
+        {
+            "section_id": "reso=2-fps=3-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "540p",
+                    "fps": 8,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.15,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.2495421699115208,
+                    0.0019928446003034473
+                ],
+                "pred_delay_total": 0.2865350145118243,
+                "deg_violate": 0,
+                "task_accuracy": 0.8585133438888519,
+                "potential_score": 1.0
+            }
+        }
+    ]
+}{
+    "cur_section_id": "reso=2-fps=3-encoder=0",
+    "start_param": {
+        "conf": {
+            "reso": "540p",
+            "fps": 11,
+            "encoder": "JPEG"
+        },
+        "flow_mapping": {
+            "face_detection": {
+                "model_id": 0,
+                "node_ip": "192.168.1.7",
+                "node_role": "host"
+            },
+            "gender_classification": {
+                "model_id": 0,
+                "node_ip": "192.168.1.7",
+                "node_role": "host"
+            }
+        },
+        "resource_limit": {
+            "face_detection": {
+                "cpu_util_limit": 0.05,
+                "mem_util_limit": 1.0
+            },
+            "gender_classification": {
+                "cpu_util_limit": 0.65,
+                "mem_util_limit": 1.0
+            }
+        },
+        "edge_cloud_cut_choice": 2,
+        "pred_delay_list": [
+            0.7756147603193918,
+            0.06933871573872032
+        ],
+        "pred_delay_total": 0.8449534760581121,
+        "deg_violate": 0,
+        "task_accuracy": 0.8603892835344735,
+        "potential_score": 1.0
+    },
+    "cur_sorted_potential_params": [
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 11,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.05,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 0.65,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 2,
+            "pred_delay_list": [
+                0.7756147603193918,
+                0.06933871573872032
+            ],
+            "pred_delay_total": 0.8449534760581121,
+            "deg_violate": 0,
+            "task_accuracy": 0.8603892835344735,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 11,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.09415822085880096,
+                0.0025445456598318763
+            ],
+            "pred_delay_total": 0.5818472665186328,
+            "deg_violate": 0,
+            "task_accuracy": 0.8603892835344735,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 10,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.08082097201120282,
+                0.0025791495737402755
+            ],
+            "pred_delay_total": 0.5685446215849431,
+            "deg_violate": 0,
+            "task_accuracy": 0.8601530278289246,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 12,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.15,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.33107091320885546,
+                0.0027224421501158996
+            ],
+            "pred_delay_total": 0.3687933553589714,
+            "deg_violate": 0,
+            "task_accuracy": 0.8604975845701024,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 11,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.1,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.43267925911479527,
+                0.0025445456598318763
+            ],
+            "pred_delay_total": 0.4702238047746271,
+            "deg_violate": 0,
+            "task_accuracy": 0.8603892835344735,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 10,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.05,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.8871616262655991,
+                0.0025791495737402755
+            ],
+            "pred_delay_total": 0.9247407758393394,
+            "deg_violate": 0,
+            "task_accuracy": 0.8601530278289246,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "540p",
+                "fps": 11,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.05,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.7756147603193918,
+                0.0025445456598318763
+            ],
+            "pred_delay_total": 0.8131593059792237,
+            "deg_violate": 0,
+            "task_accuracy": 0.8603892835344735,
+            "potential_score": 1.0
+        }
+    ],
+    "potential_section_ids_info_list": [
+        {
+            "section_id": "reso=2-fps=2-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "540p",
+                    "fps": 10,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 0,
+                "pred_delay_list": [
+                    0.08082097201120282,
+                    0.0025791495737402755
+                ],
+                "pred_delay_total": 0.5685446215849431,
+                "deg_violate": 0,
+                "task_accuracy": 0.8601530278289246,
+                "potential_score": 1.0
+            }
+        }
+    ]
+}{
+    "cur_section_id": "reso=4-fps=0-encoder=0",
+    "start_param": {
+        "conf": {
+            "reso": "720p",
+            "fps": 3,
+            "encoder": "JPEG"
+        },
+        "flow_mapping": {
+            "face_detection": {
+                "model_id": 0,
+                "node_ip": "192.168.1.7",
+                "node_role": "host"
+            },
+            "gender_classification": {
+                "model_id": 0,
+                "node_ip": "114.212.81.11",
+                "node_role": "cloud"
+            }
+        },
+        "resource_limit": {
+            "face_detection": {
+                "cpu_util_limit": 0.1,
+                "mem_util_limit": 1.0
+            },
+            "gender_classification": {
+                "cpu_util_limit": 1.0,
+                "mem_util_limit": 1.0
+            }
+        },
+        "edge_cloud_cut_choice": 1,
+        "pred_delay_list": [
+            0.3941000894263939,
+            0.001404444978694673
+        ],
+        "pred_delay_total": 0.4305045344050886,
+        "deg_violate": 0,
+        "task_accuracy": 0.8250537804066259,
+        "potential_score": 1.0
+    },
+    "cur_sorted_potential_params": [
+        {
+            "conf": {
+                "reso": "720p",
+                "fps": 3,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.1,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.3941000894263939,
+                0.001404444978694673
+            ],
+            "pred_delay_total": 0.4305045344050886,
+            "deg_violate": 0,
+            "task_accuracy": 0.8250537804066259,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "720p",
+                "fps": 1,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.15,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 0.7,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 2,
+            "pred_delay_list": [
+                0.058431020149817804,
+                0.0063490821765019
+            ],
+            "pred_delay_total": 0.0647801023263197,
+            "deg_violate": 0,
+            "task_accuracy": 0.40548672839640476,
+            "potential_score": 0.8027433641982024
+        },
+        {
+            "conf": {
+                "reso": "720p",
+                "fps": 1,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.15,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.058431020149817804,
+                0.0008217846089330652
+            ],
+            "pred_delay_total": 0.09425280475875086,
+            "deg_violate": 0,
+            "task_accuracy": 0.40548672839640476,
+            "potential_score": 0.8027433641982024
+        },
+        {
+            "conf": {
+                "reso": "720p",
+                "fps": 1,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.05,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.602470036139855,
+                0.0008217846089330652
+            ],
+            "pred_delay_total": 0.6382918207487881,
+            "deg_violate": 0,
+            "task_accuracy": 0.40548672839640476,
+            "potential_score": 0.8027433641982024
+        }
+    ],
+    "potential_section_ids_info_list": [
+        {
+            "section_id": "reso=5-fps=0-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "720p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.3941000894263939,
+                    0.001404444978694673
+                ],
+                "pred_delay_total": 0.4305045344050886,
+                "deg_violate": 0,
+                "task_accuracy": 0.8250537804066259,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=5-fps=1-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "720p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.3941000894263939,
+                    0.001404444978694673
+                ],
+                "pred_delay_total": 0.4305045344050886,
+                "deg_violate": 0,
+                "task_accuracy": 0.8250537804066259,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=6-fps=0-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "720p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.3941000894263939,
+                    0.001404444978694673
+                ],
+                "pred_delay_total": 0.4305045344050886,
+                "deg_violate": 0,
+                "task_accuracy": 0.8250537804066259,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=7-fps=0-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "720p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.3941000894263939,
+                    0.001404444978694673
+                ],
+                "pred_delay_total": 0.4305045344050886,
+                "deg_violate": 0,
+                "task_accuracy": 0.8250537804066259,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=8-fps=0-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "720p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.3941000894263939,
+                    0.001404444978694673
+                ],
+                "pred_delay_total": 0.4305045344050886,
+                "deg_violate": 0,
+                "task_accuracy": 0.8250537804066259,
+                "potential_score": 1.0
+            }
+        },
+        {
+            "section_id": "reso=4-fps=0-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "720p",
+                    "fps": 3,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "192.168.1.7",
+                        "node_role": "host"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 0.1,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 1,
+                "pred_delay_list": [
+                    0.3941000894263939,
+                    0.001404444978694673
+                ],
+                "pred_delay_total": 0.4305045344050886,
+                "deg_violate": 0,
+                "task_accuracy": 0.8250537804066259,
+                "potential_score": 1.0
+            }
+        }
+    ]
+}{
+    "cur_section_id": "reso=5-fps=1-encoder=0",
+    "start_param": {
+        "conf": {
+            "reso": "810p",
+            "fps": 6,
+            "encoder": "JPEG"
+        },
+        "flow_mapping": {
+            "face_detection": {
+                "model_id": 0,
+                "node_ip": "114.212.81.11",
+                "node_role": "cloud"
+            },
+            "gender_classification": {
+                "model_id": 0,
+                "node_ip": "114.212.81.11",
+                "node_role": "cloud"
+            }
+        },
+        "resource_limit": {
+            "face_detection": {
+                "cpu_util_limit": 1.0,
+                "mem_util_limit": 1.0
+            },
+            "gender_classification": {
+                "cpu_util_limit": 1.0,
+                "mem_util_limit": 1.0
+            }
+        },
+        "edge_cloud_cut_choice": 0,
+        "pred_delay_list": [
+            0.09652840182894748,
+            0.0016224922277987923
+        ],
+        "pred_delay_total": 0.6687013940567462,
+        "deg_violate": 0,
+        "task_accuracy": 0.9379093782790329,
+        "potential_score": 1.0
+    },
+    "cur_sorted_potential_params": [
+        {
+            "conf": {
+                "reso": "810p",
+                "fps": 6,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.09652840182894748,
+                0.0016224922277987923
+            ],
+            "pred_delay_total": 0.6687013940567462,
+            "deg_violate": 0,
+            "task_accuracy": 0.9379093782790329,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "810p",
+                "fps": 4,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 0,
+            "pred_delay_list": [
+                0.10796685379648961,
+                0.0013601839187598749
+            ],
+            "pred_delay_total": 0.6798775377152495,
+            "deg_violate": 0,
+            "task_accuracy": 0.8969702988734093,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "810p",
+                "fps": 6,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.2,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.4315922733810213,
+                0.0016224922277987923
+            ],
+            "pred_delay_total": 0.46821476560882014,
+            "deg_violate": 0,
+            "task_accuracy": 0.9379093782790329,
+            "potential_score": 1.0
+        },
+        {
+            "conf": {
+                "reso": "810p",
+                "fps": 6,
+                "encoder": "JPEG"
+            },
+            "flow_mapping": {
+                "face_detection": {
+                    "model_id": 0,
+                    "node_ip": "192.168.1.7",
+                    "node_role": "host"
+                },
+                "gender_classification": {
+                    "model_id": 0,
+                    "node_ip": "114.212.81.11",
+                    "node_role": "cloud"
+                }
+            },
+            "resource_limit": {
+                "face_detection": {
+                    "cpu_util_limit": 0.15,
+                    "mem_util_limit": 1.0
+                },
+                "gender_classification": {
+                    "cpu_util_limit": 1.0,
+                    "mem_util_limit": 1.0
+                }
+            },
+            "edge_cloud_cut_choice": 1,
+            "pred_delay_list": [
+                0.3897890475061205,
+                0.0016224922277987923
+            ],
+            "pred_delay_total": 0.4264115397339193,
+            "deg_violate": 0,
+            "task_accuracy": 0.9379093782790329,
+            "potential_score": 1.0
+        }
+    ],
+    "potential_section_ids_info_list": [
+        {
+            "section_id": "reso=5-fps=0-encoder=0",
+            "potential_score": 1.0,
+            "potential_param": {
+                "conf": {
+                    "reso": "810p",
+                    "fps": 4,
+                    "encoder": "JPEG"
+                },
+                "flow_mapping": {
+                    "face_detection": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    },
+                    "gender_classification": {
+                        "model_id": 0,
+                        "node_ip": "114.212.81.11",
+                        "node_role": "cloud"
+                    }
+                },
+                "resource_limit": {
+                    "face_detection": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    },
+                    "gender_classification": {
+                        "cpu_util_limit": 1.0,
+                        "mem_util_limit": 1.0
+                    }
+                },
+                "edge_cloud_cut_choice": 0,
+                "pred_delay_list": [
+                    0.10796685379648961,
+                    0.0013601839187598749
+                ],
+                "pred_delay_total": 0.6798775377152495,
+                "deg_violate": 0,
+                "task_accuracy": 0.8969702988734093,
+                "potential_score": 1.0
+            }
+        }
+    ]
+}
