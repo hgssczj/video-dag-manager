@@ -640,5 +640,5 @@ if __name__ == "__main__":
         kb_name = 'kb_data_6sec-1'
         kb_name = 'kb_data_20-1_90i90_4clst-1'
         kb_name = 'kb_data_20-1_90i90_no_clst-5'
-        kb_name = 'kb_data_20i90_no_clst-1'
+        kb_name = 'kb_data_90i90_no_clst-1'
         kb_scorer.anylze_sections_distribution(kb_name=kb_name)
