@@ -706,7 +706,20 @@ class RuntimePortrait():
         
         return portrait_info
         
-      
+    def get_scheduler_info(self):
+        '''
+        此函数用于给Chameleon调度算法提供需要的信息
+        '''
+        if len(self.runtime_info_list) > 0:
+            latest_runtime_info = self.runtime_info_list[-1]
+            scheduler_info = dict()
+            scheduler_info['adjacent_frames'] = latest_runtime_info['adjacent_frames']
+            scheduler_info['cap_fps'] = latest_runtime_info['cap_fps']
+            scheduler_info['bandwidth'] = latest_runtime_info['bandwidth']
+        else:
+            return None
+        return scheduler_info
+        
     def predict_resource_threshold(self, task_info):
         # 预测某个服务在当前配置、当前工况下的资源阈值
         service = task_info['service_name']

@@ -3,6 +3,9 @@ import torch
 import numpy as np
 import subprocess
 import re
+import requests
+import cv2
+import field_codec_utils
 
 class LoadTest():
     def __init__(self):
@@ -84,11 +87,52 @@ def ping_unix(host):
         print("Ping失败:", stderr.decode('utf-8'))
 
 
-if __name__ == '__main__':
-    host = '114.212.81.11'
-    # 调用ping函数并获取往返时延
-    rtt = ping_win(host)
-    if rtt is not None:
-        print(f"{host} 的平均往返时延为 {rtt} 毫秒")
+def generate_rsc_combination(rsc_list, depth, length):
+    res = []
+    if depth == length:
+        for temp in rsc_list:
+            res.append([temp])
     else:
-        print("无法获取往返时延")
+        temp_res = generate_rsc_combination(rsc_list, depth+1, length)
+        for temp_rsc in rsc_list:
+            for temp in temp_res:
+                res.append([temp_rsc] + temp)
+    return res
+
+def get_rsc_combination(rsc_list, serv_num, rsc_constraint):
+    if serv_num == 0:
+        return []
+    else:
+        res = generate_rsc_combination(rsc_list, 1, serv_num)
+        
+        res_in_cons = []
+        for temp_res in res:
+            if sum(temp_res) <= rsc_constraint:
+                res_in_cons.append(temp_res)
+        
+        return res_in_cons
+
+
+if __name__ == '__main__':
+    # host = '114.212.81.11'
+    # # 调用ping函数并获取往返时延
+    # rtt = ping_win(host)
+    # if rtt is not None:
+    #     print(f"{host} 的平均往返时延为 {rtt} 毫秒")
+    # else:
+    #     print("无法获取往返时延")
+    image = cv2.imread('4.png')
+    frame = field_codec_utils.encode_image(image)
+    input_ctx = {
+        'image': frame
+    }
+    
+    sess = requests.Session()
+    
+    taskname = 'face_detection'
+    url = "http://{}:{}/execute_task/{}".format('114.212.81.156', 25717, taskname)
+    
+    r = sess.post(url=url, json=input_ctx)
+    print(r.json())
+    
+    

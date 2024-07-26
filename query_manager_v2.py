@@ -27,6 +27,7 @@ from RuntimePortrait import RuntimePortrait
 import scheduler_func.lat_first_kb_muledge
 import scheduler_func.lat_first_kb_muledge_wzl
 import scheduler_func.lat_first_kb_muledge_wzl_1
+import scheduler_func.acc_first_kb_chameleon
 
 
 class Query():
@@ -46,6 +47,7 @@ class Query():
         self.flow_mapping = None
         self.video_conf = None
         self.resource_limit = None
+        self.top_k_plan_list = None
         self.created_job = False  # 表示已经生成了job
         # NOTES: 目前仅支持流水线
         assert isinstance(self.pipeline, list)
@@ -198,8 +200,21 @@ class Query():
 
     def get_golden_conf_work_condition(self):
         return self.runtime_portrait.get_golden_conf_work_condition()
-    
 
+    def get_scheduler_info(self):
+        '''
+        此函数用于给Chameleon调度算法提供需要的信息
+        '''
+        return self.runtime_portrait.get_scheduler_info()
+    
+    def set_top_k_plan_list(self, top_k_plan_list):
+        self.top_k_plan_list = top_k_plan_list
+    
+    def get_top_k_plan_list(self):
+        assert self.top_k_plan_list is not None
+        return self.top_k_plan_list
+    
+    
 class QueryManager():
     # 保存执行结果的缓冲大小
     LIST_BUFFER_SIZE_PER_QUERY = 10
@@ -646,6 +661,7 @@ def get_runtime_str(portrait_info, pipeline, bandwidth_dict, act_work_condition)
 def cloud_scheduler_loop_kb(query_manager=None):
     assert query_manager
     assert isinstance(query_manager, QueryManager)
+    scheduler_num = 0
     
     while True:
         # 每5s调度一次
@@ -654,116 +670,71 @@ def cloud_scheduler_loop_kb(query_manager=None):
         
         root_logger.info("start new schedule ...")
         try:
-            # 获取资源情境
-            r = query_manager.sess.get(
-                url="http://{}/get_system_status".format(query_manager.service_cloud_addr))
-            system_status = r.json()
             # 为所有query生成调度策略
             query_dict = query_manager.query_dict
             for qid, query in query_dict.items():
                 assert isinstance(query, Query)
                 query_id = query.query_id
-                exec_work_condition = query.get_latest_work_condition()  # 执行视频流分析任务获得的工况（未必等同于真实的工况）
-                # work_condition = query.get_aggregate_work_condition()
-                portrait_info = query.get_portrait_info()
-                # appended_result_list = query.get_appended_result_list()
+                
                 if query.video_id < 99:  # 如果是大于等于99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
                     root_logger.info("video_id:{}".format(query.video_id))
                     node_addr = query.node_addr  # 形如：192.168.1.9:4001
                     user_constraint = query.user_constraint
                     assert node_addr
 
-                    # print("展示当前工况")
-                    # print(work_condition)
-                    # 只有当runtime_info不存在(视频流分析还未开始，进行冷启动)或者含有delay的时候(正常的视频流调度)才运行。
-                    bandwidth_dict = query_manager.bandwidth_dict.copy()
-                    if not exec_work_condition or 'delay' in exec_work_condition:
-                        assert node_addr in bandwidth_dict
-                        if 'delay' in exec_work_condition:  # 若存在情境信息，则判断是否缓存了当前情境对应的调度策略
-                            act_work_condition = query.get_golden_conf_work_condition()  # 执行黄金配置获得的真实工况
-                            root_logger.info("In cloud_scheduler_loop_kb, act_work_condition is:{}".format(act_work_condition))
+                    if scheduler_num % 10 == 0:
+                        # 每10个调度周期重新在整个配置空间内进行一次Top-K配置的选择，并给出下一调度周期内的最优调度策略
+                        scheduler_info = query.get_scheduler_info()
+                        if scheduler_info is None:
+                            conf, flow_mapping, resource_limit = scheduler_func.acc_first_kb_chameleon.get_default_case(query.pipeline)
+                            query.set_plan(video_conf=conf, flow_mapping=flow_mapping, resource_limit=resource_limit)
+                            root_logger.info("使用默认的调度策略")
+                        else:
+                            st = time.time()
+                            top_k_plans = scheduler_func.acc_first_kb_chameleon.get_top_k_plans(
+                                pipeline=query.pipeline,
+                                frames=scheduler_info['adjacent_frames'],
+                                origin_fps=scheduler_info['cap_fps'],
+                                user_constraint=query.user_constraint,
+                                bandwidth_dict=scheduler_info['bandwidth'],
+                            )
+                            et = time.time()
+                            query.set_top_k_plan_list(top_k_plans)
+                            conf = top_k_plans[0]['conf']
+                            flow_mapping = top_k_plans[0]['flow_mapping']
+                            resource_limit = top_k_plans[0]['resource_limit']
+                            query.set_plan(video_conf=conf, flow_mapping=flow_mapping, resource_limit=resource_limit)
+                            root_logger.info("成功使用Chameleon算法找到top-K调度策略, 耗时:{}s\n\n\n".format(et - st))
+                            scheduler_num += 1
                             
-                            runtime_str = get_runtime_str(portrait_info, query.pipeline, bandwidth_dict[node_addr], act_work_condition)
-                            cached_info = query.get_if_cached(runtime_str)
-                            
-                            if cached_info['if_cached']:  # 若缓存了对应的调度策略，则直接使用该策略，无需重新查表
-                                root_logger.info('当前情境下最优的调度策略保存在缓存中, 无需重新查表, runtime_str:%s', runtime_str)
-                                query.set_plan(video_conf=cached_info['scheduling_strategy']["video_conf"],
-                                               flow_mapping=cached_info['scheduling_strategy']["flow_mapping"],
-                                               resource_limit=cached_info['scheduling_strategy']["resource_limit"])
-                            else:  # 否则进行查表
-                                root_logger.info('当前情境下最优的调度策略不在缓存中, 需要重新查表, 并将新的情境字符串及其对应的调度策略进行缓存. runtime_str:%s', runtime_str)
-                                start_time = time.time()
-                                conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge_wzl_1.scheduler(
-                                                                        job_uid=query_id,
-                                                                        dag={"generator": "x", "flow": query.pipeline},
-                                                                        system_status=system_status,
-                                                                        portrait_info=portrait_info,
-                                                                        user_constraint=user_constraint,
-                                                                        bandwidth_dict=bandwidth_dict[node_addr],
-                                                                        act_work_condition=act_work_condition)
-                                end_time = time.time()
-                                root_logger.info("调度策略制定的时间:{}".format(end_time - start_time))
-                                scheduling_dict = {
-                                    "video_conf": conf,
-                                    "flow_mapping": flow_mapping,
-                                    "resource_limit": resource_limit
-                                }
-                                query.cache_scheduling_strategy(runtime_str, scheduling_dict)  # 将查表后确定的调度策略、情境字符串进行缓存
+                    else:
+                        # 否则在Top-K配置内选择最优的调度配置
+                        assert query.top_k_plan_list is not None and len(query.top_k_plan_list) != 0
+                        st = time.time()
+                        best_plan = scheduler_func.acc_first_kb_chameleon.get_best_plan(
+                            pipeline=query.pipeline,
+                            frames=scheduler_info['adjacent_frames'],
+                            origin_fps=scheduler_info['cap_fps'],
+                            user_constraint=query.user_constraint,
+                            bandwidth_dict=scheduler_info['bandwidth'],
+                            top_k_plans=query.top_k_plan_list
+                        )
+                        et = time.time()
+                        assert best_plan is not None
+                        conf = best_plan['conf']
+                        flow_mapping = best_plan['flow_mapping']
+                        resource_limit = best_plan['resource_limit']
+                        query.set_plan(video_conf=conf, flow_mapping=flow_mapping, resource_limit=resource_limit)
+                        root_logger.info("成功使用Chameleon算法在top-K中选出最优的调度策略, 耗时:{}s\n\n\n".format(et-st))
+                        scheduler_num += 1
                         
-                        else:  # 进行冷启动
-                            root_logger.info('进行冷启动, 需要重新查表!')
-                            start_time = time.time()
-                            conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge_wzl_1.scheduler(
-                                                                        job_uid=query_id,
-                                                                        dag={"generator": "x", "flow": query.pipeline},
-                                                                        system_status=system_status,
-                                                                        portrait_info=portrait_info,
-                                                                        user_constraint=user_constraint,
-                                                                        bandwidth_dict=bandwidth_dict[node_addr])
-                            end_time = time.time()
-                            root_logger.info("调度策略制定的时间:{}".format(end_time - start_time))
-                            query.set_plan(video_conf=conf, flow_mapping=flow_mapping, resource_limit=resource_limit)  # 注意，冷启动的时候由于不存在情境字符串，因此直接设置调度策略即可，无需缓存
-                            
-                              
-                        # conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge.scheduler(
-                        #     job_uid=query_id,
-                        #     dag={"generator": "x", "flow": query.pipeline},
-                        #     system_status=system_status,
-                        #     work_condition=work_condition,
-                        #     portrait_info=portrait_info,
-                        #     user_constraint=user_constraint,
-                        #     appended_result_list=appended_result_list,
-                        #     bandwidth_dict=bandwidth_dict
-                        # )
-                        
-                        # conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge_wzl.scheduler(
-                        #     job_uid=query_id,
-                        #     dag={"generator": "x", "flow": query.pipeline},
-                        #     system_status=system_status,
-                        #     work_condition=work_condition,
-                        #     portrait_info=portrait_info,
-                        #     user_constraint=user_constraint,
-                        #     bandwidth_dict=bandwidth_dict[node_addr]
-                        # )
-                        
-                        # start_time = time.time()
-                        # conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge_wzl_1.scheduler(
-                        #     job_uid=query_id,
-                        #     dag={"generator": "x", "flow": query.pipeline},
-                        #     system_status=system_status,
-                        #     portrait_info=portrait_info,
-                        #     user_constraint=user_constraint,
-                        #     bandwidth_dict=bandwidth_dict[node_addr]
-                        # )
-                        # end_time = time.time()
-                    
                     # root_logger.info("调度策略指定的时间:{}".format(end_time - start_time))
                     root_logger.info("下面展示即将更新的调度计划：")
                     root_logger.info("{},{}".format(type(query_id),query_id))
                     root_logger.info("{},{}".format(type(conf),conf))
                     root_logger.info("{},{}".format(type(flow_mapping),flow_mapping))
                     root_logger.info("{},{}".format(type(resource_limit),resource_limit))
+                    
                 else:
                     root_logger.info("query.video_id:{}, 不值得调度".format(query.video_id))
         except Exception as e:

@@ -107,22 +107,19 @@ def sfg_get_next_init_task(
     video_cap_1 = cv2.VideoCapture(video_path)
     adjacent_frames = []
     
-    for i in range(4):  # 获取当前处理帧的前四帧
-        temp_frame_id = new_cam_frame_id - (i + 1)
-        if temp_frame_id < 0:  # 负数，直接跳出循环
-            break
+    for i in range(15):  # 获取当前处理帧的后十五帧，用于制定调度策略时使用
+        temp_frame_id = new_cam_frame_id + (i + 1)
         
-        else:
-            video_cap_1.set(cv2.CAP_PROP_POS_FRAMES, temp_frame_id)
-            temp_res, temp_frame = video_cap_1.read()
-            
-            if not temp_res:
-                root_logger.error("获取当前处理帧的相邻帧时出现错误, frame_id:{}".format(temp_frame_id))
-            assert temp_res
-            
-            temp_frame = cv2.resize(temp_frame, (480, 360))
-            temp_frame_str = field_codec_utils.encode_image(temp_frame)
-            adjacent_frames.append(temp_frame_str)
+        video_cap_1.set(cv2.CAP_PROP_POS_FRAMES, temp_frame_id)
+        temp_res, temp_frame = video_cap_1.read()
+        
+        if not temp_res:
+            root_logger.error("获取当前处理帧的相邻帧时出现错误, frame_id:{}".format(temp_frame_id))
+        assert temp_res
+        
+        temp_frame = cv2.resize(temp_frame, (480, 360))
+        temp_frame_str = field_codec_utils.encode_image(temp_frame)
+        adjacent_frames.append(temp_frame_str)
 
     root_logger.info("In sfg_get_next_init_task, get {} adjacent_frames!".format(len(adjacent_frames)))
     
