@@ -1637,7 +1637,7 @@ serv_names=["face_detection","gender_classification"]
 #这个query_body用于测试单位的“人进入会议室”，也就是只有一张脸的情况，工况不变，但是会触发调度器变化，因为ifd很小
 #'''
 query_body = {
-        "node_addr": "192.168.1.9:4001",
+        "node_addr": "192.168.1.7:3001",
         "video_id": 4,     
         "pipeline":  ["face_detection", "gender_classification"],#制定任务类型
         "user_constraint": {
@@ -1645,7 +1645,7 @@ query_body = {
             "accuracy": 0.6,  # 用户精度约束暂时设置为0.6
             'rsc_constraint': {  # 注意，没有用到的设备的ip这里必须删除，因为贝叶斯求解多目标优化问题时优化目标的数量是由这里的设备ip决定的
                 "114.212.81.11": {"cpu": 1.0, "mem": 1000}, 
-                "192.168.1.9": {"cpu": 1.0, "mem": 1000}
+                "192.168.1.7": {"cpu": 1.0, "mem": 1000} 
             }
         }
     }  
@@ -1738,10 +1738,10 @@ if __name__ == "__main__":
               
 
     kb_builder=KnowledgeBaseBuilder(expr_name="tight_build_gender_classify_cold_start04",
-                                    node_ip='192.168.1.9',
-                                    node_addr="192.168.1.9:4001",
-                                    query_addr="114.212.81.11:4000",
-                                    service_addr="114.212.81.11:4500",
+                                    node_ip='192.168.1.7',
+                                    node_addr="192.168.1.7:3001",
+                                    query_addr="114.212.81.11:3000",
+                                    service_addr="114.212.81.11:3500",
                                     query_body=query_body,
                                     conf_names=conf_names,
                                     serv_names=serv_names,
@@ -1860,7 +1860,7 @@ if __name__ == "__main__":
     
     if need_new_ip==1:
         # 此处可以直接修改知识库中的特定配置，比如删除所有特定ip下的配置，或者基于各个边缘端都相同的思想添加新的边缘端ip配置，或者将知识库中的某个ip换成新的ip
-        kb_builder.add_node_ip_in_kb(new_node_ip='192.168.1.9')
+        kb_builder.add_node_ip_in_kb(new_node_ip='192.168.1.7')
         # kb_builder.delete_node_ip_in_kb(old_node_ip='172.27.143.164')
         # kb_builder.swap_node_ip_in_kb(old_node_ip='172.27.143.164',new_node_ip='192.168.1.7')
         print('完成更新')

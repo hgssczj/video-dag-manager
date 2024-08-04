@@ -227,7 +227,7 @@ class JobManager():
     
     # 向云端获取可用于创建job的job_info
     def created_job_and_update_plan_and_get_bandwidth(self):
-        if self.local_addr:  # node_ip:tracker_port 4001
+        if self.local_addr:  # node_ip:tracker_port 3001
             bandwidth = get_bandwidth()
             self.bandwidth_2_cloud = bandwidth
             resp = self.sess.post(url="http://{}/query/get_jobs_info_and_jobs_plan".format(self.query_addr),
@@ -609,7 +609,7 @@ tracker_app = flask.Flask(__name__)
 flask_cors.CORS(tracker_app)
 
 
-def start_tracker_listener(serv_port=4001):
+def start_tracker_listener(serv_port=3001):
     tracker_app.run(host="0.0.0.0", port=serv_port)
     # app.run(port=serv_port)
     # app.run(host="*", port=serv_port)
@@ -617,13 +617,13 @@ def start_tracker_listener(serv_port=4001):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--query_addr', dest='query_addr',
-                        type=str, default='114.212.81.11:4000')
+                        type=str, default='114.212.81.11:3000')
     parser.add_argument('--tracker_port', dest='tracker_port',
-                        type=int, default=4001)
+                        type=int, default=3001)
     parser.add_argument('--serv_cloud_addr', dest='serv_cloud_addr',
-                        type=str, default='114.212.81.11:4500')
+                        type=str, default='114.212.81.11:3500')
     parser.add_argument('--video_side_port', dest='video_side_port',
-                        type=int, default=4101)
+                        type=int, default=3101)
     args = parser.parse_args()
 
     # 接受下发的query生成job、接收更新的调度策略

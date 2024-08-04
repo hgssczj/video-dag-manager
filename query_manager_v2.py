@@ -521,7 +521,7 @@ def node_join_cbk():
     return flask.jsonify({"status": 0, "msg": "joined one video to query_manager", "node_addr": node_addr})
 
 
-def start_query_listener(serv_port=4000):
+def start_query_listener(serv_port=3000):
     query_app.run(host="0.0.0.0", port=serv_port)
 
 def get_runtime_str(portrait_info, pipeline, bandwidth_dict, act_work_condition):
@@ -669,7 +669,7 @@ def cloud_scheduler_loop_kb(query_manager=None):
                 # appended_result_list = query.get_appended_result_list()
                 if query.video_id < 99:  # 如果是大于等于99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
                     root_logger.info("video_id:{}".format(query.video_id))
-                    node_addr = query.node_addr  # 形如：192.168.1.9:4001
+                    node_addr = query.node_addr  # 形如：192.168.1.7:3001
                     user_constraint = query.user_constraint
                     assert node_addr
 
@@ -773,11 +773,11 @@ def cloud_scheduler_loop_kb(query_manager=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--query_port', dest='query_port',
-                        type=int, default=4000)
+                        type=int, default=3000)
     parser.add_argument('--serv_cloud_addr', dest='serv_cloud_addr',
-                        type=str, default='127.0.0.1:4500')
+                        type=str, default='127.0.0.1:3500')
     parser.add_argument('--video_cloud_port', dest='video_cloud_port',
-                        type=int, default=4100)
+                        type=int, default=3100)
     args = parser.parse_args()
 
     threading.Thread(target=start_query_listener,

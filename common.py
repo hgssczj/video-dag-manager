@@ -140,9 +140,9 @@ fps_range = [1,5,10,20,30]  # 1,5,10,20,30
 
 encoder_range = ['JPEG']
 
-ip_range = ["192.168.1.9","114.212.81.11"]  # ["192.168.1.7","192.168.1.9","114.212.81.11"]
+ip_range = ["192.168.1.7","114.212.81.11"]
 cloud_ip = "114.212.81.11"
-edge_ip = "192.168.1.9"
+edge_ip = "192.168.1.7"
 
 
 serv_names = ['face_detection', 'gender_classification']
@@ -188,3 +188,4 @@ conf_and_serv_info={  #各种配置参数的可选值
     "gender_classification_trans_cpu_util_limit":cpu_range,
 
 }
+
