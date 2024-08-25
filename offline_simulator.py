@@ -25,8 +25,7 @@ plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']
 plt.rcParams['axes.unicode_minus']=False
 matplotlib.use('TkAgg')
 
-
-from common import KB_DATA_PATH,model_op,conf_and_serv_info
+from common import KB_DATA_PATH,MAX_NUMBER, model_op, conf_and_serv_info, service_info_dict
 
 
 
@@ -736,74 +735,10 @@ class KnowledgeBaseBuilder():
 
         return avg_delay
 
-    
-
-
-    # collect_for_sample：
-    # 用途：获取特定配置下的一系列采样结果，并将平均结果记录在explore_conf_dict贝叶斯字典中
-    # 方法：在指定参数的配置下，反复执行post_get_write获取sample_bound个不重复的结果，并计算平均用时avg_delay
-    #      之后将当前配置作为键、avg_delay作为值，以键值对的形式将该配置的采样结果保存在字典中，以供贝叶斯优化时的计算   
-    # 返回值：当前conf,flow_mapping,resource_limit所对应的sample_bound个采样结果的平均时延
-    def collect_for_sample(self,conf,flow_mapping,resource_limit):
-        
-        # return 1  #这是为了方便测试功能
-        sample_num=0
-        sample_result=[]
-        all_delay=0
-        print('当前采样配置')
-        print(conf)
-        print(flow_mapping)
-        print(resource_limit)
-        while(sample_num<self.sample_bound):# 只要已经收集的符合要求的采样结果不达标，就不断发出请求，直到在本配置下成功获取sample_bound个样本
-            get_resopnse=self.post_get_write(conf=conf,flow_mapping=flow_mapping,resource_limit=resource_limit)
-            if(get_resopnse['status']==3): #如果正常返回了结果，就可以从中获取updatetd_result了
-                updatetd_result=get_resopnse['updatetd_result']
-                # print("展示updated_result")
-                # print(updatetd_result)
-                # updatetd_result包含一系列形如{"row":row,"conf":res['ext_plan']['video_conf'],"flow_mapping":res['ext_plan']['flow_mapping']}
-                # 对于获取的结果，首先检查其conf和flow_mapping是否符合需要，仅在符合的情况下才增加采样点
-                for i in range(0,len(updatetd_result)):
-                    #print(updatetd_result[i])
-                    row0=updatetd_result[i]['row']
-                    
-                    if updatetd_result[i]['conf']==conf and updatetd_result[i]['flow_mapping']==flow_mapping and updatetd_result[i]['resource_limit']==resource_limit :
-                        all_delay+=updatetd_result[i]["row"]["all_delay"]
-                        print("该配置符合要求，可作为采样点之一")
-                        sample_num+=1
-
-        avg_delay=all_delay/self.sample_bound
-        # (1)得到该配置下的平均时延
-        task_accuracy = 1.0
-        acc_pre = AccuracyPrediction()
-        obj_size = None
-        obj_speed = None
-        for serv_name in serv_names:
-            if common.service_info_dict[serv_name]["can_seek_accuracy"]:
-                task_accuracy *= acc_pre.predict(service_name=serv_name, service_conf={
-                    'fps':conf['fps'],
-                    'reso':conf['reso']
-                }, obj_size=obj_size, obj_speed=obj_speed)
-        # (2)得到该配置下的精度
-        
-        
-        print("完成对当前配置的",self.sample_bound,"次采样，平均时延是", avg_delay,"精度是", task_accuracy)
-        #融合所有配置，得到一个表述当前调度策略的唯一方案
-        conf_str=json.dumps(conf)+json.dumps(flow_mapping)+json.dumps(resource_limit)  
-        print(conf_str,avg_delay,task_accuracy)
-        # 仅在贝叶斯优化目标是建立稀疏知识库的情况下才会将内容保存在字典中，目的是为了求标准差
-        # 初始，explore_conf_dict会被设置一个区间，即min和max对应的内容。如果要建立稀疏知识库，那应该令这一区间内的分布尽可能均匀
-        if avg_delay >= self.explore_conf_dict['delay']['min'] and avg_delay<=self.explore_conf_dict['delay']['max']:
-            self.explore_conf_dict['delay'][conf_str] = avg_delay  #将所有结果保存在字典里
-        if task_accuracy >= self.explore_conf_dict['accuracy']['min'] and task_accuracy <=self.explore_conf_dict['accuracy']['min']:
-            self.explore_conf_dict['accuracy'][conf_str] = task_accuracy  #将所有结果保存在字典里
-
-               
-
-        return avg_delay
 
     
     # sample_and_record：
-    # 用途：遍历conf_list、ip、cpu和mem所有配置，对每一种配置进行采样并记录结果。和just_record相对。
+    # 用途：遍历sample_range中的所有配置，对每一种配置进行采样并记录结果。和just_record相对。
     # 方法：初始化一个csv文件，然后生成配置遍历的全排列，对每一种配置都调用collect_for_sample进行采样和记录
     # 返回值：csv的文件名
     def sample_and_record(self,sample_bound,sample_range,delay_range,accuracy_range):
@@ -1043,13 +978,186 @@ class KnowledgeBaseBuilder():
         # plt.show()
 
 
+# 离线模拟采样器，用于根据已有的采样csv文件生成一系列json文件。
+# 可以调用其中的接口，模拟任意配置下采样得到的一系列性能。其中，帧率对性能的影响会进行专门处理。
+# 
+class OfflineSimulator():   
+    
+    #知识库建立者，每次运行的时候要指定本次实验名称，用于作为记录实验的文件
+    def __init__(self,serv_names,service_info_list,json_folder_path):
+
+        self.json_folder_path = json_folder_path
+        self.serv_names = serv_names 
+        self.service_info_list=service_info_list
+
+    # get_json_from_csv_for_service
+    # 用途：对csv_folder_path路径下的若干csv文件，为每一个服务分析其每一种配置下采样得到的若干性能，记录在json_folder_path下的json文件中
+    #      比如，这些csv文件里记录了某个服务在某种配置下的5种性能，那么就要将其都记录为列表，然后将列表存储在json文件之中
+    # 返回值：无，但是为每一个服务都生成了一个区间的CSV文件
+    def get_json_from_csv_for_service(self,csv_folder_path):
+
+        #(1) 遍历csv_folder_path目录下所有的csv文件,读取为df
+        for filename in os.listdir(csv_folder_path):  
+
+            csv_filepath = os.path.join(csv_folder_path, filename)  
+        
+            df = pd.read_csv(csv_filepath)
+            # 用于避免配置的重复
+            used_set=set()
+
+            # (2) 对于当前的这个csv文件，准备更新每一个服务的json字典
+            for service_info in self.service_info_list:
+                # 对于每一个服务，首先确定服务有哪些配置，构建conf_list
+                service_conf=list(service_info['conf']) # 形如":["reso","fps"]
+                # 对于得到的service_conf，还应该加上“ip”也就是卸载方式
+                service_conf.append(service_info['name']+'_ip')
+                # 然后再添加资源约束，目前只考虑cpu使用率限制 cpu_util_limit
+                service_conf.append(service_info['name']+'_cpu_util_limit')
+                # 然后再添加资源约束，也就是mem限制 mem_util_limit
+                service_conf.append(service_info['name']+'_mem_util_limit')
+                #service_conf形如['reso', 'fps', 'encoder', 'face_detection_ip', 'face_detection_cpu_util_limit', 'face_detection_mem_util_limit']
+            
+                # 这个service_conf会作为json文件键值对中的键
+
+                #(3)在更新这个服务对应的json文件之前，首先确认这个文件是否存在。如果已经存在，那就直接加载旧的内容；否则，创建一个新文件并读取空内容。
+
+                eval_path = self.json_folder_path+'/' + service_info['name'] + '.json'
+                evaluator=dict()
+                if not ( os.path.exists(eval_path) and os.path.isfile(eval_path) ): #如果文件不存在，创立文件并写入空字典
+                    with open(eval_path, 'w') as f:  
+                        json.dump(evaluator, f,indent=4) 
+                    f.close()
+                # 然后读取文件中的原始evaluator，试图更新它
+                with open(eval_path, 'r') as f:  
+                    evaluator = json.load(f)  
+                f.close()
+
+                # (4)从csv文件中读取内容准备写入这个json文件字典
+
+                min_index=df.index.min()
+                max_index=df.index.max()
+                conf_kind=0 #记录总配置数
+                for index in range(min_index,max_index+1):
+                    #遍历每一个配置
+                    values_list=df.loc[index,service_conf].tolist()
+                    #values_list形如['990p', 24, 'JPEG', '114.212.81.11', 1.0, 1.0]，获取了service_conf对应的配置取值
+                    dict_key=''
+                    for i in range(0,len(service_conf)):
+                        dict_key+=service_conf[i]+'='+str(values_list[i])+' '
+                    #得到当前行对应的一个配置
+                    
+                    if dict_key not in used_set:
+                        used_set.add(dict_key)
+                        #如果该配置尚未被记录，需要求avg_delay
+                        condition_all=True  #用于检索字典所需的条件
+                        for i in range(0,len(values_list)):
+                            condition=df[service_conf[i]]==values_list[i]    #相应配置名称对应的配置参数等于当前配置组合里的配置
+                            condition_all=condition_all&condition
+                        
+                        # 联立所有条件从df中获取对应内容,conf_df里包含满足所有条件的列构成的df
+                        conf_df=df[condition_all]
+                        if(len(conf_df)>0): #如果满足条件的内容不为空，可以开始用其中的数值来初始化字典
+                            conf_kind+=1
+                            evaluator[dict_key]=list(conf_df[service_info['value']])
+
+                #完成对该服务的evaluator的处理
+                with open(eval_path, 'w') as f:  
+                    json.dump(evaluator, f,indent=4) 
+                f.close()
+                
+                print(service_info['name']+"在该csv文件中更新的配置组合数为",conf_kind)
+
+
+    # get_proc_delay_from_csv
+    # 用途：基于get_json_from_csv_for_service的结果，从json文件中评估任意配置下流水线上各个服务的时延
+    # 方法：json文件中是以列表的形式存储这些时延的，因此我也直接返回列表好了。注意，对fps进行了专门的按比例处理。
+    # 返回值：各个服务的列表形式的处理时延（经过fps修正）
+    def get_proc_delay_from_csv(self,conf,flow_mapping,resource_limit,work_condition):
+
+        # csv文件中只存储了30fps的情况，要根据输入配置的帧率做出相应的调整。
+        # 此处保留真实fps，并修改参数中的fps为30。
+        true_fps = conf["fps"]
+        conf["fps"]=30
+
+        # 存储配置对应的各阶段时延，以及总时延
+        proc_delay_csv={}
+        
+        status = 0  # 为0表示字典中没有满足配置的存在
+        # 对于service_info_list里的service_info依次评估性能
+        for service_info in self.service_info_list:
+            # （1）加载服务对应的性能评估器
+            f = open(self.json_folder_path+'/'+service_info['name']+".json")  
+            evaluator = json.load(f)
+            f.close()
+            # （2）获取service_info里对应的服务配置参数，从参数conf中获取该服务配置旋钮的需要的各个值，加上ip选择
+            # 得到形如["360p"，"1","JPEG","114.212.81.11"]的conf_for_dict，用于从字典中获取性能指标
+            service_conf = list(service_info['conf']) # 形如":["reso","fps","encoder"]
+                # 对于得到的service_conf，还应该加上“ip”也就是卸载方式
+            conf_for_dict = []
+                #形如：["360p"，"1","JPEG"]
+            
+           
+            for service_conf_name in service_conf:
+                conf_for_dict.append(str(conf[service_conf_name]))   
+            
+
+            # 完成以上操作后，conf_for_dict内还差ip地址,首先要判断当前评估器是不是针对传输阶段进行的：
+            ip_for_dict_index = service_info['name'].find("_trans") 
+            if ip_for_dict_index > 0:
+                # 当前是trans，则去除服务名末尾的_trans，形如“face_detection”
+                ip_for_dict_name = service_info['name'][0:ip_for_dict_index] 
+            else: # 当前不是trans
+                ip_for_dict_name = service_info['name']
+            ip_for_dict = flow_mapping[ip_for_dict_name]['node_ip']
+                
+            cpu_for_dict = resource_limit[ip_for_dict_name]["cpu_util_limit"]
+            mem_for_dict = resource_limit[ip_for_dict_name]["mem_util_limit"]
+            
+            conf_for_dict.append(str(ip_for_dict))  
+            conf_for_dict.append(str(cpu_for_dict)) 
+            conf_for_dict.append(str(mem_for_dict)) 
+
+            service_conf.append(service_info['name']+'_ip')
+            service_conf.append(service_info['name']+'_cpu_util_limit')
+            service_conf.append(service_info['name']+'_mem_util_limit')
+            # 形如["360p"，"1","JPEG","114.212.81.11","0.1"."0.1"]
+
+            # （3）根据conf_for_dict，从性能评估器中提取该服务的评估时延
+     
+            dict_key=''
+            for i in range(0, len(service_conf)):
+                dict_key += service_conf[i] + '=' + conf_for_dict[i] + ' '
+
+            
+            if dict_key not in evaluator:
+                #print('配置不存在',dict_key)
+                return status, proc_delay_csv
+            
+            pred_delay = evaluator[dict_key]
+            
+            #  (4) 如果pred_delay为0，意味着这一部分对应的性能估计结果不存在，该配置在知识库中没有找到合适的解。此时直接返回结果。
+            if pred_delay == 0:
+                return status, proc_delay_csv
+            
+            #  (5)对预测出时延根据工况进行修改
+            #  注意，此处获得的pred_delay_list和pred_delay_total里的时延都是单一工况下的，因此需要结合工况进行调整
+            obj_n = 1
+            if 'obj_n' in work_condition:
+                obj_n = work_condition['obj_n']
+            if service_info_dict[service_info['name']]["vary_with_obj_n"]:
+                pred_delay = [x * obj_n for x in pred_delay ]
 
 
 
+            # （6）根据true_fps的取值进行专门的修正
+            pred_delay = [x * float(true_fps/30.0) for x in pred_delay ]
 
+            # （7）将预测的时延添加到列表中
+            proc_delay_csv[service_info['name']] = pred_delay
 
-
-
+        
+        status = 1
+        return status, proc_delay_csv  # 返回各个部分的时延
 
 
 
@@ -1098,6 +1206,8 @@ query_body = {
 #'''
 
 
+
+
 if __name__ == "__main__":
 
 
@@ -1113,8 +1223,8 @@ if __name__ == "__main__":
         rsc_upper_bound[serv_name] = {}
         rsc_upper_bound[serv_name]['cpu_limit'] = serv_rsc_cons['cpu']['edge']
         rsc_upper_bound[serv_name]['mem_limit'] = serv_rsc_cons['mem']['edge']
-    print("画像提供的资源上限")
-    print(rsc_upper_bound)
+    #print("画像提供的资源上限")
+    #print(rsc_upper_bound)
 
 
     # 贝叶斯优化时的取值范围，在以下范围内使得采样点尽可能平均
@@ -1148,9 +1258,18 @@ if __name__ == "__main__":
                                     rsc_upper_bound=rsc_upper_bound,
                                     kb_name=kb_name)
     
+    csv_folder_path = 'offline_simulation/face_detection-gender_classification/record_data'
+    json_folder_path = 'offline_simulation'
 
 
-    need_sample_and_record = 1
+   
+
+    offline_simulator = OfflineSimulator(serv_names = serv_names,
+                                         service_info_list = service_info_list,
+                                         json_folder_path = json_folder_path,
+                                         )
+    
+    need_sample_and_record = 0
 
     if need_sample_and_record == 1:
 
@@ -1194,3 +1313,41 @@ if __name__ == "__main__":
         filename,filepath = kb_builder.sample_and_record(sample_bound=sample_bound,sample_range=sample_range,delay_range=delay_range,accuracy_range=accuracy_range)
 
         kb_builder.draw_picture_from_sample(filepath=filepath)
+
+
+    need_get_json_from_csv = 0
+
+    if need_get_json_from_csv == 1:
+    
+        offline_simulator.get_json_from_csv_for_service(csv_folder_path = csv_folder_path)
+
+    need_get_proc_delay_from_csv = 1
+
+    if need_get_proc_delay_from_csv == 1:
+
+        work_condition={
+            "obj_n": 20,
+            "obj_stable": True,
+            "obj_size": 300,
+            "delay": 0.2  #这玩意包含了传输时延，我不想看
+            }
+
+        conf=dict({"reso": "360p", "fps": 30, "encoder": "JPEG"})
+        flow_mapping=dict({
+            "face_detection": {"model_id": 0, "node_ip": "114.212.81.11", "node_role": "cloud"}, 
+            "gender_classification": {"model_id": 0, "node_ip": "192.168.1.7", "node_role": "host"}
+            })
+        resource_limit=dict({
+            "face_detection": {"cpu_util_limit": 1.0, "mem_util_limit": 1.0}, 
+            "gender_classification": {"cpu_util_limit": 0.95, "mem_util_limit": 1.0}
+            })
+        
+        status, proc_delay_csv = offline_simulator.get_proc_delay_from_csv(conf=conf,
+                                                                            flow_mapping=flow_mapping,
+                                                                            resource_limit=resource_limit,
+                                                                            work_condition = work_condition
+                                                                            )
+        print(status)
+
+        for key in proc_delay_csv:
+            print(key, proc_delay_csv[key])
