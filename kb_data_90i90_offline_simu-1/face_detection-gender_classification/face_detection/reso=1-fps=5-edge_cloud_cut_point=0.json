@@ -1,0 +1,5 @@
+{
+    "reso=720p fps=18 encoder=JPEG face_detection_ip=114.212.81.11 face_detection_cpu_util_limit=1.0 face_detection_mem_util_limit=1.0 ": 0.1282503627240658,
+    "reso=810p fps=18 encoder=JPEG face_detection_ip=114.212.81.11 face_detection_cpu_util_limit=1.0 face_detection_mem_util_limit=1.0 ": 0.1576970763744845,
+    "reso=630p fps=17 encoder=JPEG face_detection_ip=114.212.81.11 face_detection_cpu_util_limit=1.0 face_detection_mem_util_limit=1.0 ": 0.0922565793645554
+}

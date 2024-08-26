@@ -1,0 +1,7 @@
+{
+    "reso=1080p fps=21 encoder=JPEG gender_classification_ip=192.168.1.7 gender_classification_cpu_util_limit=0.35 gender_classification_mem_util_limit=1.0 ": 0.0488322257995605,
+    "reso=990p fps=19 encoder=JPEG gender_classification_ip=192.168.1.7 gender_classification_cpu_util_limit=0.7 gender_classification_mem_util_limit=1.0 ": 0.0392556163999769,
+    "reso=990p fps=20 encoder=JPEG gender_classification_ip=192.168.1.7 gender_classification_cpu_util_limit=0.1 gender_classification_mem_util_limit=1.0 ": 0.1548083623250325,
+    "reso=900p fps=19 encoder=JPEG gender_classification_ip=192.168.1.7 gender_classification_cpu_util_limit=0.55 gender_classification_mem_util_limit=1.0 ": 0.0399341134797958,
+    "reso=990p fps=19 encoder=JPEG gender_classification_ip=192.168.1.7 gender_classification_cpu_util_limit=0.25 gender_classification_mem_util_limit=1.0 ": 0.0602525148126813
+}

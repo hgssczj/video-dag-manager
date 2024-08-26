@@ -1,0 +1,7 @@
+{
+    "reso=810p fps=23 encoder=JPEG face_detection_ip=192.168.1.7 face_detection_cpu_util_limit=0.25 face_detection_mem_util_limit=1.0 ": 0.6874601635668013,
+    "reso=810p fps=22 encoder=JPEG face_detection_ip=192.168.1.7 face_detection_cpu_util_limit=0.25 face_detection_mem_util_limit=1.0 ": 0.6575705912378099,
+    "reso=630p fps=23 encoder=JPEG face_detection_ip=192.168.1.7 face_detection_cpu_util_limit=0.1 face_detection_mem_util_limit=1.0 ": 0.6775865879323747,
+    "reso=630p fps=24 encoder=JPEG face_detection_ip=192.168.1.7 face_detection_cpu_util_limit=0.25 face_detection_mem_util_limit=1.0 ": 0.4235005378723145,
+    "reso=720p fps=23 encoder=JPEG face_detection_ip=192.168.1.7 face_detection_cpu_util_limit=0.25 face_detection_mem_util_limit=1.0 ": 0.5242470837774731
+}

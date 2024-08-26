@@ -19,12 +19,16 @@ import random
 import re
 import common
 from AccuracyPrediction import AccuracyPrediction
+from offline_simulator import OfflineSimulator
+from itertools import product
 
 plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']
 plt.rcParams['axes.unicode_minus']=False
 matplotlib.use('TkAgg')
 
 #试图以类的方式将整个独立建立知识库的过程模块化
+
+#本kb_sec_builder_div_test力图把云边协同切分点也作为区间知识库的一个配置
 
 
 from common import KB_DATA_PATH,model_op,conf_and_serv_info
@@ -33,7 +37,7 @@ from common import KB_DATA_PATH,model_op,conf_and_serv_info
 class KnowledgeBaseBuilder():   
     
     #知识库建立者，每次运行的时候要指定本次实验名称，用于作为记录实验的文件
-    def __init__(self,expr_name,node_ip,node_addr,query_addr,service_addr,query_body,conf_names,serv_names,service_info_list,rsc_upper_bound,kb_name):
+    def __init__(self,expr_name,node_ip,node_addr,query_addr,service_addr,query_body,task_conf_names,rsc_conf_names,serv_names,service_info_list,rsc_upper_bound,kb_name):
 
         #(1)基础初始化：实验名称、ip、各类节点地址
         self.expr_name = expr_name #用于构建record_fname的实验名称
@@ -45,10 +49,15 @@ class KnowledgeBaseBuilder():
 
         #(2)任务初始化：待执行任务的query内容、任务相关的配置、涉及的服务名称、服务相关的信息、任务的id
         self.query_body = query_body
-        self.conf_names = conf_names
+        self.query_id = None #查询返回的id
         self.serv_names = serv_names
         self.service_info_list=service_info_list
-        self.query_id = None #查询返回的id
+
+        self.task_conf_names = task_conf_names  #任务相关配置。对于视频流，一般就是["reso","fps","encoder"]
+        self.rsc_conf_names = rsc_conf_names #资源相关配置。一般包括["edge_cloud_cut_point","face_detection_ip","gender_classification_ip",
+                                #"face_detection_mem_util_limit","face_detection_cpu_util_limit",
+                                # "gender_classification_mem_util_limit","gender_classification_cpu_util_limit"]
+        self.sec_conf_names = []  # 用于进行区间划分的配置，比如可以用reso、fps、edge_cloud_cut_point来进行区间划分
 
         #(3)记录初始化：记录数据所需的文件描述符、防止重复的字典、写入文件对象、每一种配置采集的样本数
         self.fp=None
@@ -106,144 +115,6 @@ class KnowledgeBaseBuilder():
     def set_bin_nums(self,bin_nums):
         self.bin_nums=bin_nums
 
-   
-    # allocate_resources:
-    # 用途：edge_serv_cpu_needs是一个列表，记录了边缘端上各个服务的资源需求。该函数可以将总量为1.0的cpu资源以0.05的粒度按比例分配给这些服务，且不会超出总量，也不会为0
-    # 方法：进行复杂的算法验证
-    # 返回值：列表edge_serv_cpu_alloc，里面的元素与edge_serv_cpu_needs一一对应，其和可能超过1.0
-    def allocate_resources(self,edge_serv_cpu_needs):  
-        n = len(edge_serv_cpu_needs)  
-        total_need = sum(edge_serv_cpu_needs)  
-        edge_serv_cpu_alloc = [0.05] * n  # 初始化分配数组，每个任务先分配0.05的资源  
-        allocated_so_far = n * 0.05  # 已经分配的资源总量  
-    
-        # 如果没有剩余需求，或者总需求原本就不足n*0.05，则直接返回  
-        if total_need <= n * 0.05:  
-            return edge_serv_cpu_alloc  
-    
-        # 计算剩余可分配的资源  
-        remaining_resources = min(total_need - n * 0.05, 1 - n * 0.05)  
-    
-        # 分配剩余资源  
-        for i, need in enumerate(edge_serv_cpu_needs):  
-            # 按比例分配剩余的资源，并取0.05的倍数  
-            allocation = round((need / (total_need - n * 0.05)) * remaining_resources / 0.05) * 0.05  
-            edge_serv_cpu_alloc[i] += allocation  
-            allocated_so_far += allocation  
-            remaining_resources -= allocation  
-    
-            # 如果资源已经分配完，或者当前任务的分配量已经足够，则退出循环  
-            if remaining_resources <= 0 or edge_serv_cpu_alloc[i] >= need:  
-                break  
-    
-        # 如果还有剩余资源，并且总分配量小于1.0，则尝试将剩余资源分配给未满足需求的任务  
-        while remaining_resources > 0 and allocated_so_far < 1.0:  
-            # 找到未满足需求的任务  
-            for i, alloc in enumerate(edge_serv_cpu_alloc):  
-                if alloc < need:  
-                    # 分配最小单位0.05，直到资源耗尽或任务需求满足  
-                    extra_allocation = min(remaining_resources, 0.05 - (alloc % 0.05))  
-                    edge_serv_cpu_alloc[i] += extra_allocation  
-                    allocated_so_far += extra_allocation  
-                    remaining_resources -= extra_allocation  
-    
-                    # 如果资源已经分配完或任务需求已经满足，则退出循环  
-                    if remaining_resources <= 0 or edge_serv_cpu_alloc[i] >= need:  
-                        break  
-    
-            # 如果所有任务都已满足需求或资源已耗尽，但总分配量仍小于1.0，则分配给第一个任务剩余资源  
-            if remaining_resources > 0 and allocated_so_far < 1.0:  
-                edge_serv_cpu_alloc[0] += remaining_resources  
-                allocated_so_far += remaining_resources  
-                remaining_resources = 0  
-    
-        # 如果总分配量超过1.0，则需要减少一些任务的分配量以符合限制  
-        while allocated_so_far > 1.0:  
-            # 从最后一个任务开始减少分配量  
-            for i in range(n-1, -1, -1):  
-                if edge_serv_cpu_alloc[i] > 0.05:  
-                    # 减少最小单位0.05  
-                    edge_serv_cpu_alloc[i] -= 0.05  
-                    allocated_so_far -= 0.05  
-    
-                    # 如果总分配量已经满足要求，则退出循环  
-                    if allocated_so_far <= 1.0:  
-                        break  
-        
-        edge_serv_cpu_alloc = [round(x,2) for x in edge_serv_cpu_alloc]
-        return edge_serv_cpu_alloc  
-    
-
-    # get_bottom_left_plans:
-    # 用途：给出指定配置在多种原本协同切分点下的最优配置方案
-    #       对于区间知识库的左下角配置，想要知道它在资源尽可能充分情况下需要的最小时延是多少。假设流水线上一共n个服务，为此最多需要考虑n+1种卸载方式，也就是给出n+1种plan
-    #       资源约束按照obj_num为1的情况计算。由此导致的资源约束问题我觉得不是很重要。
-    # 方法：调用上文函数进行复杂分配
-    # 返回值：bottom_left_plans列表，里面全部都是该配置下资源最充分的分配方案
-    def get_bottom_left_plans(self,conf):
-
-        edge_serv_num=0
-        edge_cpu_use=0.0
-        edge_mem_use=0.0
-
-        bottom_left_plans=[]
-        #(1)计算该配置下最多能把几个服务放在边缘端上
-        myportrait=RuntimePortrait(pipeline=self.serv_names)
-        serv_cpu_edge_need=[]
-        for serv_name in self.serv_names:
-            # 该服务的最小cpu消耗量
-            edge_cpu_use=round(edge_cpu_use+0.05,2)
-            # 该服务的最小mem消耗量
-            task_info = {
-                    'service_name': serv_name,
-                    'fps': conf['fps'],
-                    'reso': common.reso_2_index_dict[conf['reso']],
-                    'obj_num': 1 #因为采样用的视频中只有一张人脸
-                }
-            rsc_threshold = myportrait.predict_resource_threshold(task_info=task_info)
-            edge_mem_use = edge_mem_use + rsc_threshold['mem']['edge']['lower_bound']
-            serv_cpu_edge_need.append(rsc_threshold['cpu']['edge']['lower_bound'])
-
-            if edge_cpu_use <= 1.0 and edge_mem_use <= 1.0:
-                edge_serv_num+=1 #说明可转移到边缘端的服务又增加了一个
-            else:
-                break
-        # 最终edge_serv_num就是切分点的上限,最多允许在边缘存放edge_serv_num个服务。
-
-
-        # （2）为每一个云边协同切分点生成一个配置方案
-        for edge_cloud_cut_choice in range(0,edge_serv_num+1):
-            flow_mapping={}
-            resource_limit={}
-            
-            #根据切分点，算出当前切分点下，边缘端上每一个服务的资源需求量，并计算出合适的资源分配量
-            edge_serv_cpu_needs=serv_cpu_edge_need[0:edge_cloud_cut_choice]
-            edge_serv_cpu_alloc=self.allocate_resources(edge_serv_cpu_needs)
-
-            for i in range(0,len(self.serv_names)):
-                serv_name = self.serv_names[i]
-                if i < edge_cloud_cut_choice: #边端配置赋值
-                    flow_mapping[serv_name] = model_op[common.edge_ip]
-                    resource_limit[serv_name]={}
-                    resource_limit[serv_name]["mem_util_limit"]=1.0
-                    resource_limit[serv_name]["cpu_util_limit"]=edge_serv_cpu_alloc[i]
-                else: #云端配置赋值
-                    flow_mapping[serv_name] = model_op[common.cloud_ip]
-                    resource_limit[serv_name]={}
-                    resource_limit[serv_name]["mem_util_limit"]=1.0
-                    resource_limit[serv_name]["cpu_util_limit"]=1.0
-            
-            #得到当前切分点下的配置方案
-            new_plan={}
-            new_plan['conf']=conf
-            new_plan['flow_mapping']=flow_mapping
-            new_plan['resource_limit']=resource_limit
-            bottom_left_plans.append(new_plan)
-    
-        return bottom_left_plans
-
-
-
     # examine_explore_distribution:
     # 用途：获取贝叶斯优化采样过程中，采样结果的均匀程度，即方差（可考虑改成CoV）
     # 方法：将字典explore_conf_dict中的键值对的值提取出来构建数组，提取方差
@@ -274,8 +145,6 @@ class KnowledgeBaseBuilder():
 
         return delay_count_bins.std(), accuracy_count_bins.std() #返回方差
 
-
-
     # clear_explore_distribution:
     # 用途：还原self.explore_conf_dict为初始状况
     # 方法：将字典explore_conf_dict中的值重新恢复到以前
@@ -296,9 +165,6 @@ class KnowledgeBaseBuilder():
         self.explore_conf_dict["delay"]["max"]=delay_range["max"]
         self.explore_conf_dict["accuracy"]["min"]=accuracy_range["min"]
         self.explore_conf_dict["accuracy"]["max"]=accuracy_range["max"]
-
-
-
 
     
     # send_query_and_start：
@@ -351,9 +217,9 @@ class KnowledgeBaseBuilder():
         # 根据运行时情境初始化当前可用资源情况
 
         return self.query_id
-    
 
-    
+
+
     # init_record_file：
     # 用途：初始化一个csv文件，fieldnames包括n_loop','frame_id','all_delay','edge_mem_ratio'，所有配置
     #      以及每一个服务（含中间传输阶段）的ip、时间、cpu和mem相关限制等。未来可能还需要再修改。
@@ -386,8 +252,8 @@ class KnowledgeBaseBuilder():
                      'bandwidth'
                      ]
         # 得到配置名
-        for i in range(0, len(self.conf_names)):
-            fieldnames.append(self.conf_names[i])  
+        for i in range(0, len(self.task_conf_names)):
+            fieldnames.append(self.task_conf_names[i])  
 
         #serv_names形如['face_detection', 'face_alignment']
         for i in range(0, len(self.serv_names)):
@@ -660,8 +526,8 @@ class KnowledgeBaseBuilder():
             row['bandwidth'] = res['bandwidth']
             # row['edge_mem_ratio']=self.edge_mem_ratio
 
-            for i in range(0, len(self.conf_names)):
-                conf_name = self.conf_names[i]   #得到配置名
+            for i in range(0, len(self.task_conf_names)):
+                conf_name = self.task_conf_names[i]   #得到配置名
                 row[conf_name] = res['ext_plan']['video_conf'][conf_name]
 
             # serv_names形如['face_detection', 'face_alignment']
@@ -753,7 +619,6 @@ class KnowledgeBaseBuilder():
         #updatetd_result会返回本轮真正检测到的全新数据。在最糟糕的情况下，updatetd_result会是一个空列表。
         return updatetd_result
 
-
     # post_get_write：
     # 用途：更新调度计划，感知运行时情境，并调用write_in_file记录在csv文件中
     # 方法：使用update_plan接口将conf,flow_mapping,resource_limit应用在query_id指定的任务中
@@ -802,42 +667,7 @@ class KnowledgeBaseBuilder():
 
         return {"status":3,"des:":"succeed to record a row","updatetd_result":updatetd_result}
     
-    # get_write：
-    # 用途：感知运行时情境，并调用write_in_file记录在csv文件中。相比post_get_write，不会修改调度计划。
-    # 方法：依次获取运行时情境
-    #      使用write_in_file方法将感知到的结果写入文件之中
-    # 返回值：包含updated_result的键值对
-    def get_write(self):
-         
-        #（1）获取资源情境,获取node_ip指定的边缘节点的内存使用率
-        r2 = self.sess.get(url="http://{}/get_system_status".format(self.service_addr))
-        if not r2.json():
-            return {"status":1,"des":"fail to get resource info"}
-        '''
-        else:
-            print("收到资源情境为:")
-            print(r2.json())
-        '''
-          
-        #（2）查询执行结果并处理
-        r3 = self.sess.get(url="http://{}/query/get_result/{}".format(self.query_addr, self.query_id))  
-        if not r3.json():
-            return {"status":2,"des":"fail to post one query request"}
-        
-        # (4) 查看当前运行时情境
-        r4 = self.sess.get(url="http://{}/query/get_portrait_info/{}".format(self.query_addr, self.query_id))  
-        #print("r4",r4)
-        if not r4.json():
-            return {"status":2,"des":"fail to post one query request"}
-        '''
-        else:
-            print("收到运行时情境为:")
-            print(r4.json())
-        '''
-        # 如果r1 r2 r3都正常
-        updatetd_result=self.write_in_file(r2=r2,r3=r3,r4=r4)
 
-        return {"status":3,"des:":"succeed to record a row","updatetd_result":updatetd_result}
 
     # collect_for_sample：
     # 用途：获取特定配置下的一系列采样结果，并将平均结果记录在explore_conf_dict贝叶斯字典中
@@ -897,109 +727,179 @@ class KnowledgeBaseBuilder():
         if task_accuracy >= self.explore_conf_dict['accuracy']['min'] and task_accuracy <=self.explore_conf_dict['accuracy']['min']:
             self.explore_conf_dict['accuracy'][conf_str] = task_accuracy  #将所有结果保存在字典里
 
-               
+        return avg_delay
+
+
+
+
+    # collect_for_sample_offline_simulator
+    # 用途：和collect_for_sample一样用于获得某个配置对应的处理时延，并进行标准差的求解、对文件的写入；但是，它使用offline_simulator里的内容，直接获取结果
+    #       这样一来，就不需要真的运行分布式程序，也能获得采样结果了
+    # 方法：调用ffline_simulator中已有的接口，直接获取ffline_simulator里的“完美知识库”
+  
+    def collect_for_sample_offline_simulator(self,conf,flow_mapping,resource_limit):
+        
+        #print('当前采样配置')
+        #print(conf)
+        #print(flow_mapping)
+        #print(resource_limit)
+        '''
+        work_condition={
+            "obj_n": 20,
+            "obj_stable": True,
+            "obj_size": 300,
+            "delay": 0.2  #这玩意包含了传输时延，我不想看
+            }
+
+        conf=dict({"reso": "360p", "fps": 30, "encoder": "JPEG"})
+        flow_mapping=dict({
+            "face_detection": {"model_id": 0, "node_ip": "114.212.81.11", "node_role": "cloud"}, 
+            "gender_classification": {"model_id": 0, "node_ip": "192.168.1.7", "node_role": "host"}
+            })
+        resource_limit=dict({
+            "face_detection": {"cpu_util_limit": 1.0, "mem_util_limit": 1.0}, 
+            "gender_classification": {"cpu_util_limit": 0.95, "mem_util_limit": 1.0}
+            })
+        '''
+
+        # 调用离线模拟器来获取服务的处理时延
+        json_folder_path = 'offline_simulation'
+        offline_simulator = OfflineSimulator(serv_names = serv_names,
+                                         service_info_list = service_info_list,
+                                         json_folder_path = json_folder_path,
+                                         )
+        
+        # 用于模拟真实场景，离线建库一般用的是只有一张人脸的稳定视频画面
+        work_condition={
+            "obj_n": 1,
+            "obj_stable": True,
+            "obj_size": 300,
+            "delay": 0.2  
+            }
+        status, proc_delay_csv = offline_simulator.get_proc_delay_from_csv(conf=conf,
+                                                                            flow_mapping=flow_mapping,
+                                                                            resource_limit=resource_limit,
+                                                                            work_condition = work_condition
+                                                                            )
+        # proc_delay_csv是一个字典，形如：
+        '''
+        {
+            'face_detection':[1.2,1.3,1.23],
+            'gender_classification':[0.5,0.7,0.6]
+        }
+        '''
+        
+        # 现在根据模拟结果来设置row。由于这是一个用于模拟的过程，所以处理时延以外的感知结果全部用-1表示。
+
+        row = {}
+
+        row['n_loop'] = -1
+        row['frame_id'] = -1
+        row['all_delay'] = -1
+        row['obj_n'] = -1
+        row['bandwidth'] = -1
+
+        for i in range(0, len(self.task_conf_names)):
+            conf_name = self.task_conf_names[i]   #得到任务配置名
+            row[conf_name] = conf [conf_name]
+
+        # serv_names形如['face_detection', 'face_alignment']
+        for i in range(0, len(self.serv_names)):
+            serv_name = self.serv_names[i]
+            
+            serv_role_name = serv_name + '_role'
+            serv_ip_name = serv_name + '_ip'
+            serv_proc_delay_name = serv_name + '_proc_delay'
+            trans_ip_name = serv_name + '_trans_ip'
+            trans_delay_name = serv_name + '_trans_delay'
+      
+            row[serv_role_name] = flow_mapping[serv_name]["node_role"]
+            row[serv_ip_name] = flow_mapping[serv_name]['node_ip']
+            # 接下来是关键：获取该服务的传输时延
+            # print(proc_delay_csv[serv_name])
+            row[serv_proc_delay_name] = sum(proc_delay_csv[serv_name])/len(proc_delay_csv[serv_name])
+
+            row[trans_ip_name] = row[serv_ip_name]
+            row[trans_delay_name] = -1
+
+            field_name = serv_name + '_cpu_util_limit'
+            row[field_name] = resource_limit[serv_name]['cpu_util_limit']
+            field_name = serv_name + '_cpu_util_use'
+            row[field_name] = -1
+
+            field_name = serv_name + '_mem_util_limit'
+            row[field_name] = resource_limit[serv_name]['mem_util_limit']
+            field_name = serv_name + '_mem_util_use'
+            row[field_name] = -1
+
+
+        n_loop = -1
+        #'''
+        print('n_loop', n_loop)
+        print('处理时延之和：', row['face_detection_proc_delay'] + row['gender_classification_proc_delay'])
+        print("face_detection处理时延:", row['face_detection_proc_delay'])
+        print("gender_classification处理时延:", row['gender_classification_proc_delay'])
+        print('reso:', row['reso'], ' fps:', row['fps'])
+        #'''
+        face_role = 'node'
+        if row['face_detection_ip'] == '114.212.81.11':
+            face_role = 'cloud'
+        gender_role = 'node'
+        if row['gender_classification_ip'] == '114.212.81.11':
+            gender_role = 'cloud'
+        #'''
+        print('face_detection_ip:', face_role, ' gender_classification_ip:', gender_role)
+        print('face_detection资源')
+
+        print('cpu限制', row['face_detection_cpu_util_limit'])
+        print('mem限制', row['face_detection_mem_util_limit'])
+        print('gender_classification资源')
+
+        print('cpu限制', row['gender_classification_cpu_util_limit'])
+        print('mem限制', row['gender_classification_mem_util_limit'])
+        print()
+        #'''
+        self.writer.writerow(row)
+        print("写入成功")
+       
+
+        # (1)得到该配置下的平均时延
+        # 前面已经算出了avg_delay
+        avg_delay = 0.0
+        for serv_name in self.serv_names:
+            avg_delay += row[serv_proc_delay_name]
+
+
+        # (2)得到该配置下的精度
+        task_accuracy = 1.0
+        acc_pre = AccuracyPrediction()
+        obj_size = None
+        obj_speed = None
+        for serv_name in serv_names:
+            if common.service_info_dict[serv_name]["can_seek_accuracy"]:
+                task_accuracy *= acc_pre.predict(service_name=serv_name, service_conf={
+                    'fps':conf['fps'],
+                    'reso':conf['reso']
+                }, obj_size=obj_size, obj_speed=obj_speed)
+       
+        
+        print("完成对当前配置的一次离线模拟采样，平均时延是", avg_delay,"精度是", task_accuracy)
+       
+        #融合所有配置，得到一个表述当前调度策略的唯一方案
+        conf_str=json.dumps(conf)+json.dumps(flow_mapping)+json.dumps(resource_limit)  
+        print(conf_str,avg_delay,task_accuracy)
+        # 仅在贝叶斯优化目标是建立稀疏知识库的情况下才会将内容保存在字典中，目的是为了求标准差
+        # 初始，explore_conf_dict会被设置一个区间，即min和max对应的内容。如果要建立稀疏知识库，那应该令这一区间内的分布尽可能均匀
+        if avg_delay >= self.explore_conf_dict['delay']['min'] and avg_delay<=self.explore_conf_dict['delay']['max']:
+            self.explore_conf_dict['delay'][conf_str] = avg_delay  #将所有结果保存在字典里
+        if task_accuracy >= self.explore_conf_dict['accuracy']['min'] and task_accuracy <=self.explore_conf_dict['accuracy']['min']:
+            self.explore_conf_dict['accuracy'][conf_str] = task_accuracy  #将所有结果保存在字典里
 
         return avg_delay
-    
-
-    
 
 
 
-    # just_record：
-    # 用途：不进行任何配置指定，单纯从当前正在执行的系统中进行record_num次采样。其作用和sample_and_rescord（采样并记录）相对。
-    # 方法：初始化一个csv文件，进行record_num次调用get_write并记录当前运行时情境和执行结果，期间完全不控制系统的调度策略
-    # 返回值：csv的文件名
-    def just_record(self,record_num):
-        filename,filepath = self.init_record_file()
-        record_sum = 0
-        while(record_sum < record_num):
-            get_resopnse = self.get_write()
-            if(get_resopnse['status'] == 3):
-                updatetd_result = get_resopnse['updatetd_result']
-                for i in range(0, len(updatetd_result)):
-                    #print(updatetd_result[i])
-                    record_sum += 1
 
-        self.fp.close()
-        print("记录结束，查看文件")
-        return filename,filepath 
-    
-
-    # sample_and_record：
-    # 用途：遍历conf_list、ip、cpu和mem所有配置，对每一种配置进行采样并记录结果。和just_record相对。
-    # 方法：初始化一个csv文件，然后生成配置遍历的全排列，对每一种配置都调用collect_for_sample进行采样和记录
-    # 返回值：csv的文件名
-    def sample_and_record(self,sample_bound,sample_range,delay_range,accuracy_range):
-
-
-        self.clear_explore_distribution(delay_range=delay_range,accuracy_range=accuracy_range)
-
-
-
-        self.sample_bound=sample_bound
-        filename,filepath = self.init_record_file()
-        #执行一次get_and_write就可以往文件里成果写入数据
-
-
-        # 现在有self.conf_names方便选取conf和flow_mapping了，可以得到任意组合。
-        # 当前实现中conf_names里指定的配置是每一个服务都共享的配置，只有model需要特殊考虑。
-        # 所以应该记录下服务的数目然后对应处理
-        
-        conf_list=[]
-        for conf_name in self.conf_names:   #conf_names含有流水线上所有任务需要的配置参数的总和，但是不包括其所在的ip
-            conf_list.append(sample_range[conf_name])
-        # conf_list会包含各类配置参数取值范围，例如分辨率、帧率等
-
-        serv_ip_list=[]
-        for serv_name in self.serv_names:
-            serv_ip=serv_name+"_ip"
-            serv_ip_list.append(sample_range[serv_ip])
-        # serv_ip_list包含各个模型的ip的取值范围
-
-        serv_cpu_list=[]
-        for serv_name in self.serv_names:
-            serv_cpu=serv_name+"_cpu_util_limit"
-            serv_cpu_list.append(sample_range[serv_cpu])
-        # serv_cpu_list包含各个模型的cpu使用率的取值范围
-
-        conf_combine=itertools.product(*conf_list)
-        for conf_plan in conf_combine:
-            serv_ip_combine=itertools.product(*serv_ip_list)
-            for serv_ip_plan in serv_ip_combine:# 遍历所有配置和卸载策略组合
-                serv_cpu_combind=itertools.product(*serv_cpu_list)
-                for serv_cpu_plan in serv_cpu_combind:
-                    #不把内存作为一种配置旋钮 
-                    conf={}
-                    flow_mapping={}
-                    resource_limit={}
-                    for i in range(0,len(self.conf_names)):
-                        conf[self.conf_names[i]]=conf_plan[i]
-                    for i in range(0,len(self.serv_names)):
-                        flow_mapping[self.serv_names[i]]=model_op[serv_ip_plan[i]]
-                        resource_limit[self.serv_names[i]]={}
-                        resource_limit[self.serv_names[i]]["cpu_util_limit"]=serv_cpu_plan[i]
-                        resource_limit[self.serv_names[i]]["mem_util_limit"]=1.0
-                    '''
-                    resource_limit={
-                        "face_detection": {
-                            "cpu_util_limit": 1,
-                            "mem_util_limit": 1,
-                        },
-                        "face_alignment": {
-                            "cpu_util_limit": 1,
-                            "mem_util_limit": 1,
-                        }
-                    }
-                    '''
-                    self.collect_for_sample(conf=conf,flow_mapping=flow_mapping,resource_limit=resource_limit)
-                    print("完成一种配置下的数据记录")
-                
-
-        # 最后一定要关闭文件
-        self.fp.close()
-        print("记录结束，查看文件")
-        return filename,filepath 
 
 
     # objective：
@@ -1011,50 +911,10 @@ class KnowledgeBaseBuilder():
         resource_limit={}
 
         #self.available_resource描述了当前可用资源
-        for conf_name in self.conf_names:   #conf_names含有流水线上所有任务需要的配置参数的总和，但是不包括其所在的ip
+        for task_conf_name in self.task_conf_names:   #选择任务配置
             # conf_list会包含各类配置参数取值范围,例如分辨率、帧率等
-            conf[conf_name]=trial.suggest_categorical(conf_name,conf_and_serv_info[conf_name])
+            conf[task_conf_name]=trial.suggest_categorical(task_conf_name,conf_and_serv_info[task_conf_name])
         
-        # 确定配置后，接下来选择云边协同切分点，以及各个服务的资源使用量。此时要格外注意。
-        # 流水线中索引小于edge_cloud_cut_point的将被留在边缘执行，因此edge_cloud_cut_point的最大取值是边缘所能负载的最多的服务个数
-        # 在指定的配置之下，可以计算出其最低资源需求（cpu按照0.05，mem按照其最低资源需求）
-        # 根据self.available_resource中的可用资源量来计算当前配置下最多有多少个服务可以留在边缘
-        edge_serv_num=0
-        edge_cpu_use=0.0
-        edge_mem_use=0.0
-        # 注意，需要保证cpu以0.05为最小单位时不会出现偏差小数点
-        # 如果让0.6-0.05，那么会得到0.5499999999999999这种结果，此时只能通过round保留为小数点后两位解决
-        # 因此以0.05为单位计算时要时刻使用round
-        '''
-        available_resource 
-            {
-            '114.212.81.11': 
-                {'available_cpu': 1.0, 'available_mem': 1.0, 'node_role': 'cloud'}, 
-            '192.168.1.7':
-                {'available_cpu': 1.0, 'available_mem': 1.0, 'node_role': 'edge'}
-            }
-        '''
-        myportrait=RuntimePortrait(pipeline=self.serv_names)
-        for serv_name in self.serv_names:
-            # 该服务的最小cpu消耗量
-            edge_cpu_use=round(edge_cpu_use+0.05,2)
-            # 该服务的最小mem消耗量
-            task_info = {
-                    'service_name': serv_name,
-                    'fps': conf['fps'],
-                    'reso': common.reso_2_index_dict[conf['reso']],
-                    'obj_num': 1 #因为采样用的视频中只有一张人脸
-                }
-            rsc_threshold = myportrait.predict_resource_threshold(task_info=task_info)
-            edge_mem_use = edge_mem_use + rsc_threshold['mem']['edge']['lower_bound']
-
-            if edge_cpu_use <= self.available_resource[common.edge_ip]['available_cpu'] and \
-                edge_mem_use <= self.available_resource[common.edge_ip]['available_mem']:
-                edge_serv_num+=1 #说明可转移到边缘端的服务又增加了一个
-            else:
-                break
-        # 最终edge_serv_num就是切分点的上限
-        conf_and_serv_info["edge_cloud_cut_point"]=[i for i in range(edge_serv_num + 1)]
         choice_idx = trial.suggest_int('edge_cloud_cut_choice', 0, len(conf_and_serv_info["edge_cloud_cut_point"])-1)
         edge_cloud_cut_choice=conf_and_serv_info["edge_cloud_cut_point"][choice_idx]
        
@@ -1107,14 +967,12 @@ class KnowledgeBaseBuilder():
                 # 最后给出当前服务可选的cpu
                 cpu_select=[]
                 cpu_select=[x for x in conf_and_serv_info[serv_cpu_limit] if x <= cpu_upper_bound]
-
+                # 注意，不得不用suggest来解决optuna中同名变量取值范围不能变的问题
                 choice_idx=trial.suggest_int(serv_cpu_limit,0,len(cpu_select)-1)
                 resource_limit[serv_name]["cpu_util_limit"]=cpu_select[choice_idx]
                 
                 edge_cpu_left=round(edge_cpu_left-resource_limit[serv_name]["cpu_util_limit"],2)
 
-                
-        
         '''
         resource_limit={
             "face_detection": {
@@ -1133,40 +991,102 @@ class KnowledgeBaseBuilder():
         return self.examine_explore_distribution()
 
 
-    # 以贝叶斯采样的方式获取离线知识库
-    # sample_and_record_bayes
-    # 用途：以传统方式进行贝叶斯优化采样
-    # 方法：调用一层贝叶斯优化
-    # 返回值：文件名，文件路径，时延和精度的标准差。
-    def sample_and_record_bayes(self,sample_bound,n_trials,bin_nums,delay_range,accuracy_range):
-        self.sample_bound=sample_bound
-        self.bin_nums=bin_nums
+    # objective_offline_simulator：
+    # 用途：作为贝叶斯优化采样时需要优化的目标函数,但是调用了collect_for_sample_offline_simulator，进行离线模拟
+    # 返回值：csv的文件名
+    def objective_offline_simulator(self,trial):
+        conf={}
+        flow_mapping={}
+        resource_limit={}
 
-        filename,filepath = self.init_record_file()
-
-        # 设置self.explore_conf_dict[conf_str]，初始化一个下限和一个上限（上限和下限都可能无法达到），
-        # 这个上限和下限可以通过别的方法来获取，目前先假设通过超参数来设置。比如设置为如下，寻找0和0.7之间均匀分布的采样点
-        self.explore_conf_dict["delay"]["min"]=delay_range["min"]
-        self.explore_conf_dict["delay"]["max"]=delay_range["max"]
-        self.explore_conf_dict["accuracy"]["min"]=accuracy_range["min"]
-        self.explore_conf_dict["accuracy"]["max"]=accuracy_range["max"]
-
-        #执行一次get_and_write就可以往文件里成果写入数据
-        study = optuna.create_study(directions=['minimize' for _ in range(2)], sampler=optuna.samplers.NSGAIISampler())  
-        study.optimize(self.objective,n_trials=n_trials)
-
-        self.fp.close()
-        print("记录结束，返回filename, filepath, delay_std,accuracy_std")
-
-        delay_std,accuracy_std=self.examine_explore_distribution()
-
-        return filename,filepath,delay_std,accuracy_std
+        #self.available_resource描述了当前可用资源
+        for task_conf_name in self.task_conf_names:   #选择任务配置
+            # conf_list会包含各类配置参数取值范围,例如分辨率、帧率等
+            conf[task_conf_name]=trial.suggest_categorical(task_conf_name,conf_and_serv_info[task_conf_name])
+        
     
+        choice_idx = trial.suggest_int('edge_cloud_cut_choice', 0, len(conf_and_serv_info["edge_cloud_cut_point"])-1)
+        edge_cloud_cut_choice=conf_and_serv_info["edge_cloud_cut_point"][choice_idx]
+       
+        # 为了防止边缘端上给各个服务分配的cpu使用率被用光，每一个服务能够被分配的CPU使用率存在上限
+        # 下限为0.05，上限为目前可用资源量减去剩下的服务数量乘以0.05
 
+        edge_cpu_left=self.available_resource[common.edge_ip]['available_cpu']
+        for i in range(1,len(self.serv_names)+1):
+            serv_name = self.serv_names[i-1]
+            
+            if self.serv_names.index(serv_name) < edge_cloud_cut_choice:  # 服务索引小于云边协同切分点，在边执行
+                flow_mapping[serv_name] = model_op[common.edge_ip]
+            else:  # 服务索引大于等于云边协同切分点，在云执行
+                flow_mapping[serv_name] = model_op[common.cloud_ip]
+            
+            # 根据云边切分点选择flow_mapping的选择
+            # 接下来进行cpu使用率的选择（但是不进行mem的选择，假设mem不变，在判断切分点的时候就已经确保了内存捕获超过限制）
+            # 所以内存限制永远是1.0
+            serv_cpu_limit=serv_name+"_cpu_util_limit"
+            serv_mem_limit=serv_name+"_mem_util_limit"
+
+            resource_limit[serv_name]={}
+            resource_limit[serv_name]["mem_util_limit"]=1.0
+
+            if flow_mapping[serv_name]["node_role"] =="cloud":  #对于云端没必要研究资源约束下的情况
+                resource_limit[serv_name]["cpu_util_limit"]=1.0
+                
+            else: #边端服务会消耗cpu资源
+                '''
+                # 描述每一种服务所需的中资源阈值
+                rsc_upper_bound={
+                    'face_detection':{
+                        'cpu_limit':0.5,
+                        'mem_limit':0.5,
+                    },
+                    'face_alignment':{
+                        'cpu_limit':0.5,
+                        'mem_limit':0.5,
+                    }
+                }
+                '''
+                
+                # cpu_upper_bound
+                # edge_cloud_cut_choice实际上是要留在边缘的服务的数量，i表示当前是第几个留在边缘的服务，i>=1
+                # edge_cloud_cut_choice-i表示还剩下多少服务要分配到边缘上。至少给它们每一个留下0.05的cpu资源
+                cpu_upper_bound=edge_cpu_left-round((edge_cloud_cut_choice-i)*0.05,2)
+                cpu_upper_bound=round(cpu_upper_bound,2)
+                cpu_upper_bound=max(0.05,cpu_upper_bound) #分配量不得超过此值
+                cpu_upper_bound=min(self.rsc_upper_bound[serv_name]['cpu_limit'],cpu_upper_bound) #同时也不应该超出其中资源上限
+                # 最后给出当前服务可选的cpu
+                cpu_select=[]
+                cpu_select=[x for x in conf_and_serv_info[serv_cpu_limit] if x <= cpu_upper_bound]
+                # 注意，不得不用suggest来解决optuna中同名变量取值范围不能变的问题
+                choice_idx=trial.suggest_int(serv_cpu_limit,0,len(cpu_select)-1)
+                resource_limit[serv_name]["cpu_util_limit"]=cpu_select[choice_idx]
+                
+                edge_cpu_left=round(edge_cpu_left-resource_limit[serv_name]["cpu_util_limit"],2)
+
+        '''
+        resource_limit={
+            "face_detection": {
+                "cpu_util_limit": 1,
+                "mem_util_limit": 1,
+            },
+            "face_alignment": {
+                "cpu_util_limit": 1,
+                "mem_util_limit": 1,
+            }
+        }
+        '''
+        print('选出conf',conf)
+        avg_delay= self.collect_for_sample_offline_simulator(conf=conf,flow_mapping=flow_mapping,resource_limit=resource_limit)
+        # 使用此函数，目标是最优化采样得到的时延
+        return self.examine_explore_distribution()
+
+
+    
     # 以贝叶斯采样的方式获取离线知识库
     # 相比前一种方法，这种方法首先要对分区的左下角进行若干次采样，然后才进行贝叶斯优化采样
     # 使用该函数之前，必须确保conf_and_serv_info里的内容已经完成调整
-    def sample_and_record_bayes_for_section(self,sample_bound,n_trials,bin_nums,delay_range,accuracy_range):
+    # 注意：如果if_offline为True，使用离线模拟进行采样
+    def sample_and_record_bayes_for_section(self,sample_bound,n_trials,bin_nums,delay_range,accuracy_range,if_offline):
         self.sample_bound=sample_bound
         self.bin_nums=bin_nums
 
@@ -1179,43 +1099,25 @@ class KnowledgeBaseBuilder():
         self.explore_conf_dict["accuracy"]["min"]=accuracy_range["min"]
         self.explore_conf_dict["accuracy"]["max"]=accuracy_range["max"]
 
-        # 进行贝叶斯优化采样之前，首先对左下角进行若干次采样
-        bottom_left_conf={}
-        
-        for conf_name in self.conf_names:
-            bottom_left_conf[conf_name]=conf_and_serv_info[conf_name][0]  #取最小值
-        bottom_left_plans=self.get_bottom_left_plans(conf=bottom_left_conf)
-        print('开始对该分区的左下角进行采样，左下角配置为:',bottom_left_conf)
-        for bottom_left_plan in bottom_left_plans:
-            conf=bottom_left_plan['conf']
-            flow_mapping=bottom_left_plan['flow_mapping']
-            resource_limit=bottom_left_plan['resource_limit']
-            avg_delay= self.collect_for_sample(conf=conf,flow_mapping=flow_mapping,resource_limit=resource_limit)
-
-
-        print('完成对该分区左下角的采样，开始对分区进行贝叶斯优化采样')
+        print('开始对分区进行贝叶斯优化采样')
         study = optuna.create_study(directions=['minimize' for _ in range(2)], sampler=optuna.samplers.NSGAIISampler()) 
-        study.optimize(self.objective,n_trials=n_trials)
-
+        if if_offline:
+            study.optimize(self.objective_offline_simulator,n_trials=n_trials)
+        else:
+            study.optimize(self.objective,n_trials=n_trials)
 
         self.fp.close()
         print("完成对该分区的全部采样,返回filename, filepath,bottom_left_plans,delay_std,accuracy_std")
         delay_std,accuracy_std=self.examine_explore_distribution()
-        return filename,filepath,bottom_left_plans, delay_std,accuracy_std
-
-
-
-
-
-
+        return filename,filepath,delay_std,accuracy_std
 
     # 基于区间的遍历采样函数
-    # sample_for_kb_sections_traverse
+    # sample_for_kb_sections_traverse_bayes
     # 用途：为一种区间划分方式，进行一系列文件初始化，并在指定的区间里依次进行贝叶斯优化采样（不包括建库）
     # 方法：建立各类文件实现初始化
-    #      为了防止中断，对每一个分区进行采样的时候，都使用if_continue来判断当前是否需要从data_recovery里保存的数据恢复
+    #      为了防止中断,遍历各个区间进行采样之前，会忽略已采样的内容
 
-    def sample_for_kb_sections_traverse(self,div_conf_sections,unsampled_section_ids,sample_bound,n_trials,bin_nums,delay_range,accuracy_range,if_continue):
+    def sample_for_kb_sections_traverse_bayes(self,conf_sections,section_ids_to_sample,sample_bound,n_trials,bin_nums,delay_range,accuracy_range,if_continue,if_offline):
         '''
          div_conf_sections={
             "reso":{
@@ -1255,14 +1157,16 @@ class KnowledgeBaseBuilder():
                 dag_name+='-'+serv_name
 
         section_info={}
+        # 获取当前用来划分区间的各个配置名，比如['reso','fps','edge_cloud_cut_range']
+        self.sec_conf_names = list(conf_sections.keys())
         if not if_continue: #如果不是恢复而是从头开始：
             section_info['des']=datetime.datetime.now().strftime('%Y%m%d_%H_%M_%S')
-            section_info['serv_names']=self.serv_names
-            section_info['div_conf_names']=list(div_conf_sections.keys())
-            section_info['div_conf_sections']=div_conf_sections
-            section_info['section_ids']=list([])
+            section_info['serv_names']=self.serv_names 
+            section_info['sec_conf_names']=self.sec_conf_names #用于划分区间的配置
+            section_info['conf_sections']=conf_sections #具体的区间划分方式
+            section_info['section_ids']=list([]) #目前已经完成采样的区间编号
         else:
-            #否则直接读取已有的section_info信息
+            #否则直接读取已有的section_info信息。从指定的self.kb_name里获取。
             with open(self.kb_name + '/' + dag_name + '/' + 'section_info.json', 'r') as f:  
                 #print('打开知识库section_info:',self.kb_name + '/' + dag_name + '/' + 'section_info.json')
                 section_info=json.load(f) 
@@ -1270,201 +1174,55 @@ class KnowledgeBaseBuilder():
         
         # （2）进行采样前首先保存好原始的各个配置的取值范围，以供未来恢复    
         original_conf_range={}
+        # 遍历用于划分区间的配置
+        for sec_conf_name in self.sec_conf_names:
+            original_conf_range[ sec_conf_name]=conf_and_serv_info[ sec_conf_name]
+     
 
-        for div_conf_name in div_conf_sections.keys():
-            original_conf_range[ div_conf_name]=conf_and_serv_info[ div_conf_name]
-        
-
-        # （3）根据if_continue判断当前是应该恢复上一次中断，还是进行重新采样
-        #      如果为False，就表示需要重新开启，此时才需要对左上角和右下角进行采样。
-
-        # 求最小分区id和最大分区id
-        section_id_min=''
-        section_id_max=''
-        for i in range(0,len(div_conf_sections.keys())):
-            conf_name=div_conf_sections.keys()[i]   
-            max_idx=str(len(conf_sections[conf_name])-1) 
-            if i>0:
-                section_id_min+='-'
-                section_id_max+='-'
-            section_id_min=section_id_min + conf_name+'='+'0'
-            section_id_max=section_id_max + conf_name+'='+max_idx
-        
-        # 如果不是中断恢复，才会求左下角和右上角区间
-        if not if_continue:
-            # (4)计算整个空间中的左下角分区和右上角分区
-            bottom_left_plans=[]
+        # (3)开始对各个分区进行遍历采样
+        for section_id in section_ids_to_sample: #遍历有待采样的区间，一个区间编号形如： "reso=0-fps=0-encoder=0"
             
-            # (4.1)计算左下角的最小分区的配置范围
-            for i in range(0,len(self.conf_names)):
-                conf_name=self.conf_names[i]            
-                conf_and_serv_info[conf_name]=conf_sections[conf_name]['0'] 
-            print('准备对分区采样,当前左下角分区id为:',section_id_min)
+            print('准备处理的分区id是',section_id)
 
-            # 首先清空已有的采样字典
-            self.clear_explore_distribution(delay_range=delay_range,accuracy_range=accuracy_range)
-            filename,filepath,bottom_left_plans,delay_std,accuracy_std=self.sample_and_record_bayes_for_section(sample_bound=sample_bound,
-                                                                                n_trials=n_trials,bin_nums=bin_nums,
-                                                                                delay_range=delay_range,accuracy_range=accuracy_range)
-            if section_id_min not in section_info['section_ids']:
-                section_info['section_ids'].append(section_id_min)
-                section_info[section_id_min]={}
-                section_info[section_id_min]['filenames']=[]
-                section_info[section_id_min]['bottom_left_plans']=bottom_left_plans
-
-            if filename not in section_info[section_id_min]['filenames']:
-                section_info[section_id_min]['filenames'].append(filename)
-            
-            with open(self.kb_name+'/'+dag_name+'/'+'section_info'+".json", 'w') as f:  
-                json.dump(section_info, f,indent=4) 
-            f.close()
-            
-            print('已在section_info中更新左下角分区的filenames信息和bottom_left_plans信息')
-
-            # (4.2)计算右上角的最大分区的配置范围
-            for i in range(0,len(self.conf_names)):
-                conf_name=self.conf_names[i]    
-                max_idx=str(len(conf_sections[conf_name])-1)        
-                conf_and_serv_info[conf_name]=conf_sections[conf_name][max_idx]
-
-            print('准备对分区采样,当前右上角分区id为:',section_id_max)
-            if section_id_max==section_id_min:
-                print('右上角等于左下角，不必再采样')
+            #(3.1)判断当前分区是否已经被采样
+            if section_id in section_info['section_ids']:
+                print("该分区已经采样过，忽略")               
             else:
-                # 首先清空已有的采样字典
+                print('准备对新分区采样,当前分区id为:',section_id)
+
+                #(3.2)根据分区编号重置conf_and_serc_info的值，限定在分区取值范围内进行
+                for part in section_id.split('-'):
+                    # 使用 split('=') 分割键值对  
+                    sec_conf_name, sec_choice = part.split('=') #value形如'0'
+                    # 开始重置conf_and_serv_info，以备采样
+                    conf_and_serv_info[sec_conf_name]=conf_sections[sec_conf_name][sec_choice]
+                    print(sec_conf_name,conf_and_serv_info[sec_conf_name] )
+                
+                #(3.3)清空已有的采样字典，然后以调用sample_and_record_bayes_for_section在区间内采样
                 self.clear_explore_distribution(delay_range=delay_range,accuracy_range=accuracy_range)
-                filename,filepath,bottom_left_plans,delay_std,accuracy_std=self.sample_and_record_bayes_for_section(sample_bound=sample_bound,
-                                                                                    n_trials=n_trials,bin_nums=bin_nums,
-                                                                                    delay_range=delay_range,accuracy_range=accuracy_range)
-            if section_id_max not in section_info['section_ids']:
-                section_info['section_ids'].append(section_id_max)
-                section_info[section_id_max]={}
-                section_info[section_id_max]['filenames']=[]
-                section_info[section_id_max]['bottom_left_plans']=bottom_left_plans
-
-            if filename not in section_info[section_id_max]['filenames']:
-                section_info[section_id_max]['filenames'].append(filename)
-            
-            with open(self.kb_name+'/'+dag_name+'/'+'section_info'+".json", 'w') as f:  
-                json.dump(section_info, f,indent=4) 
-            f.close()
-            
-            print('已在section_info中更新该右上角分区的filenames信息和bottom_left_plans信息')
-        
-
-
-
-        #(5)开始从分区信息中提取分区，从而进行嵌套贝叶斯优化。使用ask_and_tell方法。
-        conf_sec_select={}
-        for conf_name in self.conf_names:
-             conf_sec_select[conf_name]=list(conf_sections[conf_name].keys())
-        print(conf_sec_select)
-        
-        '''
-        conf_sec_select形如:
-        {   
-            'reso': ['0', '1', '2'], 
-            'fps': ['0', '1', '2', '3', '4', '5'], 
-            'encoder': ['0']
-        }
-        '''
-        # 根据if_continue来决定study的建立形式，是新建，还是加载已有的 
-
-
-        sec_sum=0 #已选择的区间数
-        study = None
-
-        study_num=0
-
-        if if_continue:
-            
-            with open(self.kb_name +  '/' + dag_name +'/data_recovery/sec_sum.json', 'r') as f:  
-                data = json.load(f)  
-            f.close()
-            sec_sum = data["sec_sum"]
-            study_num = data["study_num"]
-            print('恢复中断数据，上一次执行到',sec_sum,"上一次study_num是",study_num)
-            study = optuna.load_study(study_name="study"+str(study_num),storage="sqlite:///" + self.kb_name + '/' + dag_name +"/data_recovery/kb_study.db")
-        else:
-            # 重新开启一个study，初始为1。
-            study_num+=1
-            print("创建第",study_num,"个study")
-            study = optuna.create_study(directions=['minimize' for _ in range(2)], sampler=optuna.samplers.NSGAIISampler(),
-                                        study_name="study"+str(study_num),storage="sqlite:///" + self.kb_name + '/' + dag_name +"/data_recovery/kb_study.db") 
- 
-
-        repeat_num=0 #如果连续多次采样了已经采样的点，说明陷入了死循环。
-        while True:
-            if sec_sum==sec_num or section_id_min == section_id_max: #只有在总数没有达标，且左下角区间和右上角区间不相等的时候，才进行依次采样
-                print('当前sec_sum是',sec_sum)
-                break
-            else:
-                trial = study.ask()  # `trial` is a `Trial` and not a `FrozenTrial`.
-                section_id=''
-                for i in range(0,len(self.conf_names)):
-                    conf_name=self.conf_names[i]                    
-                    sec_choice=trial.suggest_categorical(conf_name+'_sec',conf_sec_select[conf_name])
-                    # 根据分区选择结果重置取值范围 
-                    conf_and_serv_info[conf_name]=conf_sections[conf_name][sec_choice]
-                    # 计算所得section_id
-                    if i>0:
-                        section_id+='-'
-                    section_id=section_id+conf_name+'='+sec_choice
-
-                print('分区id是',section_id)
-                if section_id_max==section_id or section_id_min==section_id:
-                    print('与左下角或右上角重合，不必考虑')
-                elif section_id in section_info['section_ids']:
-                    print("该分区已经采样过，忽略")
-                    repeat_num+=1
-                    # 如果重复次数实在过于多，就说明已经陷入了局部最优解，此时需要重置study了。
-                    if repeat_num > max(10, len(section_info['section_ids'])):
-                        study_num+=1 #开始建立一个新的study_num
-                        print("创建第",study_num,"个study")
-                        with open(self.kb_name + '/' + dag_name +'/data_recovery/sec_sum.json', 'w') as f:  
-                            data={"sec_sum":sec_sum,"study_num":study_num}
-                            json.dump(data, f)
-                        f.close()
-                        study = optuna.create_study(directions=['minimize' for _ in range(2)], sampler=optuna.samplers.NSGAIISampler(),
-                                        study_name="study"+str(study_num),storage="sqlite:///" + self.kb_name + '/' + dag_name +"/data_recovery/kb_study.db") 
-                        repeat_num = 0 
+                filename,filepath,delay_std,accuracy_std=self.sample_and_record_bayes_for_section(sample_bound=sample_bound,
+                                                                                                n_trials=n_trials,bin_nums=bin_nums,
+                                                                                                delay_range=delay_range,accuracy_range=accuracy_range,
+                                                                                                if_offline = if_offline)
+                #(3.4)准备更新section_info信息到目录中
+                if section_id not in section_info['section_ids']:
+                    section_info['section_ids'].append(section_id)
+                if section_id not in section_info.keys():
+                    section_info[section_id]={}
+                    section_info[section_id]['filenames']=[]
                     
-                else:
-                    print('准备对新分区采样,当前分区id为:',section_id)
-                    
-                    # 首先清空已有的采样字典
-                    self.clear_explore_distribution(delay_range=delay_range,accuracy_range=accuracy_range)
-                    filename,filepath,bottom_left_plans,delay_std,accuracy_std=self.sample_and_record_bayes_for_section(sample_bound=sample_bound,
-                                                                                        n_trials=n_trials,bin_nums=bin_nums,
-                                                                                         delay_range=delay_range,accuracy_range=accuracy_range)
-                    if section_id not in section_info['section_ids']:
-                        section_info['section_ids'].append(section_id)
-                    if section_id not in section_info.keys():
-                        section_info[section_id]={}
-                        section_info[section_id]['filenames']=[]
-                        
-                    section_info[section_id]['filenames'].append(filename)
-                    section_info[section_id]['bottom_left_plans']=bottom_left_plans
+                section_info[section_id]['filenames'].append(filename)
 
-                    with open(self.kb_name+'/'+dag_name+'/'+'section_info'+".json", 'w') as f:  
-                        json.dump(section_info, f,indent=4) 
-                    f.close()
-                    
-                    print('已在section_info中更新该分区的filenames信息和bottom_left_plans信息')
+                with open(self.kb_name+'/'+dag_name+'/'+'section_info'+".json", 'w') as f:  
+                    json.dump(section_info, f,indent=4) 
+                f.close()
+                
+                print('已在section_info中更新该分区的相关信息')
 
-                    ans=[delay_std,accuracy_std]
-                    study.tell(trial,ans)  # tell the pair of trial and objective value
-
-                    # 完成tell之后才记录当前的最新sec_sum
-                    sec_sum+=1
-                    with open(self.kb_name + '/' + dag_name +'/data_recovery/sec_sum.json', 'w') as f:  
-                        data={"sec_sum":sec_sum,"study_num":study_num}
-                        json.dump(data, f)
-                    f.close()
-
+            
         #最后恢复原始的各个配置的取值，并写入section_info
-        for conf_name in self.conf_names:
-            conf_and_serv_info[conf_name]=original_conf_range[conf_name]
+        for sec_conf_name in self.sec_conf_names:
+            conf_and_serv_info[sec_conf_name]=original_conf_range[sec_conf_name]
         
         with open(self.kb_name+'/'+dag_name+'/'+'section_info'+".json", 'w') as f:  
             json.dump(section_info, f,indent=4) 
@@ -1472,24 +1230,6 @@ class KnowledgeBaseBuilder():
 
 
 
-
-
-
-
-
-
-
-    '''
-     with open(self.kb_name+'/'+eval_name+".json", 'r') as f:  
-            evaluator = json.load(f)  
-        f.close()
-        return evaluator  #返回加载得到的字典
-
-    with open(self.kb_name+'/'+eval_name+".json", 'w') as f:  
-            json.dump(evaluator, f,indent=4) 
-        f.close()
-
-    '''
     # update_section_from_file
     # 用途：根据一个csv文件记录的内容，为流水线上所有服务更新一个分区知识库
     # 返回值：无，但是为每一个服务都生成了一个区间的CSV文件
@@ -1575,7 +1315,7 @@ class KnowledgeBaseBuilder():
                 #values_list形如['990p', 24, 'JPEG', '114.212.81.11', 1.0, 1.0]
                 #service_conf形如['reso', 'fps', 'encoder', 'face_detection_ip', 'face_detection_cpu_util_limit', 'face_detection_mem_util_limit']
                 if_in_sec=True #判断当前配置在不在分区中
-                for conf_name in self.conf_names:
+                for conf_name in self.sec_conf_names:
                     if values_list[service_conf.index(conf_name)] not in sec_conf_range[conf_name]:
                         if_in_sec=False
                         print('出现错误配置',values_list)
@@ -1655,296 +1395,51 @@ class KnowledgeBaseBuilder():
                 self.update_section_from_file(filename=filename,section_id=section_id)
         print('完成对全部分区的知识库更新')
 
-    
-    # swap_node_ip_in_kb：
-    # 用途：将知识库中指定的ip替换为另一种ip
-    # 方法：读取知识库中所有的配置组合，然后将其中的old_node_ip部分换成new_node_ip。这样做是为了增加知识库的泛用性。
-    # 返回值：无
-    def swap_node_ip_in_kb(self,old_node_ip,new_node_ip):
 
-        dag_name=''
-        for serv_name in self.serv_names:
-            if len(dag_name)==0:
-                dag_name+=serv_name
-            else:
-                dag_name+='-'+serv_name
+    # get_all_section_ids：
+    # 用途：根据conf_sections里的划分，获取这种划分下所有可能的section_id
+    def get_all_section_ids(self,conf_sections):
+
+        self.sec_conf_names = list(conf_sections.keys())
         
-        #(1)读取section_info并更新其中的old_node_ip
-        section_info={}
-        with open(self.kb_name + '/' + dag_name + '/' + 'section_info.json', 'r') as f:  
-            section_info=json.load(f) 
-        f.close()
-
-
-        for section_id in section_info['section_ids']:
-            #（1.1）更新该分区的左下角计划
-            bottom_left_plans = section_info[section_id]["bottom_left_plans"]
-            for i in range(0,len(bottom_left_plans)):
-                plan=bottom_left_plans[i]
-                for serv_name in plan['flow_mapping'].keys():
-                    if plan['flow_mapping'][serv_name]['node_ip']==old_node_ip:
-                        section_info[section_id]["bottom_left_plans"][i]['flow_mapping'][serv_name]['node_ip']=new_node_ip
-            # (1.2)更新该分区的conf_info
-            conf_info = section_info[section_id]["conf_info"]
-            for serv_name in conf_info.keys():
-                ip_list=conf_info[serv_name][serv_name+'_ip']
-                if new_node_ip not in ip_list:
-                    ip_list.append(new_node_ip)
-                # 增加新ip的同时删除老ip
-                new_ip_list = [ip for ip in ip_list if ip != old_node_ip]  
-                section_info[section_id]['conf_info'][serv_name][serv_name+'_ip']=new_ip_list
-            
-        #最后重新写入section_info
-        with open(self.kb_name + '/' + dag_name + '/' + 'section_info.json', 'w') as f:  
-            json.dump(section_info, f,indent=4) 
-        f.close()
-
-
-        #（2）将每一个服务下的每一个分区的json文件中的旧ip换成新ip
-        for serv_name in self.serv_names:
-            for section_id in section_info['section_ids']:
-                evaluator={}
-                with open(self.kb_name + '/' + dag_name + '/' + serv_name+ '/' + section_id+'.json', 'r') as f:  
-                    evaluator=json.load(f) 
-                f.close()
-
-                new_evaluator=dict()
-                keys_to_remove=[]
-
-                for dict_key in evaluator.keys():
-                    conf_key=str(dict_key)
-                    conf_ip=serv_name+'_ip='
-                    pattern = rf"{re.escape(conf_ip)}([^ ]*)" 
-                    match = re.search(pattern, conf_key)
-                    if match:
-                        old_ip=match.group(1)
-                        if old_ip==old_node_ip:
-                            keys_to_remove.append(conf_key)
-                            new_conf_key = re.sub(pattern, f"{conf_ip}{new_node_ip}", conf_key) 
-                            if new_conf_key not in evaluator:
-                                new_evaluator[new_conf_key]=evaluator[conf_key]
-         
-                for key in keys_to_remove:  
-                    del evaluator[key]  
-                            
-                merged_dict = {**evaluator, **new_evaluator}  
-                #完成对该服务的evaluator的处理
-                with open(self.kb_name + '/' + dag_name + '/' + serv_name+ '/' + section_id+'.json', 'w') as f:  
-                    json.dump(merged_dict, f,indent=4) 
-                f.close()
-
-        print('完成对知识库中特定ip配置的替换')
+        conf_sec_select={}
+        for conf_name in self.sec_conf_names:
+             conf_sec_select[conf_name]=list(conf_sections[conf_name].keys())
+        print(conf_sec_select)
         
-
-
-    # draw_scatter：
-    # 用途：根据参数给定的x和y序列绘制散点图
-    # 方法：不赘述
-    # 返回值：无
-    def draw_scatter(self,x_value,y_value,title_name):
-        plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
-        plt.rcParams['axes.unicode_minus']=False #用来正常显示负号 #有中文出现的情况，需要u'内容'
-        plt.yticks(fontproperties='Times New Roman', )
-        plt.xticks(fontproperties='Times New Roman', )
-        plt.scatter(x_value,y_value,s=0.5)
-        plt.title(title_name)
-        plt.show()
-    
-    # draw_scatter：
-    # 用途：根据参数给定的data序列和bins绘制直方图
-    # 方法：不赘述
-    # 返回值：绘制直方图时返回的a,b,c(array, bins, patches)，
-    #        其中，array是每个bin内的数据个数，bins是每个bin的左右端点，patches是生成的每个bin的Patch对象。
-    def draw_hist(self,data,title_name,bins):
-        print('准备绘制中')
-        # print(data)
-        plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
-        plt.rcParams['axes.unicode_minus']=False #用来正常显示负号 #有中文出现的情况，需要u'内容'
-        plt.yticks(fontproperties='Times New Roman', )
-        plt.xticks(fontproperties='Times New Roman', )
-        a,b,c=plt.hist(x=data,bins=bins)
-        plt.title(title_name)
-        plt.show()
-        return a,b,c
-
-    # draw_picture：
-    # 用途：根据参数给定的x和y序列绘制曲线图
-    # 方法：不赘述
-    # 返回值：无
-    def draw_picture(self, x_value, y_value, title_name, figure_broaden=False, xlabel=None, ylabel=None):
-        # if figure_broaden:
-        #     plt.figure(figsize=[8, 5])  
-        # else:
-        #     plt.figure(figsize=[5.5, 4.5])  
-        plt.figure(figsize=[8, 5])
-        if xlabel:
-            plt.xlabel(xlabel, fontdict={'fontsize': 13, 'family': 'SimSun'})
-        if ylabel:
-            plt.ylabel(ylabel, fontdict={'fontsize': 13, 'family': 'SimSun'})
-        plt.yticks(fontproperties='Times New Roman')
-        plt.xticks(fontproperties='Times New Roman')
-        plt.plot(x_value, y_value)
-        plt.title(title_name, fontdict={'fontsize': 15, 'family': 'SimSun'})
-        plt.grid(ls="--", alpha=0.4)  # 绘制虚线网格
-        plt.show()
-
-    # draw_delay_and_cons：
-    # 用途：在相同的x值上绘制两个y值，如果需要绘制约束的话就用它
-    # 方法：不赘述
-    # 返回值：无
-    def draw_delay_and_cons(self, x_value1, y_value1, y_value2, title_name):
-        plt.figure(figsize=[8, 5])  
-        plt.xlabel("帧数", fontdict={'fontsize': 13, 'family': 'SimSun'})
-        plt.ylabel("时延/s", fontdict={'fontsize': 13, 'family': 'SimSun'})
-        plt.yticks(fontproperties='Times New Roman')
-        plt.xticks(fontproperties='Times New Roman')
-        plt.plot(x_value1, y_value1, label="执行时延")
-        plt.plot(x_value1, y_value2, label="时延约束")
-        plt.title(title_name, fontdict={'fontsize': 15, 'family': 'SimSun'})
-        plt.grid(ls="--", alpha=0.4)  # 绘制虚线网格
-        plt.legend(prop={'family': 'SimSun', 'size': 9})
-        plt.show()
-
-    
-    # draw_picture_from_sample：
-    # 用途：根据filepath指定的日志一次性绘制大量图片
-    # 方法：不赘述
-    # 返回值：无
-    def draw_picture_from_sample(self,filepath): #根据文件采样结果绘制曲线
-        df = pd.read_csv(filepath)
-        df = df.drop(index=[0])
-        df = df[df.all_delay<3]
-
-        # 要求绘制
-        # 总时延随时间的变化
-        # 每一个服务各自的时延随时间的变化
-        # 总时延和所有服务的时延随时间的变化
-        # 各个配置各自的变化
-        # self.conf_names
-        # self.serv_names
-
-        x_list = []
-        for i in df['n_loop']:
-            x_list.append(i)
-
-        cons_delay = []
-        for x in df['n_loop']:
-            cons_delay.append(self.query_body['user_constraint']['delay'])
-
-        # 绘制总时延和约束时延
-        self.draw_delay_and_cons(x_value1=x_list, y_value1=df['all_delay'], y_value2=cons_delay, title_name="执行时延随时间变化图")
-
-        bandwidth_list = []
-        for bandwidth in df['bandwidth']:
-            bandwidth_list.append(bandwidth)
-        self.draw_picture(x_list, bandwidth_list, title_name='带宽/时间', figure_broaden=True, xlabel='帧数', ylabel='带宽/ (kB/s)')
-        
-        
-        face_detection_cpu_util_limit = None
-        face_detection_serv_node = None
-        gender_classification_cpu_util_limit = None
-        gender_classification_serv_node = None
-        
-        for serv_name in self.serv_names:
-            serv_role_name = serv_name+'_role'
-            serv_ip_name = serv_name+'_ip'
-            serv_ip_list = df[serv_ip_name].tolist()
-            serv_node_list = []
-            for ip in serv_ip_list: 
-                if ip == '114.212.81.11':
-                    serv_node_list.append('cloud')
-                else:
-                    serv_node_list.append('edge')
-            serv_proc_delay_name = serv_name+'_proc_delay'
-            trans_ip_name = serv_name+'_trans_ip'
-            trans_delay_name = serv_name+'_trans_delay'
-            # 绘制各个服务的处理时延以及ip变化
-                        # 以下用于获取每一个服务对应的内存资源画像、限制和效果
-            mem_portrait = serv_name+'_mem_portrait'
-            mem_util_limit = serv_name+'_mem_util_limit'
-            mem_util_use = serv_name+'_mem_util_use'
-
-            cpu_portrait = serv_name+'_cpu_portrait'
-            cpu_util_limit = serv_name+'_cpu_util_limit'
-            cpu_util_use = serv_name+'_cpu_util_use'
-
-            # self.draw_picture(x_value=x_list, y_value=serv_node_list, title_name=serv_name+"执行节点随时间变化图", figure_broaden=True, xlabel='帧数', ylabel='执行节点')
-            if serv_name == 'face_detection':
-                face_detection_serv_node = serv_node_list
-            else:
-                gender_classifity_serv_node = serv_node_list
-                
-            # self.draw_picture(x_value=x_list,y_value=df[serv_ip_name],title_name=serv_ip_name+"/时间",figure_broaden=True)
-            # self.draw_picture(x_value=x_list,y_value=df[serv_proc_delay_name],title_name=serv_proc_delay_name+"/时间")
-            # self.draw_picture(x_value=x_list,y_value=df[trans_delay_name],title_name=trans_delay_name+"/时间")
-
-            # self.draw_picture(x_value=x_list, y_value=df[mem_portrait], title_name=mem_portrait+"/时间")
-            # self.draw_picture(x_value=x_list, y_value=df[mem_util_limit], title_name=mem_util_limit+"/时间")
-
-            # print(df[mem_util_use])
-            # self.draw_picture(x_value=x_list, y_value=df[mem_util_use], title_name=mem_util_use+"/时间")
-
-            # self.draw_picture(x_value=x_list, y_value=df[cpu_portrait], title_name=cpu_portrait+"/时间")
-            if serv_name == 'face_detection':
-                face_detection_cpu_util_limit = df[cpu_util_limit]
-            else:
-                gender_classifity_cpu_util_limit = df[cpu_util_limit]
-            # self.draw_picture(x_value=x_list, y_value=df[cpu_util_limit], title_name=serv_name+" CPU分配量随时间变化图", xlabel='帧数', ylabel='CPU分配量')
-            # self.draw_picture(x_value=x_list, y_value=df[cpu_util_use], title_name=serv_name+" CPU使用量随时间变化图", xlabel='帧数', ylabel='CPU使用量')
-        
-        plt.figure(figsize=[8, 5])  
-        plt.xlabel("帧数", fontdict={'fontsize': 13, 'family': 'SimSun'})
-        plt.ylabel("执行节点", fontdict={'fontsize': 13, 'family': 'SimSun'})
-        plt.yticks(fontproperties='Times New Roman')
-        plt.xticks(fontproperties='Times New Roman')
-        plt.plot(x_list, face_detection_serv_node, label="face_detection")
-        plt.plot(x_list, gender_classifity_serv_node, label="gender_classification")
-        plt.title('执行节点随时间变化图', fontdict={'fontsize': 15, 'family': 'SimSun'})
-        plt.grid(ls="--", alpha=0.4)  # 绘制虚线网格
-        plt.legend(prop={'family': 'SimSun', 'size': 9})
-        plt.show()
-        
-        plt.figure(figsize=[8, 5])  
-        plt.xlabel("帧数", fontdict={'fontsize': 13, 'family': 'SimSun'})
-        plt.ylabel("CPU分配量", fontdict={'fontsize': 13, 'family': 'SimSun'})
-        plt.yticks(fontproperties='Times New Roman')
-        plt.xticks(fontproperties='Times New Roman')
-        plt.plot(x_list, face_detection_cpu_util_limit, label="face_detection")
-        plt.plot(x_list, gender_classifity_cpu_util_limit, label="gender_classification")
-        plt.title('CPU分配量随时间变化图', fontdict={'fontsize': 15, 'family': 'SimSun'})
-        plt.grid(ls="--", alpha=0.4)  # 绘制虚线网格
-        plt.legend(prop={'family': 'SimSun', 'size': 9})
-        plt.show()
-        
-        conf_draw_dict = {
-            'reso': {
-                'title_name': '分辨率',
-                'ylabel': '分辨率'
-            },
-            'fps': {
-                'title_name': '帧率',
-                'ylabel': '帧率'
-            }
+        '''
+        conf_sec_select形如:
+        {   
+            'reso': ['0', '1', '2'], 
+            'fps': ['0', '1', '2', '3', '4', '5'], 
+            'edge_cloud_cut_point': ['0', '1', '2']
         }
-        for conf_name in self.conf_names:
-            if conf_name in conf_draw_dict:
-                self.draw_picture(x_value=df['n_loop'], y_value=df[conf_name], title_name=conf_draw_dict[conf_name]['title_name']+"随时间变化图", xlabel='帧数', ylabel=conf_draw_dict[conf_name]['ylabel'])
-        
-        # plt.show()
+        '''
+        # 现在我要基于conf_sec_select得到所有可能的section_id。
 
-    
+        combinations = list(product(*conf_sec_select.values()))  
+
+        all_section_ids=[]
+
+        for combo in combinations: # combo形如('0', '0', '1')
+            section_id=''
+            for i in range(0,len(self.sec_conf_names)):
+                conf_name = self.sec_conf_names[i]
+                if i>0:
+                    section_id+='-'
+                section_id = section_id + conf_name + '=' + combo[i]
+            all_section_ids.append(section_id)
+        
+        print(all_section_ids)
+        return all_section_ids
+
 
 
 #以上是KnowledgeBaseBuilder类的全部定义，该类可以让使用者在初始化后完成一次完整的知识库创建，并分析采样的结果
 #接下来定义一个新的类，作用的基于知识库进行冷启动
-          
-
-
-# 尝试进行探索
 
 # 使用KnowledgeBaseBuilder需要提供以下参数：
 # service_info_list描述了构成流水线的所有阶段的服务。下图表示face_detection和face_alignment构成的流水线
-# 由于同时需要为数据处理时延和数据传输时延建模，因此还有face_detection_trans和face_alignment_trans。一共4个需要关注的服务。
 # 每一个服务都有自己的value，用于从采样得到的csv文件里提取相应的时延；conf表示影响该服务性能的配置，
 # 但是conf没有包括设备ip、cpu和mem资源约束，因为这是默认的。一个服务默认使用conf里的配置参数加上Ip和资源约束构建字典。
 #'''
@@ -1963,8 +1458,12 @@ service_info_list=[
 
 
 
-# 下图的conf_names表示流水线上所有服务的conf的总和。
-conf_names=["reso","fps","encoder"]
+# 表示流水线上的任务配置
+task_conf_names=["reso","fps","encoder"]
+# 表示流水线上的资源配置，包括云边协同切分点、设备ip，cpu使用率和内存限制(由于无法细致调节内存限制，此处不处理)
+rsc_conf_names=["edge_cloud_cut_point","face_detection_ip","gender_classification_ip",\
+                "face_detection_mem_util_limit","face_detection_cpu_util_limit",\
+                "gender_classification_mem_util_limit","gender_classification_cpu_util_limit"]
 
 #这里包含流水线里涉及的各个服务的名称
 serv_names=["face_detection","gender_classification"]   
@@ -2045,11 +1544,11 @@ if __name__ == "__main__":
     bin_nums = 100
 
     # 除了最小和最大区间以外，还需要sec_num个区间
-    sec_num = 0
+    sec_num = 20
     # 每一种配置下进行多少次采样
     sample_bound = 5
     # 为每一个区间进行贝叶斯优化时采样多少次
-    n_trials = 200 #20
+    n_trials = 5 #20
     #(将上述三个量相乘，就足以得到要采样的总次数，这个次数与建立知识库所需的时延一般成正比)
     
     # 是否进行稀疏采样(贝叶斯优化)
@@ -2059,13 +1558,13 @@ if __name__ == "__main__":
     # 是否根据某个csv文件绘制画像 
     need_to_draw = 0
     # 是否需要基于初始采样结果建立一系列字典，也就是时延有关的知识库
-    need_to_build = 0
+    need_to_build = 1
     # 是否需要将某个文件的内容更新到知识库之中
     need_to_add = 0
     # 判断是否需要在知识库中存放新的边缘ip，利用已有的更新
     need_new_ip = 0
     # 开始遍历conf_and_serv_info中的配置
-    need_sample_and_record = 1
+    need_sample_and_record = 0
 
     #是否需要发起一次简单的查询并测试调度器的功能
     need_to_test = 0
@@ -2076,21 +1575,17 @@ if __name__ == "__main__":
 
     task_name = "gender_classify"
 
-    kb_name = 'kb_test'
-              #kb_data_20_of_90_no_cluster-1
+    kb_name = 'kb_data_90i90_offline_simu-1'
 
-    #未来还是需要类似record_name的存在。
-    record_name=kb_name+'/'+'0_'+datetime.datetime.now().strftime('%Y%m%d_%H_%M_%S')+task_name+"_"+"bayes"+str(need_sparse_kb)+\
-              "bin_nums"+str(bin_nums)+"sample_bound"+str(sample_bound)+"n_trials"+str(n_trials)
-              
-
-    kb_builder=KnowledgeBaseBuilder(expr_name="tight_build_gender_classify_cold_start04",
+            
+    kb_builder=KnowledgeBaseBuilder(expr_name="gender_classify_offline_simu",
                                     node_ip='192.168.1.7',
                                     node_addr="192.168.1.7:3001",
                                     query_addr="114.212.81.11:3000",
                                     service_addr="114.212.81.11:3500",
                                     query_body=query_body,
-                                    conf_names=conf_names,
+                                    task_conf_names=task_conf_names,
+                                    rsc_conf_names=rsc_conf_names,
                                     serv_names=serv_names,
                                     service_info_list=service_info_list,
                                     rsc_upper_bound=rsc_upper_bound,
@@ -2098,6 +1593,63 @@ if __name__ == "__main__":
 
 
     filepath=''
+
+    #建立基于贝叶斯优化的稀疏知识库
+    if need_sparse_kb==1:
+    
+        conf_sections={
+            "reso":{
+                "0":["360p","480p","540p"],
+                "1":["630p","720p","810p"],
+                "2":["900p","990p","1080p"],
+            },
+            "fps":{
+                "0":[1,2,3],
+                "1":[4,5,6],
+                "2":[7,8,9],
+                "3":[10,11,12],
+                "4":[13,14,15],
+                "5":[16,17,18],
+                "6":[19,20,21],
+                "7":[22,23,24],
+                "8":[25,26,27],
+                "9":[28,29,30],
+            },
+            "edge_cloud_cut_point":{
+                "0":[0],
+                "1":[1],
+                "2":[2],
+            }
+        }
+        # 获得全部区间的编号
+        section_ids_to_sample = kb_builder.get_all_section_ids(conf_sections = conf_sections)
+        
+        if_continue = False
+        if_offline = True
+
+        if not if_offline: # 如果通过在线采样建库而非离线采样
+            kb_builder.send_query_and_start() 
+    
+        kb_builder.sample_for_kb_sections_traverse_bayes(conf_sections = conf_sections, # 区间划分方式
+                                                   section_ids_to_sample = section_ids_to_sample, # 带采样区间编号
+                                                   sample_bound = sample_bound, # 每种配置采样几次（求平均）
+                                                   n_trials = n_trials,bin_nums = bin_nums, # 贝叶斯优化总采样次数和标准差间隔
+                                                   delay_range = delay_range, accuracy_range = accuracy_range, # 求标准差的时延和精度范畴
+                                                   if_continue = if_continue, #是否是从中断中恢复的
+                                                   if_offline = if_offline  # 是否需要通过离线模拟来建库
+                                                  )
+        
+    # 关于是否需要建立知识库：可以根据txt文件中的内容来根据采样结果建立知识库
+    if need_to_build==1:
+        filepath=''
+        kb_builder.update_sections_from_files()
+        print("完成时延知识库的建立")
+        
+
+
+
+
+
 
     if need_sample_and_record == 1:
 
@@ -2161,54 +1713,9 @@ if __name__ == "__main__":
         '''
         #kb_builder.swap_node_ip_in_kb(old_node_ip='192.168.1.8',new_node_ip='192.168.1.7')
 
-    #建立基于贝叶斯优化的稀疏知识库
-    if need_sparse_kb==1:
-        
-
-        div_conf_sections={
-            "reso":{
-                "0":["360p","480p","540p"],
-                "1":["630p","720p","810p"],
-                "2":["900p","990p","1080p"],
-            },
-            "fps":{
-                "0":[1,2,3],
-                "1":[4,5,6],
-                "2":[7,8,9],
-                "3":[10,11,12],
-                "4":[13,14,15],
-                "5":[16,17,18],
-                "6":[19,20,21],
-                "7":[22,23,24],
-                "8":[25,26,27],
-                "9":[28,29,30],
-            },
-            "encoder":{
-                "0":["JPEG"]
-            },
-            "edge_cloud_cut_range":{
-                "0":[0],
-                "1":[1],
-                "2":[2],
-            }
-        }
-        
-        n_trials=20  #每个区间采样多少个点,如果为0说明只采取了左下角点
-        unsampled_section_ids=[]
-        if_continue=False
-
-        kb_builder.send_query_and_start() 
-        # 确定当前资源限制之后，就可以开始采样了。
-        
-        kb_builder.sample_for_kb_sections_traverse(div_conf_sections=div_conf_sections,
-                                                   unsampled_section_ids=unsampled_section_ids,
-                                                   sample_bound=sample_bound,
-                                                   n_trials=n_trials,bin_nums=bin_nums,
-                                                   delay_range=delay_range,accuracy_range=accuracy_range,
-                                                   if_continue=if_continue
-                                                  )
-
     
+
+    '''
     # 关于是否需要建立知识库：可以根据txt文件中的内容来根据采样结果建立知识库
     if need_to_build==1:
         filepath=''
@@ -2236,6 +1743,7 @@ if __name__ == "__main__":
         filepath='kb_data/20240407_20_52_49_kb_builder_0.3_tight_build_gender_classify_cold_start04.csv'
         kb_builder.anylze_explore_result(filepath=filepath)
         kb_builder.draw_picture_from_sample(filepath=filepath)
+    '''
 
 
     exit()

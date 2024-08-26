@@ -10,6 +10,24 @@ from common import conf_and_serv_info
 '''
 if __name__ == "__main__":
 
+    from itertools import product  
+  
+    # 给定的字典，包含各个量的取值范围  
+    conf_sec_select = {  
+        'reso': ['0', '1', '2'],  
+        'fps': ['0', '1', '2', '3', '4', '5'],  
+        'edge_cloud_cut_point': ['0', '1', '2']  
+    }  
+    
+    # 使用itertools.product获取所有组合  
+    # 注意：product函数的参数需要是迭代器的形式，所以我们使用*操作符来解包字典的values()结果  
+    combinations = list(product(*conf_sec_select.values()))  
+    
+    # 打印结果  
+    for combo in combinations:  
+        print(combo)
+
+    '''
     #此处函数用于验证调度器的行为
     import socket  
     print('开始测试5')
@@ -26,6 +44,7 @@ if __name__ == "__main__":
         return IP  
     print('当前内网ip是:')
     print(get_ip_address())
+    '''
  
     '''
     job_uid=1

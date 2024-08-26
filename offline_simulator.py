@@ -1155,7 +1155,9 @@ class OfflineSimulator():
             # （7）将预测的时延添加到列表中
             proc_delay_csv[service_info['name']] = pred_delay
 
-        
+        conf['fps']=true_fps #如果不在此处还原，会导致参数本身被直接修改
+
+
         status = 1
         return status, proc_delay_csv  # 返回各个部分的时延
 
@@ -1261,8 +1263,6 @@ if __name__ == "__main__":
     csv_folder_path = 'offline_simulation/face_detection-gender_classification/record_data'
     json_folder_path = 'offline_simulation'
 
-
-   
 
     offline_simulator = OfflineSimulator(serv_names = serv_names,
                                          service_info_list = service_info_list,
