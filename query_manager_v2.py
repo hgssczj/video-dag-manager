@@ -21,16 +21,17 @@ import logging_utils
 
 import common
 import json
-from PortraitModel import PortraitModel
 import torch
-from RuntimePortrait import RuntimePortrait
-import scheduler_func.lat_first_kb_muledge
-import scheduler_func.lat_first_kb_muledge_wzl
-import scheduler_func.lat_first_kb_muledge_wzl_1
+
+from scheduler_1_wzl.Interface import AwareScheduler
+
+
+
 
 
 class Query():
-    CONTENT_ELE_MAXN = 50
+    
+    # CONTENT_ELE_MAXN = 50
 
     def __init__(self, query_id, node_addr, video_id, pipeline, user_constraint, job_info, serv_cloud_addr):
         self.query_id = query_id
@@ -55,13 +56,6 @@ class Query():
         # 历史记录
         self.plan_list = []
         
-        # 运行时情境画像模块
-        self.runtime_portrait = RuntimePortrait(pipeline, user_constraint, self.serv_cloud_addr)
-        
-        # 调度策略缓存
-        self.runtime_cache = []  # 缓存该query最近CONTENT_ELE_MAXN种情境对应的字符串
-        self.scheduling_cache = []  # 缓存该query最近CONTENT_ELE_MAXN种情境采取的对应的调度策略，每一个元素为一个字典，与self.runtime_cache中的元素一一对应
-
     # ---------------------------------------
     # ---- 属性 ----
     def set_plan(self, video_conf, flow_mapping, resource_limit):
@@ -84,17 +78,6 @@ class Query():
             common.PLAN_KEY_RESOURCE_LIMIT: self.resource_limit
         }
     
-    def update_runtime(self, runtime_info):
-        self.runtime_portrait.update_runtime(runtime_info)
-    
-    def get_aggregate_work_condition(self):
-        return self.runtime_portrait.get_aggregate_work_condition()
-
-    def get_latest_work_condition(self):
-        return self.runtime_portrait.get_latest_work_condition()
-
-    def get_portrait_info(self):
-        return self.runtime_portrait.get_portrait_info()
                 
     def set_user_constraint(self, user_constraint):
         self.user_constraint = user_constraint
@@ -169,36 +152,7 @@ class Query():
     def get_job_info(self):
         return self.job_info
     
-    def get_if_cached(self, runtime_str):
-        if runtime_str in self.runtime_cache:
-            temp_index = self.runtime_cache.index(runtime_str)
-            
-            return {
-                'if_cached': True,
-                'scheduling_strategy': self.scheduling_cache[temp_index]
-            }
-        else:
-            return {
-                'if_cached': False,
-                'scheduling_strategy': None
-            }
-    
-    def cache_scheduling_strategy(self, runtime_str, scheduling_strategy_dict):
-        self.runtime_cache.append(runtime_str)
-        if len(self.runtime_cache) > Query.CONTENT_ELE_MAXN:
-            del self.runtime_cache[0]
-        
-        self.scheduling_cache.append(scheduling_strategy_dict)
-        if len(self.scheduling_cache) > Query.CONTENT_ELE_MAXN:
-            del self.scheduling_cache[0]
-        
-        self.set_plan(video_conf=scheduling_strategy_dict["video_conf"], 
-                      flow_mapping=scheduling_strategy_dict["flow_mapping"],
-                      resource_limit=scheduling_strategy_dict["resource_limit"])
 
-    def get_golden_conf_work_condition(self):
-        return self.runtime_portrait.get_golden_conf_work_condition()
-    
 
 class QueryManager():
     # 保存执行结果的缓冲大小
@@ -210,6 +164,9 @@ class QueryManager():
         self.query_dict = dict()  # key: global_job_id；value: Query对象
         self.video_info = dict()
         self.bandwidth_dict = dict()
+
+        # 重点：以下类成员用于获取对所有Query的感知以及调度工作
+        self.aware_scheduler = AwareScheduler()
 
         # keepalive的http客户端
         self.sess = requests.Session()
@@ -253,13 +210,10 @@ class QueryManager():
         query = self.query_dict[query_id]
         assert isinstance(query, Query)
         query.update_result(new_result)
+    
+    def sync_query_runtime(self, query, new_runtime):
 
-    def sync_query_runtime(self, query_id, new_runtime):
-        assert query_id in self.query_dict
-
-        query = self.query_dict[query_id]
-        assert isinstance(query, Query)
-        query.update_runtime(new_runtime)
+        self.aware_scheduler.update_runtime(query=query,new_runtime=new_runtime)
     
     def get_query_result(self, query_id):
         assert query_id in self.query_dict
@@ -282,22 +236,13 @@ class QueryManager():
         assert isinstance(query, Query)
         return query.get_work_condition()
     
+
     def get_query_portrait_info(self, query_id):
-        assert query_id in self.query_dict
-
-        query = self.query_dict[query_id]
-        assert isinstance(query, Query)
-        #print("要返回的画像")
-        x=query.get_portrait_info()
+        
+        x = self.aware_scheduler.get_portrait_info(query_id = query_id)
         return x
-        #return query.get_portrait_info()
 
-
-
-
-
-
-
+    
 
 
 # 单例变量：主线程任务管理器，Manager
@@ -394,29 +339,17 @@ def query_get_job_cbk():
             root_logger.info('发现新job:{}'.format(jobs_info[query_id]))
         # 获取已经生成job且已经有调度计划的query的调度计划
         # print(query.get_created_job(),query.get_node_addr())
-        if query.video_id >= 99:
-            if query.get_created_job() and query.get_node_addr() == node_addr and \
-                query_id in scheduler_func.lat_first_kb_muledge_wzl_1.prev_conf and\
-                query_id in scheduler_func.lat_first_kb_muledge_wzl_1.prev_flow_mapping and \
-                query_id in scheduler_func.lat_first_kb_muledge_wzl_1.prev_resource_limit:
-                root_logger.info('开始更新调度计划')
-                jobs_plan[query_id] = {
-                    'job_uid': query_id,
-                    'video_conf': scheduler_func.lat_first_kb_muledge_wzl_1.prev_conf[query_id],
-                    'flow_mapping': scheduler_func.lat_first_kb_muledge_wzl_1.prev_flow_mapping[query_id],
-                    'resource_limit': scheduler_func.lat_first_kb_muledge_wzl_1.prev_resource_limit[query_id]
-                }
-        else:
-            if query.get_created_job() and query.get_node_addr() == node_addr and query.flow_mapping is not None and \
-                query.video_conf is not None and query.resource_limit is not None:
-                root_logger.info('开始更新调度计划')
-                scheduling_plan = query.get_plan()
-                jobs_plan[query_id] = {
-                    'job_uid': query_id,
-                    'video_conf': scheduling_plan['video_conf'],
-                    'flow_mapping': scheduling_plan['flow_mapping'],
-                    'resource_limit': scheduling_plan['resource_limit']
-                }
+
+        if query.get_created_job() and query.get_node_addr() == node_addr and query.flow_mapping is not None and \
+            query.video_conf is not None and query.resource_limit is not None:
+            root_logger.info('开始更新调度计划')
+            scheduling_plan = query.get_plan()
+            jobs_plan[query_id] = {
+                'job_uid': query_id,
+                'video_conf': scheduling_plan['video_conf'],
+                'flow_mapping': scheduling_plan['flow_mapping'],
+                'resource_limit': scheduling_plan['resource_limit']
+            }
             
     info_and_plan = {
         'jobs_info': jobs_info,
@@ -433,9 +366,9 @@ def update_prev_plan_cbk():
     para = flask.request.json
 
     job_uid=para['job_uid']
-    scheduler_func.lat_first_kb_muledge_wzl_1.prev_conf[job_uid]=para['video_conf']
-    scheduler_func.lat_first_kb_muledge_wzl_1.prev_flow_mapping[job_uid]=para['flow_mapping']
-    scheduler_func.lat_first_kb_muledge_wzl_1.prev_resource_limit[job_uid]=para['resource_limit']
+    query_manager.query_dict[job_uid].set_plan(video_conf = para['video_conf'], 
+                                                flow_mapping = para['flow_mapping'], 
+                                                resource_limit = para['resource_limit'] )  
 
     return flask.jsonify({"statys":0,"msg":"prev plan has been updated"})
 
@@ -462,7 +395,9 @@ def query_sync_runtime_cbk():
     job_uid = para['job_uid']
     job_runtime = para['job_runtime']
 
-    query_manager.sync_query_runtime(query_id=job_uid, new_runtime=job_runtime)
+    query = query_manager.query_dict[job_uid]
+
+    query_manager.sync_query_runtime(query=query,new_runtime=job_runtime)
 
     return flask.jsonify({"status": 500})
 
@@ -524,125 +459,8 @@ def node_join_cbk():
 def start_query_listener(serv_port=3000):
     query_app.run(host="0.0.0.0", port=serv_port)
 
-def get_runtime_str(portrait_info, pipeline, bandwidth_dict, act_work_condition):
-    runtime_str = ''
-    
-    ############ 1. 拼接当前的调度策略 ############
-    old_conf = portrait_info['exe_plan'][common.PLAN_KEY_VIDEO_CONF]
-    old_flow_mapping = portrait_info['exe_plan'][common.PLAN_KEY_FLOW_MAPPING]
-    old_resource_limit = portrait_info['exe_plan'][common.PLAN_KEY_RESOURCE_LIMIT]
-    
-    conf_list = sorted(list(old_conf.keys()))
-    for conf in conf_list:
-        runtime_str += conf
-        runtime_str += '='
-        runtime_str += str(old_conf[conf])
-        runtime_str += ' '
-    
-    for service in pipeline:
-        runtime_str += service
-        runtime_str += '_ip='
-        runtime_str += old_flow_mapping[service]['node_ip']
-        runtime_str += ' '
-    
-    for service in pipeline:
-        runtime_str += service
-        runtime_str += '_cpu_util_limit='
-        runtime_str += str(old_resource_limit[service]['cpu_util_limit'])
-        runtime_str += ' '
-        
-        runtime_str += service
-        runtime_str += '_mem_util_limit='
-        runtime_str += str(old_resource_limit[service]['mem_util_limit'])
-        runtime_str += ' '
-    
-    
-    ############ 2. 拼接当前的资源情境、工况情境 ############
-    ###### 2.1 拼接当前的带宽情境 ######
-    bandwidth_level = -1
-    if bandwidth_dict['MB/s'] >= 100:
-        bandwidth_level = 0
-    elif bandwidth_dict['MB/s'] >= 50:
-        bandwidth_level = 1
-    elif bandwidth_dict['MB/s'] >= 10:
-        bandwidth_level = 2
-    elif bandwidth_dict['MB/s'] >= 5:
-        bandwidth_level = 3
-    elif bandwidth_dict['MB/s'] >= 4:
-        bandwidth_level = 4
-    elif bandwidth_dict['MB/s'] >= 3:
-        bandwidth_level = 5
-    elif bandwidth_dict['MB/s'] >= 2:
-        bandwidth_level = 6
-    elif bandwidth_dict['MB/s'] >= 1:
-        bandwidth_level = 7
-    elif bandwidth_dict['kB/s'] >= 900:
-        bandwidth_level = 8
-    elif bandwidth_dict['kB/s'] >= 800:
-        bandwidth_level = 9
-    elif bandwidth_dict['kB/s'] >= 700:
-        bandwidth_level = 10
-    elif bandwidth_dict['kB/s'] >= 600:
-        bandwidth_level = 11
-    elif bandwidth_dict['kB/s'] >= 500:
-        bandwidth_level = 12
-    elif bandwidth_dict['kB/s'] >= 400:
-        bandwidth_level = 13
-    elif bandwidth_dict['kB/s'] >= 300:
-        bandwidth_level = 14
-    elif bandwidth_dict['kB/s'] >= 200:
-        bandwidth_level = 15
-    elif bandwidth_dict['kB/s'] >= 100:
-        bandwidth_level = 16
-    else:
-        bandwidth_level = 17
-    
-    runtime_str += 'bandwidth_level='
-    runtime_str += str(bandwidth_level)
-    runtime_str += ' '
-    
-    ###### 2.2 拼接当前的工况情境 ######
-    # assert 'work_condition' in portrait_info
-    # work_condition = portrait_info['work_condition']
-    
-    assert 'obj_n' in act_work_condition
-    runtime_str += 'obj_n='
-    runtime_str += str(int(act_work_condition['obj_n']))
-    runtime_str += ' '
-    
-    assert 'obj_size' in act_work_condition
-    obj_size_level = -1
-    if int(act_work_condition['obj_size']) == 0:
-        obj_size_level = 2
-    elif act_work_condition['obj_size'] <= 50000:
-        obj_size_level = 1
-    elif act_work_condition['obj_size'] <= 100000:
-        obj_size_level = 2
-    else:
-        obj_size_level = 3
-    runtime_str += 'obj_size='
-    runtime_str += str(obj_size_level)
-    runtime_str += ' '
-    
-    assert 'obj_speed' in act_work_condition
-    obj_speed_level = -1
-    if int(act_work_condition['obj_speed']) == 0:
-        obj_speed_level = 2
-    elif act_work_condition['obj_speed'] <= 260:
-        obj_speed_level = 1
-    elif act_work_condition['obj_speed'] <= 520:
-        obj_speed_level = 2
-    elif act_work_condition['obj_speed'] <= 780:
-        obj_speed_level = 3
-    else:
-        obj_speed_level = 4
-    runtime_str += 'obj_speed='
-    runtime_str += str(obj_speed_level)
-    runtime_str += ' '
-    
-    return runtime_str
 
-# 云端调度器主循环：基于知识库进行调度器
+# 云端调度器主循环：基于知识库进行调度器。只需要持续调用调度器模块即可
 def cloud_scheduler_loop_kb(query_manager=None):
     assert query_manager
     assert isinstance(query_manager, QueryManager)
@@ -653,121 +471,64 @@ def cloud_scheduler_loop_kb(query_manager=None):
         #print('开始周期性的调度')
         
         root_logger.info("start new schedule ...")
+
+        # 对于该函数而言，首先需要判断当前是否需要调度。这里暂时设计为，当video_id大于99的时候，意味着不需要执行调度
+        need_schedule=1
+        for query_id,query in query_manager.query_dict.items():
+            if query.video_id > 99: #说明不需要调度
+                need_schedule=0
+                break
+                
+        if need_schedule == 0:
+            print('出现 video_id > 99 的视频, 当前不需要进行调度')
+            # 此时直接跳过这一重while循环
+            continue
+        
+        # 如果need_schedule==1，那就继续尝试调度
         try:
+            print('尝试进行调度')
+             # 获取query信息
+            query_dict = query_manager.query_dict.copy()
+            # 获取带宽信息
+            bandwidth_dict = query_manager.bandwidth_dict.copy()
             # 获取资源情境
             r = query_manager.sess.get(
                 url="http://{}/get_system_status".format(query_manager.service_cloud_addr))
             system_status = r.json()
-            # 为所有query生成调度策略
-            query_dict = query_manager.query_dict
+
+            schedule_plans_dict = query_manager.aware_scheduler.get_schedule_plans(query_dict=query_dict,
+                                                             bandwidth_dict=bandwidth_dict,
+                                                             system_status=system_status
+                                                             )
+            # 依次检测相关计划
+            print('展示query_manager获得的全部调度计划')
             for qid, query in query_dict.items():
                 assert isinstance(query, Query)
                 query_id = query.query_id
-                exec_work_condition = query.get_latest_work_condition()  # 执行视频流分析任务获得的工况（未必等同于真实的工况）
-                # work_condition = query.get_aggregate_work_condition()
-                portrait_info = query.get_portrait_info()
-                # appended_result_list = query.get_appended_result_list()
-                if query.video_id < 99:  # 如果是大于等于99，意味着在进行视频测试，此时云端调度器不工作。否则，基于知识库进行调度。
-                    root_logger.info("video_id:{}".format(query.video_id))
-                    node_addr = query.node_addr  # 形如：192.168.1.7:3001
-                    user_constraint = query.user_constraint
-                    assert node_addr
+                if query_id in schedule_plans_dict.keys(): 
+                    conf = schedule_plans_dict[query_id]['video_conf']
+                    flow_mapping = schedule_plans_dict[query_id]['flow_mapping']
+                    resource_limit = schedule_plans_dict[query_id]['resource_limit']
 
-                    # print("展示当前工况")
-                    # print(work_condition)
-                    # 只有当runtime_info不存在(视频流分析还未开始，进行冷启动)或者含有delay的时候(正常的视频流调度)才运行。
-                    bandwidth_dict = query_manager.bandwidth_dict.copy()
-                    if not exec_work_condition or 'delay' in exec_work_condition:
-                        assert node_addr in bandwidth_dict
-                        if 'delay' in exec_work_condition:  # 若存在情境信息，则判断是否缓存了当前情境对应的调度策略
-                            act_work_condition = query.get_golden_conf_work_condition()  # 执行黄金配置获得的真实工况
-                            root_logger.info("In cloud_scheduler_loop_kb, act_work_condition is:{}".format(act_work_condition))
-                            
-                            runtime_str = get_runtime_str(portrait_info, query.pipeline, bandwidth_dict[node_addr], act_work_condition)
-                            cached_info = query.get_if_cached(runtime_str)
-                            
-                            if cached_info['if_cached']:  # 若缓存了对应的调度策略，则直接使用该策略，无需重新查表
-                                root_logger.info('当前情境下最优的调度策略保存在缓存中, 无需重新查表, runtime_str:%s', runtime_str)
-                                query.set_plan(video_conf=cached_info['scheduling_strategy']["video_conf"],
-                                               flow_mapping=cached_info['scheduling_strategy']["flow_mapping"],
-                                               resource_limit=cached_info['scheduling_strategy']["resource_limit"])
-                            else:  # 否则进行查表
-                                root_logger.info('当前情境下最优的调度策略不在缓存中, 需要重新查表, 并将新的情境字符串及其对应的调度策略进行缓存. runtime_str:%s', runtime_str)
-                                start_time = time.time()
-                                conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge_wzl_1.scheduler(
-                                                                        job_uid=query_id,
-                                                                        dag={"generator": "x", "flow": query.pipeline},
-                                                                        system_status=system_status,
-                                                                        portrait_info=portrait_info,
-                                                                        user_constraint=user_constraint,
-                                                                        bandwidth_dict=bandwidth_dict[node_addr],
-                                                                        act_work_condition=act_work_condition)
-                                end_time = time.time()
-                                root_logger.info("调度策略制定的时间:{}".format(end_time - start_time))
-                                scheduling_dict = {
-                                    "video_conf": conf,
-                                    "flow_mapping": flow_mapping,
-                                    "resource_limit": resource_limit
-                                }
-                                query.cache_scheduling_strategy(runtime_str, scheduling_dict)  # 将查表后确定的调度策略、情境字符串进行缓存
-                        
-                        else:  # 进行冷启动
-                            root_logger.info('进行冷启动, 需要重新查表!')
-                            start_time = time.time()
-                            conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge_wzl_1.scheduler(
-                                                                        job_uid=query_id,
-                                                                        dag={"generator": "x", "flow": query.pipeline},
-                                                                        system_status=system_status,
-                                                                        portrait_info=portrait_info,
-                                                                        user_constraint=user_constraint,
-                                                                        bandwidth_dict=bandwidth_dict[node_addr])
-                            end_time = time.time()
-                            root_logger.info("调度策略制定的时间:{}".format(end_time - start_time))
-                            query.set_plan(video_conf=conf, flow_mapping=flow_mapping, resource_limit=resource_limit)  # 注意，冷启动的时候由于不存在情境字符串，因此直接设置调度策略即可，无需缓存
-                            
-                              
-                        # conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge.scheduler(
-                        #     job_uid=query_id,
-                        #     dag={"generator": "x", "flow": query.pipeline},
-                        #     system_status=system_status,
-                        #     work_condition=work_condition,
-                        #     portrait_info=portrait_info,
-                        #     user_constraint=user_constraint,
-                        #     appended_result_list=appended_result_list,
-                        #     bandwidth_dict=bandwidth_dict
-                        # )
-                        
-                        # conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge_wzl.scheduler(
-                        #     job_uid=query_id,
-                        #     dag={"generator": "x", "flow": query.pipeline},
-                        #     system_status=system_status,
-                        #     work_condition=work_condition,
-                        #     portrait_info=portrait_info,
-                        #     user_constraint=user_constraint,
-                        #     bandwidth_dict=bandwidth_dict[node_addr]
-                        # )
-                        
-                        # start_time = time.time()
-                        # conf, flow_mapping, resource_limit = scheduler_func.lat_first_kb_muledge_wzl_1.scheduler(
-                        #     job_uid=query_id,
-                        #     dag={"generator": "x", "flow": query.pipeline},
-                        #     system_status=system_status,
-                        #     portrait_info=portrait_info,
-                        #     user_constraint=user_constraint,
-                        #     bandwidth_dict=bandwidth_dict[node_addr]
-                        # )
-                        # end_time = time.time()
-                    
-                    # root_logger.info("调度策略指定的时间:{}".format(end_time - start_time))
                     root_logger.info("下面展示即将更新的调度计划：")
                     root_logger.info("{},{}".format(type(query_id),query_id))
                     root_logger.info("{},{}".format(type(conf),conf))
                     root_logger.info("{},{}".format(type(flow_mapping),flow_mapping))
                     root_logger.info("{},{}".format(type(resource_limit),resource_limit))
+
+                    # 得到调度计划后，就将其通过set_plan存入，以备后续的处理
+                    query.set_plan(video_conf=conf, flow_mapping=flow_mapping, resource_limit=resource_limit)  # 注意，冷启动的时候由于不存在情境字符串，因此直接设置调度策略即可，无需缓存
+                            
+                
                 else:
+                    root_logger.info("{},{}".format(type(query_id),query_id))
                     root_logger.info("query.video_id:{}, 不值得调度".format(query.video_id))
+    
+
         except Exception as e:
             root_logger.error("caught exception, type={}, msg={}".format(repr(e), e), exc_info=True)
+
+
 
 
 if __name__ == "__main__":

@@ -7,36 +7,9 @@ PLAN_KEY_VIDEO_CONF = "video_conf"
 PLAN_KEY_FLOW_MAPPING = "flow_mapping"
 PLAN_KEY_RESOURCE_LIMIT = "resource_limit"
 
-KB_PLAN_PATH='kb_plan'
-KB_DATA_PATH='kb_data'
-
-NO_BAYES_GOAL = 0  # 按照遍历配置组合的方式来建立知识库
-BEST_ALL_DELAY = 1  # 以最小化总时延为目标，基于贝叶斯优化建立知识库（密集，而不集中）
-BEST_STD_DELAY = 2  # 以最小化不同配置间时延的差别为目标，基于贝叶斯优化建立知识库（稀疏，而均匀）
 
 MAX_NUMBER=999999
 
-COLD_START = -1
-EXTREME_CASE = 0
-IMPROVE_ACCURACY = 1
-REASSIGN_RSC = 2
-
-
-NO_CHANGE = 10  # 所有配置均不变（视频流配置、资源、云边协同切分点）
-
-# 视频流配置相关
-IMPROVE_CONF = 13  # 提升视频流配置，严格大于
-DOWNGRADE_CONF = 3  # 降低视频流配置，严格小于
-MAINTAIN_CONF = 15  # 维持视频流配置
-MAINTAIN_OR_IMPROVE_CONF = 16  # 维持或提升视频流配置，大于等于
-
-# 云边协同方式相关
-MOVE_CLOUD = 4  # 挪到云端
-BACK_TO_HOST = 11  # 将服务拉回到本地
-EDGE_SIDE_COLLABORATION = 12  # 边边协同
-
-# 资源分配相关
-CHANGE_RSC_ALLOC_TO_CONS = 14  # 将服务的资源分配量更改为资源约束值，其他所有配置不变
 
 resolution_wh = {
     "360p": {
