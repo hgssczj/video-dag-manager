@@ -1,0 +1,164 @@
+SYNC_RESULT_KEY_APPEND = "appended_result"
+SYNC_RESULT_KEY_LATEST = "latest_result"
+SYNC_RESULT_KEY_PLAN = "ext_plan"
+SYNC_RESULT_KEY_RUNTIME = "ext_runtime"
+
+PLAN_KEY_VIDEO_CONF = "video_conf"
+PLAN_KEY_FLOW_MAPPING = "flow_mapping"
+PLAN_KEY_RESOURCE_LIMIT = "resource_limit"
+
+
+MAX_NUMBER=999999
+
+
+resolution_wh = {
+    "360p": {
+        "w": 480,
+        "h": 360
+    },
+    "480p": {
+        "w": 640,
+        "h": 480
+    },
+    "540p": {
+        "w": 960,
+        "h": 540
+    },
+    "630p": {
+        "w": 1120,
+        "h": 630
+    },
+    "720p": {
+        "w": 1280,
+        "h": 720
+    },
+    "810p": {
+        "w": 1440,
+        "h": 810
+    },
+    "900p": {
+        "w": 1600,
+        "h": 900
+    },
+    "990p": {
+        "w": 1760,
+        "h": 990
+    },
+    "1080p": {
+        "w": 1920,
+        "h": 1080
+    }
+}
+
+reso_2_index_dict = {  # 分辨率映射为整数，便于构建训练数据
+    "360p": 1,
+    "480p": 2,
+    "540p": 3,
+    "630p": 4,
+    "720p": 5,
+    "810p": 6,
+    "900p": 7,
+    "990p": 8,
+    "1080p": 9
+}
+
+fps_list = [i + 1 for i in range(30)]
+
+# 以下是可能影响任务性能的可配置参数，用于指导模块化知识库的建立
+model_op={  
+            "114.212.81.11":{
+                "model_id": 0,
+                "node_ip": "114.212.81.11",
+                "node_role": "cloud"
+            },
+            "192.168.1.7": {
+                "model_id": 0,
+                "node_ip": "192.168.1.7",
+                "node_role": "host"  
+            },
+            "192.168.1.9": {
+                "model_id": 0,
+                "node_ip": "192.168.1.9",
+                "node_role": "host"  
+            },
+        }
+
+service_info_dict={
+    'face_detection':{
+        "name":'face_detection',
+        "value":'face_detection_proc_delay',
+        "conf":["reso","fps","encoder"],
+        "vary_with_obj_n":False,
+        "can_seek_accuracy":True
+    },
+    'gender_classification':{
+        "name":'gender_classification',
+        "value":'gender_classification_proc_delay',
+        "conf":["reso","fps","encoder"],
+        "vary_with_obj_n":True,
+        "can_seek_accuracy":False
+    }
+}
+
+
+
+cloud_ip = "114.212.81.11"
+edge_ip = "192.168.1.7"
+
+serv_names = ['face_detection', 'gender_classification']
+
+
+# 以下是小配置版,内存因为难以控制干脆不控制了
+
+'''
+encoder_range = ['JPEG']
+reso_range = ['360p','480p','720p','1080p'] 
+fps_range = [1,5,10,20,30] 
+ip_range = ["192.168.1.7","114.212.81.11"]
+cpu_range=[0.05,0.10,0.15,0.20,
+           0.25,0.30,0.35,0.40,
+           0.45,0.50,0.55,0.60]
+mem_range=[1.0]
+edge_cloud_cut_range = [i for i in range(len(serv_names) + 1)]
+'''
+
+# 以下是大配置版，内存还是因为难以控制干脆不控制了
+encoder_range = ['JPEG']
+# reso_range = list(resolution_wh.keys())
+reso_range = [ "360p", "480p", "540p", "630p", "720p", "810p", "900p", "990p", "1080p" ] 
+fps_range = fps_list
+ip_range = ["192.168.1.7","114.212.81.11"]
+cpu_range=[0.05,0.10,0.15,0.20,
+           0.25,0.30,0.35,0.40,
+           0.45,0.50,0.55,0.60,
+           0.65,0.70,0.75,0.80,
+           0.85,0.90,0.95,1.00]
+mem_range=[1.0]
+edge_cloud_cut_range = [i for i in range(len(serv_names) + 1)]
+
+'''
+mem_range=[0.001,0.002,0.003,0.004,0.005,0.006,0.007,0.008,0.009,0.01,
+           0.011,0.012,0.013,0.014,0.015,0.016,0.017,0.018,0.019,0.02,
+           0.021,0.022,0.023,0.024,0.025,0.026,0.027,0.028,0.029,0.03]
+'''
+
+
+
+
+conf_and_serv_info={  #各种配置参数的可选值
+    
+    "reso":reso_range,
+    "fps":fps_range,
+    "encoder":encoder_range,
+    
+    "face_detection_ip":ip_range,
+    "gender_classification_ip":ip_range,  
+    "edge_cloud_cut_point": edge_cloud_cut_range,
+
+    "face_detection_mem_util_limit":mem_range,
+    "face_detection_cpu_util_limit":cpu_range,
+    "gender_classification_mem_util_limit":mem_range,
+    "gender_classification_cpu_util_limit":cpu_range,
+
+}
+

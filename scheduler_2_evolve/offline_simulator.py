@@ -1247,7 +1247,6 @@ if __name__ == "__main__":
 
     kb_name = 'offline_simulation'
 
-
     kb_builder=KnowledgeBaseBuilder(expr_name="tight_build_gender_classify_cold_start04",
                                     node_ip='192.168.1.7',
                                     node_addr="192.168.1.7:3001",
